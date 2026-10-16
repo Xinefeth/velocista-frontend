@@ -1,0 +1,74 @@
+/* Estilos propios de la estructura base (EN-03). El resto viene de prototipo.css. */
+.pend {
+  display: grid;
+  gap: 14px;
+  max-width: 880px;
+}
+.pend h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+.pend ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.pend li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+.pend .id {
+  min-width: 64px;
+  color: var(--purple);
+}
+.chk {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.chk:last-child {
+  border-bottom: 0;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--yellow);
+  flex: none;
+}
+.dot.ok {
+  background: var(--green);
+}
+.dot.down {
+  background: var(--red);
+}
+.chk .ayuda {
+  color: var(--dim);
+  font-size: 12px;
+  margin-left: auto;
+  text-align: right;
+}
+.sysbtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--line2);
+  background: transparent;
+  color: var(--mid);
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+.sysbtn[aria-current="page"] {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-soft);
+}

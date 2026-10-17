@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useConsole } from "@/application/state/ConsoleContext";
 import { useOptionalConnection } from "@/application/state/ConnectionContext";
 import { robotStatusFromMessages } from "@/domain/robotStatus";
+import { simulatorFromMessages } from "@/domain/simulatorStatus";
 import { complies, currentVersion, facts } from "@/domain/rules";
 import { clamp, fmt } from "@/domain/format";
 import { themeColors } from "@/domain/canvas";
@@ -28,9 +29,16 @@ export function Strip() {
     () => robotStatusFromMessages(conexion?.mensajes ?? []),
     [conexion?.mensajes],
   );
+  const simulator = simulatorFromMessages(conexion?.mensajes ?? []);
+  const useExternalSim = c.source === "sim" && c.apiMode;
+  const simConnected = simulator.connected && conexion?.tiempoReal === "ok";
   const useReal = live.connected && live.state != null;
-  const connected = useReal ? live.connected : c.connected;
-  const vbat = useReal && live.battery != null ? live.battery : c.vbat;
+  const connected = useExternalSim ? simConnected : useReal ? live.connected : c.connected;
+  const externalBattery = simulator.telemetry?.battery_v;
+  const vbat = useExternalSim
+    ? (typeof externalBattery === "number" ? externalBattery : null)
+    : useReal && live.battery != null ? live.battery : c.vbat;
+  const running = useExternalSim ? simulator.running : c.running;
   const [menu, setMenu] = useState(false);
   const rsel = useRef<HTMLDivElement>(null);
 
@@ -81,16 +89,12 @@ export function Strip() {
   }
   const rec = c.mapRef.current.recording;
   const liveTxt = !connected
-    ? "SIN ENLACE"
-    : c.running
-      ? rec
-        ? "MAPEANDO · EN VIVO"
-        : "EN PISTA · EN VIVO"
-      : c.source === "sim"
-        ? "EN REPOSO · SIMULADO"
-        : "EN REPOSO";
+    ? useExternalSim ? `SIMULADOR · ${simulator.state.toUpperCase()}` : "SIN ENLACE"
+    : running
+      ? useExternalSim ? "SIMULADOR · EN PISTA" : rec ? "MAPEANDO · EN VIVO" : "EN PISTA · EN VIVO"
+      : useExternalSim ? "SIMULADOR · EN REPOSO" : c.source === "sim" ? "EN REPOSO · SIMULADO" : "EN REPOSO";
 
-  const pct = clamp((vbat - 6.8) / (8.4 - 6.8), 0, 1);
+  const pct = clamp((vbat == null ? 0 : (vbat - 6.8) / (8.4 - 6.8)), 0, 1);
   const batColor = pct < 0.3 ? col["--red"] : pct < 0.55 ? col["--yellow"] : col["--green"];
   const ok = complies(c.robot, c.profile, c.catalog);
   const titulo = TITULOS[c.tab];
@@ -191,7 +195,8 @@ export function Strip() {
         <button
           type="button"
           className="st"
-          title="Toca para simular un cambio de batería"
+          title={useExternalSim ? "Batería reportada por el simulador" : "Toca para simular un cambio de batería"}
+          disabled={useExternalSim}
           onClick={c.changeBattery}
         >
           <span className="lbl">Batería</span>
@@ -199,13 +204,14 @@ export function Strip() {
             <span className="batbar">
               <i style={{ width: `${pct * 100}%`, background: batColor }} />
             </span>
-            <span>{fmt(vbat, 2)} V</span>
+            <span>{vbat == null ? "—" : `${fmt(vbat, 2)} V`}</span>
           </span>
         </button>
         <button
           type="button"
           className="st"
-          title="Toca para simular una caída del enlace"
+          title={useExternalSim ? "Estado recibido del backend" : "Toca para simular una caída del enlace"}
+          disabled={useExternalSim}
           onClick={c.toggleConnected}
         >
           <span className="lbl">Enlace WiFi</span>
@@ -214,6 +220,8 @@ export function Strip() {
               <>
                 Sin enlace <small>· {fmt(edadCaida, 1)} s</small>
               </>
+            ) : useExternalSim ? (
+              <>— dBm <small className="dimt">· no informado</small></>
             ) : useReal ? (
               <>−{live.rssiDbm} dBm</>
             ) : (
@@ -226,7 +234,7 @@ export function Strip() {
         </button>
         <div className="st hide-m">
           <span className="lbl">Lazo</span>
-          <span className="v">{useReal && live.loopHz != null ? live.loopHz : 1000} Hz</span>
+          <span className="v">{useExternalSim ? (typeof simulator.config?.rate_hz === "number" ? `${simulator.config.rate_hz} Hz` : "—") : useReal && live.loopHz != null ? `${live.loopHz} Hz` : "1000 Hz"}</span>
         </div>
         <div className="divv" />
         <div className="st" data-sprint="2">

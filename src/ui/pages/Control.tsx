@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useConsole } from "@/application/state/ConsoleContext";
 import { useOptionalConnection } from "@/application/state/ConnectionContext";
+import { simulatorFromMessages } from "@/domain/simulatorStatus";
+import { api, ErrorApi } from "@/infrastructure/http/api";
 import { Card, type Sprint } from "@/ui/components/Card";
 import { ICO, Gate, Play, Stop } from "@/ui/components/UiIcons";
 import { CTRL, PDEF, differs } from "@/shared/data/controllers";
@@ -53,23 +55,43 @@ function PanelEnEspera({
 
 function Salida() {
   const c = useConsole();
-  const calTag = c.calibrating
+  const connection = useOptionalConnection();
+  const simulator = simulatorFromMessages(connection?.mensajes ?? []);
+  const useExternalSim = c.source === "sim" && c.apiMode;
+  const simConnected = simulator.connected && connection?.tiempoReal === "ok";
+  const running = useExternalSim ? simulator.running : c.running;
+  const [commandPending, setCommandPending] = useState(false);
+  const toggleRun = async () => {
+    if (!useExternalSim) return c.toggleRunning();
+    if (!simConnected) return c.showToast("El simulador externo no está listo.");
+    setCommandPending(true);
+    try {
+      await api.command(running ? "stop" : "start");
+    } catch (error) {
+      c.showToast(error instanceof ErrorApi ? error.message : "No se pudo enviar la orden al simulador.");
+    } finally {
+      setCommandPending(false);
+    }
+  };
+  const calTag = useExternalSim ? ["No requerido", "tag"] : c.calibrating
     ? ["Calibrando", "tag"]
     : c.calibrated
       ? ["Calibrado", "tag good"]
       : ["Sin calibrar", "tag warn"];
   let hint: [string, string];
-  if (c.running)
+  if (running)
     hint = [
       c.mode === "competition" ? "Intento en curso: una vuelta." : "En pista, modo prueba.",
       "hint",
     ];
+  else if (useExternalSim) hint = ["Simulador externo listo para iniciar.", "hint"];
   else if (!c.calibrated) hint = ["Calibra los sensores antes de arrancar.", "hint warn"];
   else if (differs(c.draft, c.applied))
     hint = ["Saldrá con el setup enviado, no con los cambios pendientes.", "hint warn"];
   else hint = ["Listo para salir.", "hint"];
-  const modeNote =
-    c.mode === "test"
+  const modeNote = useExternalSim
+    ? "El servicio externo no ofrece calibración, modo ni color de línea."
+    : c.mode === "test"
       ? "Prueba: vueltas continuas; se detiene si se pierde el enlace."
       : c.profile.rules.mr4
         ? "Competencia: una vuelta y se detiene, como un intento de MR4 (máx. 120 s)."
@@ -80,9 +102,9 @@ function Salida() {
         <h2>Salida</h2>
         <span className={calTag[1]}>{calTag[0]}</span>
       </div>
-      <button type="button" className="go" data-running={c.running} onClick={c.toggleRunning}>
-        {c.running ? <Stop /> : <Play />}
-        <span>{c.running ? "DETENER" : "ARRANCAR"}</span>
+      <button type="button" className="go" data-running={running} disabled={commandPending || (useExternalSim && !simConnected)} onClick={() => void toggleRun()}>
+        {running ? <Stop /> : <Play />}
+        <span>{commandPending ? "ENVIANDO…" : running ? "DETENER" : "ARRANCAR"}</span>
       </button>
       <div className="gosub">
         <span>Arranque inalámbrico</span>
@@ -90,7 +112,7 @@ function Salida() {
           {c.profile.rules.wireless ? `Requerido · ${c.profile.cat}` : "Opcional en este perfil"}
         </span>
       </div>
-      <p className={hint[1]}>{hint[0]}</p>
+      <p className={hint[1]}>{useExternalSim ? (simConnected ? running ? "Corrida externa en curso; la telemetría y el cierre llegan por el backend." : "Simulador externo listo para iniciar." : `Esperando simulador: ${simulator.state}.`) : hint[0]}</p>
       <div className={`calp ${c.calibrating ? "on" : ""}`}>
         <i style={{ width: `${c.calProgress * 100}%` }} />
       </div>
@@ -100,10 +122,10 @@ function Salida() {
           <button
             type="button"
             className="sb"
-            disabled={c.running || c.calibrating}
+            disabled={useExternalSim || c.running || c.calibrating}
             onClick={c.calibrate}
           >
-            {c.calibrating ? "Desliza…" : c.calibrated ? "Recalibrar" : "Calibrar"}
+            {useExternalSim ? "No disponible" : c.calibrating ? "Desliza…" : c.calibrated ? "Recalibrar" : "Calibrar"}
           </button>
         </div>
         <div className="row">
@@ -112,7 +134,7 @@ function Salida() {
             <button
               type="button"
               aria-pressed={c.mode === "test"}
-              disabled={c.running}
+              disabled={useExternalSim || running}
               onClick={() => c.setMode("test")}
             >
               Prueba
@@ -120,7 +142,7 @@ function Salida() {
             <button
               type="button"
               aria-pressed={c.mode === "competition"}
-              disabled={c.running}
+              disabled={useExternalSim || running}
               onClick={() => c.setMode("competition")}
             >
               Competencia
@@ -133,7 +155,7 @@ function Salida() {
             <button
               type="button"
               aria-pressed={c.line === "black"}
-              disabled={c.running}
+              disabled={useExternalSim || running}
               onClick={() => c.setLine("black")}
             >
               Negra
@@ -141,7 +163,7 @@ function Salida() {
             <button
               type="button"
               aria-pressed={c.line === "white"}
-              disabled={c.running}
+              disabled={useExternalSim || running}
               onClick={() => c.setLine("white")}
             >
               Blanca
@@ -213,6 +235,21 @@ function Parametro({ id }: { id: string }) {
 
 function Setup() {
   const c = useConsole();
+  const connection = useOptionalConnection();
+  const simulator = simulatorFromMessages(connection?.mensajes ?? []);
+  const useExternalSim = c.source === "sim" && c.apiMode;
+  const simConnected = simulator.connected && connection?.tiempoReal === "ok";
+  const sendSetup = async () => {
+    if (!useExternalSim) return c.sendSetup();
+    if (!simConnected) return c.showToast("El simulador externo no está listo.");
+    if (c.draft.controller !== "pid") return c.showToast("El simulador externo solo admite el controlador PID.");
+    try {
+      await api.command("setup", { controller: "pid", parameters: { kp: c.draft.parameters.kp, ki: c.draft.parameters.ki, kd: c.draft.parameters.kd, base_speed: c.draft.parameters.base } });
+      c.sendSetup();
+    } catch (error) {
+      c.showToast(error instanceof ErrorApi ? error.message : "No se pudo aplicar la configuración.");
+    }
+  };
   const ctrl = CTRL[c.draft.controller];
   const same = c.draft.controller === c.applied.controller;
   const pend = differs(c.draft, c.applied);
@@ -269,7 +306,7 @@ function Setup() {
         ))}
       </div>
       <div className="acts">
-        <button type="button" className="sb red" disabled={!pend || c.locked} onClick={c.sendSetup}>
+        <button type="button" className="sb red" disabled={!pend || c.locked || (useExternalSim && c.draft.controller !== "pid")} onClick={() => void sendSetup()}>
           Enviar
         </button>
         <button type="button" className="sb ghost" disabled={c.locked} onClick={c.saveSetup}>
@@ -601,8 +638,40 @@ export function Regleta() {
   const c = useConsole();
   const conexion = useOptionalConnection();
   // Datos reales del robot (canal `regleta` de `senales`) si los hay; si no, la simulación.
+  const simulator = simulatorFromMessages(conexion?.mensajes ?? []);
+  const channels = simulator.telemetry?.channels as Record<string, unknown> | undefined;
+  const readings = channels?.sensors;
+  const externalStrip: StripView | null = simulator.available && Array.isArray(readings) &&
+    readings.length > 0 && readings.every((value) => typeof value === "number" && Number.isFinite(value))
+    ? (() => {
+        const values = readings as number[];
+        const peak = Math.max(...values);
+        const bars = values.map((value) => peak > 0 ? clamp(value / peak, 0, 1) : 0);
+        const active = bars.filter((value) => value >= ACTIVE_THRESHOLD).length;
+        const lost = channels?.line_lost === true || active === 0;
+        const sum = bars.reduce((total, value) => total + value, 0);
+        const centroid = sum > 0 ? bars.reduce((total, value, index) => total + value * index, 0) / sum : (bars.length - 1) / 2;
+        const positionNorm = lost || bars.length < 2 ? 0 : clamp((centroid - (bars.length - 1) / 2) / ((bars.length - 1) / 2), -1, 1);
+        return {
+          bars,
+          digits: bars.map((value) => Math.round(value * 9)),
+          positionNorm,
+          positionMm: positionNorm * 72,
+          error: positionNorm,
+          centered: !lost && Math.abs(positionNorm) < 0.25,
+          lost,
+          active,
+        };
+      })()
+    : null;
   const real = conexion ? stripFromMessages(conexion.mensajes) : null;
-  const v = real ?? simulatedStrip(c.simRef.current);
+  const v = real ?? externalStrip ?? (c.apiMode && c.source === "sim" ? null : simulatedStrip(c.simRef.current));
+  if (!v) return (
+    <Card className="a-sens" pbi="HU-15" sprint="1">
+      <div className="hd"><h2>Regleta <small>telemetría del simulador</small></h2><span className="tag">Sin datos</span></div>
+      <p className="espera-robot" role="status">Esperando lecturas de sensores del backend.</p>
+    </Card>
+  );
   const posTag: [string, string] = v.lost
     ? ["Línea perdida", "tag red"]
     : v.centered

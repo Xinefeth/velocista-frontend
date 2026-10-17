@@ -2,7 +2,7 @@
 // Los tipos de cada mensaje de dispositivo se agregan con el contrato de mensajes.
 
 export interface MensajeConsola<T = Record<string, unknown>> {
-  sender: "robot" | "timer" | "api";
+  sender: "robot" | "timer" | "api" | "sim";
   type: string;
   data: T;
   received_ms: number;

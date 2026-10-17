@@ -143,12 +143,14 @@ export interface ConsoleState {
   draft: Setup;
   applied: Setup;
   saved: Setup;
+  savedSetupId: number | null;
   preset: string | null;
   setCtrl: (v: string) => void;
   setParam: (id: string, val: number) => void;
   setPreset: (name: string) => void;
   sendSetup: () => void;
   saveSetup: () => void;
+  prepareExternalRun: () => Promise<number>;
   // corridas / ingeniero
   laps: Vuelta[];
   runs: Corrida[];
@@ -347,6 +349,7 @@ export function ConsoleProvider({
     controller: "pid",
     parameters: { ...CTRL.pid.presets.Base },
   }));
+  const [savedSetupId, setSavedSetupId] = useState<number | null>(null);
   const [preset, setPresetState] = useState<string | null>("Base");
 
   const [engMethod, setEngMethodState] = useState<EngineerMethod>("twiddle");
@@ -1094,6 +1097,7 @@ export function ConsoleProvider({
       .then(async (stored) => {
         if (live.current.robotId !== selectedId) return;
         setSaved(setup);
+        setSavedSetupId(stored.id);
         if (live.current.source === "robot") {
           try {
             await applyStoredSetup(selectedId, stored.id);
@@ -1116,6 +1120,17 @@ export function ConsoleProvider({
         ),
       );
   }, [draft, initialRobots, robot, log, showToast]);
+
+  const prepareExternalRun = useCallback(async () => {
+    if (savedSetupId != null) return savedSetupId;
+    if (robot.currentVersionId == null) {
+      throw new Error("Guarda una versión del robot antes de iniciar una corrida externa.");
+    }
+    const stored = await storeSetup(robot.id, robot.currentVersionId, applied);
+    setSavedSetupId(stored.id);
+    setSaved(clone(applied));
+    return stored.id;
+  }, [savedSetupId, robot, applied]);
 
   // Ingeniero
   const setEngMethod = useCallback(
@@ -1392,12 +1407,14 @@ export function ConsoleProvider({
     draft,
     applied,
     saved,
+    savedSetupId,
     preset,
     setCtrl,
     setParam,
     setPreset,
     sendSetup,
     saveSetup,
+    prepareExternalRun,
     laps: lapsRef.current,
     runs: runsRef.current,
     runsError,

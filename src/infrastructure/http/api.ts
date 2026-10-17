@@ -114,10 +114,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, password }),
     }),
-  command: (type: string, data: Record<string, unknown> = {}) =>
+  command: (type: string, data: Record<string, unknown> = {}, robotId?: string) =>
     request<{ seq: number }>("/devices/robot/commands", {
       method: "POST",
-      body: JSON.stringify({ type, data }),
+      body: JSON.stringify({ type, data, ...(robotId ? { robot_id: robotId } : {}) }),
     }),
   health: () => request<Salud>("/health"),
   robots: {

@@ -66,7 +66,12 @@ function Salida() {
     if (!simConnected) return c.showToast("El simulador externo no está listo.");
     setCommandPending(true);
     try {
-      await api.command(running ? "stop" : "start");
+      const setupId = running ? null : await c.prepareExternalRun();
+      await api.command(
+        running ? "stop" : "start",
+        setupId ? { setup_id: setupId } : {},
+        c.robot.id,
+      );
     } catch (error) {
       c.showToast(error instanceof ErrorApi ? error.message : "No se pudo enviar la orden al simulador.");
     } finally {

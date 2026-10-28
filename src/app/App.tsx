@@ -17,6 +17,7 @@ import { MapView } from "@/ui/pages/MapView";
 import { Catalog } from "@/ui/pages/Catalog";
 import { Builder } from "@/ui/pages/Builder";
 import { Rules } from "@/ui/pages/Rules";
+import { TrackTracer } from "@/ui/pages/TrackTracer";
 
 const PAGINAS: Record<Tab, () => ReactElement> = {
   control: Control,
@@ -26,6 +27,7 @@ const PAGINAS: Record<Tab, () => ReactElement> = {
   catalog: Catalog,
   builder: Builder,
   rules: Rules,
+  tracer: TrackTracer,
 };
 
 export default function App() {

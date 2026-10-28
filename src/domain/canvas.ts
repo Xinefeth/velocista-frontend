@@ -4,31 +4,48 @@ import { clamp } from "@/domain/format";
 import type { Punto } from "@/domain/simulator";
 import { LEN, W2M } from "@/domain/simulator";
 
+/** Variables CSS que se leen de :root y se guardan en la caché de colores. */
+export const THEME_KEYS = [
+  "--ink",
+  "--mid",
+  "--dim",
+  "--red",
+  "--red-hi",
+  "--line",
+  "--line2",
+  "--panel",
+  "--panel2",
+  "--panel3",
+  "--panel4",
+  "--line3",
+  "--bg",
+  "--purple",
+  "--green",
+  "--yellow",
+  "--blue",
+  "--red-soft",
+  "--yellow-soft",
+  "--green-soft",
+  // Tokens del Trazador de pistas (ui/styles/track.css, se importa de forma eager desde main.tsx).
+  "--track-paper",
+  "--track-line",
+  "--track-ink-on-paper",
+  "--mono",
+  "--sans",
+] as const;
+
 /** Variables de color del tema, leídas de :root una sola vez. */
 let C: Record<string, string> | null = null;
+/** Olvida la caché de colores (para pruebas o si algún día hay cambio de tema). */
+export function resetThemeColors(): void {
+  C = null;
+}
+
 export function themeColors(): Record<string, string> {
   if (C) return C;
   const cs = getComputedStyle(document.documentElement);
-  const keys = [
-    "--ink",
-    "--mid",
-    "--dim",
-    "--red",
-    "--red-hi",
-    "--line",
-    "--line2",
-    "--panel",
-    "--panel3",
-    "--bg",
-    "--purple",
-    "--green",
-    "--yellow",
-    "--blue",
-    "--mono",
-    "--sans",
-  ];
   C = {};
-  keys.forEach((k) => (C![k] = cs.getPropertyValue(k).trim()));
+  THEME_KEYS.forEach((k) => (C![k] = cs.getPropertyValue(k).trim()));
   return C;
 }
 

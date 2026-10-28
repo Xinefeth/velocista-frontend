@@ -43,7 +43,15 @@ import {
 import { HIST, NB, RATE, resetFraming, robotOn } from "@/domain/canvas";
 import { api, ErrorApi } from "@/infrastructure/http/api";
 
-export type Tab = "control" | "telemetry" | "runs" | "map" | "catalog" | "builder" | "rules";
+export type Tab =
+  | "control"
+  | "telemetry"
+  | "runs"
+  | "map"
+  | "catalog"
+  | "builder"
+  | "rules"
+  | "tracer";
 export type Source = "sim" | "robot";
 export type Mode = "test" | "competition";
 export type LineColor = "black" | "white";
@@ -76,6 +84,7 @@ const GROUP: Record<Tab, "velocista" | "gestion"> = {
   catalog: "gestion",
   builder: "gestion",
   rules: "gestion",
+  tracer: "gestion",
 };
 
 const store = {

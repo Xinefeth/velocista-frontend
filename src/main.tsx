@@ -8,6 +8,7 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@/ui/styles/prototype.css";
 import "@/ui/styles/app.css";
+import "@/ui/styles/track.css";
 import App from "@/app/App";
 import { ConsoleProvider } from "@/application/state/ConsoleContext";
 import { ConnectionProvider } from "@/application/state/ConnectionContext";

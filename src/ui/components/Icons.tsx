@@ -55,4 +55,11 @@ export const icons: Record<string, ReactElement> = {
       <path d="M9 12l2 2 4-4" />
     </svg>
   ),
+  tracer: (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 17h4a4 4 0 0 0 4-4V9a4 4 0 0 1 4-4h4" />
+      <circle cx="4" cy="17" r="1.4" />
+      <circle cx="20" cy="5" r="1.4" />
+    </svg>
+  ),
 };

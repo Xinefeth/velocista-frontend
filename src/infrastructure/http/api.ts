@@ -14,6 +14,11 @@ import type {
   RobotVersionApi,
 } from "@/infrastructure/contracts/api";
 import type { Component, RobotDef } from "@/domain/models/domain";
+import {
+  fieldErrorsFromList,
+  trackReason,
+  type FieldError,
+} from "@/infrastructure/http/trackErrors";
 
 /** Mapea un componente de la API al modelo de la consola. */
 function toComponent(r: ComponenteApi): Component {
@@ -35,6 +40,8 @@ export class ErrorApi extends Error {
     readonly status: number,
     readonly reason: string,
     detail: string,
+    /** Errores por campo (rutas como `points[3].radius`); solo las respuestas 422 de pistas los traen. */
+    readonly fields?: FieldError[],
   ) {
     super(detail);
   }
@@ -48,14 +55,29 @@ export function toApiError(status: number, body: unknown): ErrorApi {
     return new ErrorApi(status, reason, detail);
   if (detail && typeof detail === "object" && !Array.isArray(detail) && "reason" in detail) {
     const d = detail as ErrorNegocio;
+    // Razones de pistas (EN-28): mensaje en español y campo asociado.
+    const known = trackReason(d.reason);
+    if (known)
+      return new ErrorApi(
+        status,
+        d.reason,
+        known.message,
+        known.path ? [{ path: known.path, message: known.message }] : [],
+      );
     return new ErrorApi(status, d.reason, d.detail);
   }
   if (Array.isArray(detail))
-    return new ErrorApi(status, "validacion", "Hay datos inválidos en la solicitud");
+    return new ErrorApi(
+      status,
+      "validacion",
+      "Hay datos inválidos en la solicitud",
+      fieldErrorsFromList(detail),
+    );
   return new ErrorApi(status, "error_http", `La API respondió ${status}`);
 }
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+/** Envía la solicitud con el token y atiende el 401 (limpia el token y pide iniciar sesión). */
+async function send(path: string, options: RequestInit): Promise<Response> {
   const headers = new Headers(options.headers);
   if (options.body !== undefined && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
@@ -66,9 +88,26 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     setAccessToken(null);
     window.dispatchEvent(new Event(AUTH_EVENT));
   }
+  return response;
+}
+
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await send(path, options);
   const body = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) throw toApiError(response.status, body);
   return body as T;
+}
+
+/** Descarga un archivo de la API: devuelve el texto tal cual y el nombre de `Content-Disposition` si lo hay. */
+export async function requestFile(
+  path: string,
+  options: RequestInit = {},
+): Promise<{ text: string; filename: string | null }> {
+  const response = await send(path, options);
+  if (!response.ok) throw toApiError(response.status, await response.json().catch(() => null));
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const match = /filename*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  return { text: await response.text(), filename: match ? decodeURIComponent(match[1]) : null };
 }
 
 const SPEC_KEYS: Record<string, string> = {

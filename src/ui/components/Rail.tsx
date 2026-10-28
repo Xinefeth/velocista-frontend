@@ -13,6 +13,7 @@ const GESTION: [Tab, string][] = [
   ["catalog", "Catálogo de componentes"],
   ["builder", "Armador de robots"],
   ["rules", "Perfiles de reglamento"],
+  ["tracer", "Trazador de pistas"],
 ];
 
 export function Rail() {

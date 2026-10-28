@@ -10,6 +10,7 @@ const SECCIONES: [Tab, string][] = [
   ["catalog", "Catálogo"],
   ["builder", "Armador"],
   ["rules", "Reglamento"],
+  ["tracer", "Pistas"],
 ];
 
 export function BottomNav() {

@@ -109,9 +109,18 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
         <span>Acelerómetro</span><b id="sAcc">—</b>
         <span>GPS (precisión)</span><b id="sGps">—</b>
         <span>Pantalla siempre encendida</span><b id="sWake">—</b>
-        <span>Código de este celular</span><b id="sDevice" style="font-size:.8rem">—</b>
+        <span>Código de este celular</span><b id="sDevice" style="font-size:1.05rem;color:var(--green)">—</b>
       </div>
       <p class="hint" id="sensMsg"></p>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>¿No ves tus mediciones anteriores?</h2></div>
+      <p class="hint">Cada enlace nuevo crea un código nuevo. Anota tu código (arriba, en verde) y, si cambias de enlace, escríbelo aquí para recuperar tus mediciones y calibraciones.</p>
+      <div class="row">
+        <input class="inp" id="devOld" placeholder="Tu código, ej. 621b8d99" autocomplete="off" style="flex:2 1 160px">
+        <button class="sb red" id="btnDevOld">Recuperar</button>
+      </div>
+      <p class="hint" id="devMsg"></p>
     </section>
   </div>
 
@@ -396,9 +405,26 @@ const params = new URLSearchParams(location.search);
 let API = (params.get("api") || store.get("api", "")).replace(/\/+$/, "");
 let TOKEN = store.get("token", null);
 let DEVICE = store.get("device", null);
+if (params.get("dev")) { DEVICE = params.get("dev"); store.set("device", DEVICE); }
 if (!DEVICE) { DEVICE = "cel-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); store.set("device", DEVICE); }
 $("#apiUrl").value = API;
-$("#sDevice").textContent = DEVICE;
+const shortCode = (d) => d.replace(/^cel-/, "").slice(0, 8);
+$("#sDevice").textContent = shortCode(DEVICE);
+/* Recuperar el código anterior: busca entre las mediciones un celular cuyo código empiece igual. */
+$("#btnDevOld").onclick = async () => {
+  const code = $("#devOld").value.trim().toLowerCase().replace(/^cel-/, "");
+  if (code.length < 6) { msg("#devMsg", "Escribe al menos los 6 primeros caracteres de tu código.", "err"); return; }
+  try {
+    const page = await api("/api/measurements?limit=200");
+    const found = [...new Set(page.items.map((m) => m.device_id))].filter((d) => d.replace(/^cel-/, "").startsWith(code));
+    if (found.length !== 1) { msg("#devMsg", found.length ? "Hay varios códigos así: escribe más caracteres." : "No encontré mediciones con ese código.", "err"); return; }
+    DEVICE = found[0]; store.set("device", DEVICE);
+    $("#sDevice").textContent = shortCode(DEVICE);
+    const n = page.items.filter((m) => m.device_id === DEVICE).length;
+    msg("#devMsg", "Listo ✔ recuperé tus datos (" + n + " mediciones). Ya puedes verlas en Medir y en Modelo.", "good");
+    refreshCalibration(); loadHistory();
+  } catch (e) { msg("#devMsg", e.message, "err"); }
+};
 
 async function api(path, body) {
   if (!API) throw new Error("Primero escribe la dirección del backend (paso 1).");

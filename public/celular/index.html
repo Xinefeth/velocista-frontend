@@ -81,6 +81,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     <button data-tab="calibrar">2. Calibrar</button>
     <button data-tab="medir">3. Medir</button>
     <button data-tab="gps">4. Error GPS</button>
+    <button data-tab="modelo">5. Modelo</button>
   </nav>
 
   <!-- ===================== 1. CONEXIÓN ===================== -->
@@ -300,6 +301,33 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <div class="row"><button class="sb" id="btnGSum">Ver resumen</button></div>
     </section>
   </div>
+  <!-- ===================== 5. MODELO DE PRECISIÓN (SP-07) ===================== -->
+  <div data-panel="modelo" hidden>
+    <section class="card">
+      <div class="hd"><h2>Modelo que baja el error</h2><span class="tag" id="mTag">SP-07</span></div>
+      <p class="hint">Mide el <b>mismo lugar</b> varias veces (5 es ideal) escribiendo su largo y ancho reales. El modelo prueba ajustar tu paso y tu giro, intento tras intento, y se queda con lo que baja el error. La última medición elegida se usa para comprobar que el ajuste sirve.</p>
+      <div class="row"><button class="sb wide" id="btnMLoad">Ver mis mediciones</button></div>
+      <div class="tw" id="mListBox" hidden><table class="t"><thead><tr><th>Usar</th><th>Lugar</th><th>Cierre</th><th>Vs. real</th></tr></thead><tbody id="mList"></tbody></table></div>
+      <div class="row"><button class="go" id="btnMRun" disabled>Correr modelo</button></div>
+      <p class="hint" id="mMsg"></p>
+    </section>
+    <section class="card" id="mResBox" hidden>
+      <div class="hd"><h2>Resultado del modelo</h2></div>
+      <div class="semaforo" id="mSem"><span class="dotl"></span><div><b id="mSemT"></b><small id="mSemS"></small></div></div>
+      <canvas id="cvModel"></canvas>
+      <p class="legend">Rojo: error con el modelo, por intento · Amarillo: sin modelo · Verde: meta 3 %</p>
+      <div class="kv" style="margin-top:10px">
+        <span>Error sin modelo</span><b id="mBase">—</b>
+        <span>Error con modelo</span><b id="mFinal">—</b>
+        <span>Largo del paso</span><b id="mStep">—</b>
+        <span>Ajuste del giro</span><b id="mBias">—</b>
+        <span>¿Sirve en una medición nueva?</span><b id="mGen">—</b>
+      </div>
+      <div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>Medición</th><th>Error vs real antes</th><th>Después</th></tr></thead><tbody id="mTable"></tbody></table></div>
+      <div class="row"><button class="sb red wide" id="btnMApply">Usar estos ajustes como mi calibración</button></div>
+      <p class="hint" id="mApplyMsg"></p>
+    </section>
+  </div>
 </main>
 
 <script>
@@ -327,6 +355,10 @@ const REASONS = {
   calibration_few_trials: "Faltan intentos.",
   calibration_step_out_of_range: "El largo del paso salió raro. Revisa la distancia y vuelve a caminar.",
   calibration_invalid_trial: "Un intento tiene datos inválidos.",
+  model_few_measurements: "Elige al menos 2 mediciones (5 es lo ideal).",
+  model_mixed_methods: "Elige mediciones hechas de la misma forma (todas por pasos).",
+  model_gps_unsupported: "El modelo ajusta mediciones por pasos o con carro, no por GPS.",
+  model_mixed_devices: "Las mediciones deben ser del mismo celular.",
   gps_trial_few_fixes: "Llegaron pocas lecturas GPS. Quédate más tiempo quieta al aire libre.",
   unauthorized: "Debes iniciar sesión: escribe usuario y contraseña y toca Conectar.",
   invalid_credentials: "Usuario o contraseña incorrectos.",
@@ -490,6 +522,7 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => {
   document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== b.dataset.tab));
   if (b.dataset.tab === "calibrar") refreshCalibration();
   if (b.dataset.tab === "medir") loadHistory();
+  if (b.dataset.tab === "modelo") loadModelList();
 }));
 
 /* ---------- 2. calibración ---------- */
@@ -1027,6 +1060,86 @@ $("#btnGSum").onclick = async () => {
       <span>Mejora al promediar</span><b>${fmt(s.improvement_pct, 0)} %</b>
       <span>El GPS sirve en lugares de lado mayor a</span><b>${fmt(s.min_side_m, 0)} m</b>`;
   } catch (e) { $("#gSum").innerHTML = `<span>${esc(e.message)}</span><b></b>`; }
+};
+
+/* ---------- 5. modelo de precisión (SP-07) ---------- */
+async function loadModelList() {
+  try {
+    const page = await api("/api/measurements?limit=50&device_id=" + encodeURIComponent(DEVICE));
+    const done = page.items.filter((m) => m.result && m.method !== "gps").reverse(); // de la más antigua a la más nueva
+    if (!done.length) { msg("#mMsg", "Aún no tienes mediciones por pasos terminadas."); $("#mListBox").hidden = true; return; }
+    // preselecciona las últimas 5 del lugar más reciente
+    const place = done[done.length - 1].place_name;
+    const pre = new Set(done.filter((m) => m.place_name === place).slice(-5).map((m) => m.id));
+    $("#mList").innerHTML = done.map((m) => {
+      const r = m.result;
+      const ref = r.perimeter_error_pct == null ? "sin medida real" : (r.perimeter_error_pct > 0 ? "+" : "") + fmt(r.perimeter_error_pct, 1) + " %";
+      return `<tr><td><input type="checkbox" data-id="${m.id}" ${pre.has(m.id) ? "checked" : ""} style="width:22px;height:22px"></td><td>${esc(m.place_name)} #${m.id}</td><td>${fmt(r.closure_error_pct, 1)} %</td><td>${ref}</td></tr>`;
+    }).join("");
+    $("#mListBox").hidden = false; $("#btnMRun").disabled = false;
+    msg("#mMsg", "Marca las mediciones del mismo lugar y toca Correr modelo.");
+  } catch (e) { msg("#mMsg", e.message, "err"); }
+}
+$("#btnMLoad").onclick = loadModelList;
+
+function drawModel(res) {
+  const cv = $("#cvModel"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  cv.width = w * dpr; cv.height = hh * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const css = getComputedStyle(document.documentElement);
+  const best = res.attempts.map((a) => a.best_cost);
+  const top = Math.max(res.baseline_cost, ...best, 4) * 1.15;
+  const L = 36, B = 22, T = 10, W = w - L - 10, H = hh - T - B;
+  const X = (i) => L + W * (best.length > 1 ? i / (best.length - 1) : 0), Y = (v) => T + H - H * Math.min(v, top) / top;
+  ctx.font = "10px " + css.getPropertyValue("--mono"); ctx.fillStyle = css.getPropertyValue("--dim"); ctx.strokeStyle = css.getPropertyValue("--line");
+  for (let i = 0; i <= 4; i++) { const v = top * i / 4, y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + W, y); ctx.stroke(); ctx.fillText(fmt(v, 0) + "%", 2, y + 3); }
+  ctx.fillText("intentos →", L + W - 60, hh - 6);
+  const hline = (v, color) => { ctx.setLineDash([5, 5]); ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + W, Y(v)); ctx.stroke(); ctx.setLineDash([]); };
+  hline(3, css.getPropertyValue("--green"));
+  hline(res.baseline_cost, css.getPropertyValue("--yellow"));
+  ctx.strokeStyle = css.getPropertyValue("--red"); ctx.lineWidth = 2.4; ctx.beginPath();
+  best.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)))); ctx.stroke();
+  ctx.fillStyle = css.getPropertyValue("--red");
+  best.forEach((v, i) => { ctx.beginPath(); ctx.arc(X(i), Y(v), 2.5, 0, 2 * Math.PI); ctx.fill(); });
+}
+
+async function runModel(apply) {
+  const ids = [...document.querySelectorAll("#mList input:checked")].map((c) => Number(c.dataset.id));
+  if (ids.length < 2) throw new Error("Elige al menos 2 mediciones (5 es lo ideal).");
+  return api("/api/precision-model/runs", { measurement_ids: ids, max_attempts: 40, apply });
+}
+$("#btnMRun").onclick = async () => {
+  const b = $("#btnMRun");
+  try {
+    b.disabled = true; msg("#mMsg", "El modelo está probando ajustes…");
+    const run = await runModel(false);
+    const res = run.result;
+    const improved = res.final_cost < res.baseline_cost;
+    const drop = res.baseline_cost > 0 ? (res.baseline_cost - res.final_cost) / res.baseline_cost * 100 : 0;
+    const cls = res.final_cost < 3 ? "good" : improved ? "warn" : "red";
+    $("#mSem").className = "semaforo " + cls;
+    $("#mSemT").textContent = improved ? "El error bajó de " + fmt(res.baseline_cost, 1) + " % a " + fmt(res.final_cost, 1) + " %" : "El modelo no logró bajar el error";
+    $("#mSemS").textContent = improved ? "Bajó " + fmt(drop, 0) + " % en " + res.attempts.length + " intentos." : "Así se declara en el informe: queda como trabajo futuro.";
+    $("#mBase").textContent = fmt(res.baseline_cost, 1) + " %";
+    $("#mFinal").textContent = fmt(res.final_cost, 1) + " %";
+    const ip = res.initial_params, fp = res.final_params;
+    $("#mStep").textContent = ip.step_length_m != null ? fmt(ip.step_length_m, 3) + " → " + fmt(fp.step_length_m, 3) + " m" : "—";
+    $("#mBias").textContent = fmt(ip.gyro_bias_dps, 2) + " → " + fmt(fp.gyro_bias_dps, 2) + " °/s";
+    $("#mGen").textContent = res.generalizes == null ? "Usa 3 o más mediciones para comprobarlo" : res.generalizes ? "Sí ✔ (también bajó en la medición de prueba)" : "No: en la medición de prueba no mejoró";
+    const errOf = (x) => x.perimeter_error_pct == null ? "cierre " + fmt(x.closure_error_pct, 1) + " %" : (x.perimeter_error_pct > 0 ? "+" : "") + fmt(x.perimeter_error_pct, 1) + " %";
+    $("#mTable").innerHTML = res.measurements.map((r) => `<tr><td>#${r.measurement_id}</td><td>${errOf(r.before)}</td><td>${errOf(r.after)}</td></tr>`).join("");
+    $("#mResBox").hidden = false; $("#btnMApply").disabled = !improved; msg("#mApplyMsg", "");
+    drawModel(res);
+    $("#mResBox").scrollIntoView({ behavior: "smooth" });
+    msg("#mMsg", "Listo ✔ corrida guardada.", "good");
+  } catch (e) { msg("#mMsg", e.message, "err"); } finally { b.disabled = false; }
+};
+$("#btnMApply").onclick = async () => {
+  try {
+    const run = await runModel(true);
+    msg("#mApplyMsg", run.applied ? "Listo ✔ tus próximas mediciones usarán estos ajustes." : "No se aplicó: el ajuste no mejoró en la medición de prueba.", run.applied ? "good" : "err");
+    refreshCalibration();
+  } catch (e) { msg("#mApplyMsg", e.message, "err"); }
 };
 
 if (API) refreshCalibration();

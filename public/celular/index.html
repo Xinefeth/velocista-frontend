@@ -5,48 +5,76 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>APAEC Lab · Medir con el celular</title>
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--ink:#17202b;--mute:#5d6875;--line:#dde2e8;--acc:#1f4e8c;--ok:#1b7f4b;--warn:#a86400;--bad:#b3261e;--okb:#e2f4ea;--warnb:#fff1d6;--badb:#fde7e5}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#171d24;--ink:#e8edf2;--mute:#9aa6b2;--line:#2a333d;--acc:#5b9be0;--ok:#4cc38a;--warn:#e0a84a;--bad:#f07167;--okb:#13301f;--warnb:#33270e;--badb:#3a1714}}
+/* Mismo sistema visual de la consola APAEC (prototipo APAEC_Lab_consola_con_medicion.html). */
+:root{--bg:#050609;--panel:#0b0d12;--panel2:#11141b;--panel3:#171b24;--panel4:#1e2330;
+--line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.11);--line3:rgba(255,255,255,.18);
+--ink:#eceef4;--mid:#a2a7b8;--dim:#5e6374;--red:#ff2d55;--red-hi:#ff5a78;--red-soft:rgba(255,45,85,.13);
+--purple:#b48cff;--green:#3ddc97;--green-soft:rgba(61,220,151,.12);--yellow:#ffcb57;--yellow-soft:rgba(255,203,87,.12);--blue:#6cb6ff;
+--sans:"Geist Sans","Geist",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+--mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--r:16px;color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
 main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
-h1{font-size:1.3rem;margin:4px 0}
-h2{font-size:1.05rem;margin:0 0 8px}
+.brand{display:flex;align-items:center;gap:10px;margin:4px 0 2px}
+.brand svg{width:26px;height:26px;color:var(--red);flex:none}
+h1{font-size:18px;font-weight:500;margin:0}
+.sub{color:var(--dim);font-size:12px;margin:2px 0 12px}
 p{margin:6px 0}
-.sub{color:var(--mute);font-size:.9rem}
-nav{display:flex;gap:6px;overflow-x:auto;margin:12px 0}
-nav button{flex:1 0 auto;min-height:44px}
-nav button[aria-current="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
-section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
-label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
-input,select{width:100%;min-height:46px;font:inherit;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
-button{font:inherit;min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 14px;cursor:pointer}
-button.main{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600;width:100%}
-button.stop{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600;width:100%}
-button:disabled{opacity:.45;cursor:not-allowed}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.lbl{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:12px 0 5px}
+nav#tabs{display:flex;padding:3px;border-radius:11px;background:var(--panel);border:1px solid var(--line);gap:2px;margin-bottom:12px;overflow-x:auto}
+nav#tabs button{flex:1 0 auto;height:38px;padding:0 10px;border-radius:8px;border:0;background:transparent;color:var(--dim);font-size:12.5px;white-space:nowrap}
+nav#tabs button[aria-current="true"]{background:var(--panel3);color:var(--ink)}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel) 38%);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;position:relative;overflow:hidden}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;min-height:26px}
+.hd h2{margin:0;font-weight:500;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.inp{height:44px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);padding:0 12px;width:100%;min-width:0;font-size:15px}
+select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mid) 50%),linear-gradient(135deg,var(--mid) 50%,transparent 50%);background-position:calc(100% - 15px) 19px,calc(100% - 10px) 19px;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
+.inp:focus{outline:none;border-color:rgba(255,45,85,.6)}
+.sb{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--line2);background:var(--panel3);font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.sb:disabled,.go:disabled{opacity:.4;cursor:not-allowed}
+.sb.red{background:var(--red);border-color:var(--red);color:#fff;font-weight:500}
+.sb.wide{width:100%}
+.sb.stop{background:var(--panel3);border-color:var(--red);color:var(--red-hi)}
+.go{width:100%;height:62px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--mono);font-size:16px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 10px 30px -8px rgba(255,45,85,.6)}
+.go.stop{background:var(--panel3);color:var(--ink);box-shadow:0 0 0 1px var(--red) inset}
+#btnCorner{height:72px;font-size:15px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .row>*{flex:1 1 140px}
-.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:.95rem}
-.kv b{font-variant-numeric:tabular-nums;text-align:right}
-.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.82rem;font-weight:600}
-.ok{background:var(--okb);color:var(--ok)}.warn{background:var(--warnb);color:var(--warn)}.bad{background:var(--badb);color:var(--bad)}
-.msg{font-size:.92rem;margin-top:8px;min-height:1.3em}
-.msg.err{color:var(--bad)}.msg.good{color:var(--ok)}
-canvas{width:100%;height:260px;border:1px solid var(--line);border-radius:10px;margin-top:10px;background:var(--bg)}
-table{width:100%;border-collapse:collapse;font-size:.86rem;font-variant-numeric:tabular-nums}
-th,td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
-th:first-child,td:first-child{text-align:left}
-th{color:var(--mute);font-weight:600}
-.tw{overflow-x:auto}
-ol{padding-left:20px;margin:6px 0}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px;color:var(--mid)}
+.kv b{font-family:var(--mono);font-weight:400;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--mid);white-space:nowrap;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px}
+.tag.red{border-color:rgba(255,45,85,.4);color:var(--red-hi);background:var(--red-soft)}
+.tag.good{border-color:rgba(61,220,151,.35);color:var(--green)}
+.tag.warn{border-color:rgba(255,203,87,.35);color:var(--yellow)}
+.semaforo{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--bg);margin-bottom:10px}
+.semaforo .dotl{width:14px;height:14px;border-radius:50%;background:var(--dim);flex:none}
+.semaforo.good{border-color:rgba(61,220,151,.4)}.semaforo.good .dotl{background:var(--green)}
+.semaforo.warn{border-color:rgba(255,203,87,.4)}.semaforo.warn .dotl{background:var(--yellow)}
+.semaforo.red{border-color:rgba(255,45,85,.45)}.semaforo.red .dotl{background:var(--red)}
+.semaforo b{font-weight:500}.semaforo small{display:block;color:var(--dim);font-size:11.5px}
+.hint{margin:8px 0 0;font-size:12.5px;color:var(--dim);min-height:1.2em}
+.hint.err{color:var(--red-hi)}.hint.good{color:var(--green)}
+ol{padding-left:20px;margin:6px 0;color:var(--mid);font-size:13px}
 li{margin:3px 0}
+ol b{color:var(--ink);font-weight:500}
+ul.warns{padding-left:18px;margin:8px 0 0;color:var(--yellow);font-size:12.5px}
+canvas{width:100%;height:260px;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:var(--bg)}
+table.t{width:100%;border-collapse:collapse}
+table.t th{font-family:var(--mono);font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--dim);text-align:right;padding:8px;border-bottom:1px solid var(--line);text-transform:uppercase;white-space:nowrap}
+table.t td{font-family:var(--mono);font-size:12.5px;text-align:right;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--sans)}
+.tw{overflow-x:auto}
+.legend{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:8px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <main>
-  <h1>Medir con el celular</h1>
-  <p class="sub">APAEC Lab · los datos son reales: salen de los sensores de este celular y se guardan en el sistema.</p>
+  <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><circle cx="20" cy="8" r="1.5" fill="currentColor"/></svg><h1>Medición · Celular</h1></div>
+  <p class="hint">APAEC Lab · datos reales de los sensores de este celular</p>
 
   <nav id="tabs">
     <button data-tab="conexion" aria-current="true">1. Conexión</button>
@@ -57,23 +85,23 @@ li{margin:3px 0}
 
   <!-- ===================== 1. CONEXIÓN ===================== -->
   <div data-panel="conexion">
-    <section>
-      <h2>Conectar con el sistema</h2>
-      <label for="apiUrl">Dirección del backend</label>
-      <input id="apiUrl" placeholder="https://velocista-backend.onrender.com" inputmode="url" autocomplete="off">
+    <section class="card">
+      <div class="hd"><h2>Conectar con el sistema</h2></div>
+      <label class="lbl" for="apiUrl">Dirección del backend</label>
+      <input class="inp" id="apiUrl" placeholder="https://velocista-backend.onrender.com" inputmode="url" autocomplete="off">
       <div id="loginBox" hidden>
-        <label for="user">Usuario</label>
-        <input id="user" autocomplete="username">
-        <label for="pass">Contraseña</label>
-        <input id="pass" type="password" autocomplete="current-password">
+        <label class="lbl" for="user">Usuario</label>
+        <input class="inp" id="user" autocomplete="username">
+        <label class="lbl" for="pass">Contraseña</label>
+        <input class="inp" id="pass" type="password" autocomplete="current-password">
       </div>
-      <div class="row"><button class="main" id="btnConnect">Conectar</button></div>
-      <p class="msg" id="connMsg"></p>
+      <div class="row"><button class="sb red wide" id="btnConnect">Conectar</button></div>
+      <p class="hint" id="connMsg"></p>
     </section>
-    <section>
-      <h2>Sensores del celular</h2>
-      <p class="sub">Necesita HTTPS. En iPhone hay que aceptar el permiso de movimiento.</p>
-      <div class="row"><button class="main" id="btnSensors">Activar sensores</button></div>
+    <section class="card">
+      <div class="hd"><h2>Sensores del celular</h2></div>
+      <p class="hint">Necesita HTTPS. En iPhone hay que aceptar el permiso de movimiento.</p>
+      <div class="row"><button class="sb red wide" id="btnSensors">Activar sensores</button></div>
       <div class="kv" style="margin-top:10px">
         <span>Giroscopio</span><b id="sGyro">—</b>
         <span>Acelerómetro</span><b id="sAcc">—</b>
@@ -81,100 +109,100 @@ li{margin:3px 0}
         <span>Pantalla siempre encendida</span><b id="sWake">—</b>
         <span>Código de este celular</span><b id="sDevice" style="font-size:.8rem">—</b>
       </div>
-      <p class="msg" id="sensMsg"></p>
+      <p class="hint" id="sensMsg"></p>
     </section>
   </div>
 
   <!-- ===================== 2. CALIBRAR ===================== -->
   <div data-panel="calibrar" hidden>
-    <section>
-      <h2>Estado de la calibración</h2>
+    <section class="card">
+      <div class="hd"><h2>Estado de la calibración</h2></div>
       <div class="kv">
         <span>Giroscopio</span><b id="cGyro">—</b>
         <span>Largo del paso</span><b id="cStep">—</b>
         <span>Velocidad del carro</span><b id="cCar">—</b>
       </div>
-      <div class="row"><button id="btnCalRefresh">Actualizar</button></div>
+      <div class="row"><button class="sb" id="btnCalRefresh">Actualizar</button></div>
     </section>
-    <section>
-      <h2>A. Giroscopio (5 segundos)</h2>
+    <section class="card">
+      <div class="hd"><h2>A. Giroscopio (5 segundos)</h2></div>
       <ol><li>Pon el celular <b>quieto sobre una mesa</b>.</li><li>Toca el botón y no lo toques hasta que termine.</li></ol>
-      <div class="row"><button class="main" id="btnGyro">Calibrar giroscopio</button></div>
-      <p class="msg" id="gyroMsg"></p>
+      <div class="row"><button class="sb red wide" id="btnGyro">Calibrar giroscopio</button></div>
+      <p class="hint" id="gyroMsg"></p>
     </section>
-    <section>
-      <h2>B. Largo del paso (caminar 3 veces)</h2>
+    <section class="card">
+      <div class="hd"><h2>B. Largo del paso (caminar 3 veces)</h2></div>
       <ol>
         <li>Mide con cinta una recta (por ejemplo <b>20 m</b>) y escribe la distancia.</li>
         <li>Lleva el celular <b>plano frente al pecho</b>, como al medir.</li>
         <li>Toca "Empezar", camina normal hasta el final y toca "Terminar". Repite 3 veces.</li>
       </ol>
-      <label for="stepDist">Distancia medida con cinta (m)</label>
-      <input id="stepDist" type="number" inputmode="decimal" value="20" min="1" step="0.1">
-      <div class="row"><button class="main" id="btnStepWalk">Empezar caminata 1 de 3</button></div>
-      <p class="msg" id="stepMsg"></p>
+      <label class="lbl" for="stepDist">Distancia medida con cinta (m)</label>
+      <input class="inp" id="stepDist" type="number" inputmode="decimal" value="20" min="1" step="0.1">
+      <div class="row"><button class="sb red wide" id="btnStepWalk">Empezar caminata 1 de 3</button></div>
+      <p class="hint" id="stepMsg"></p>
     </section>
-    <section>
-      <h2>C. Velocidad del carro (carro + celular)</h2>
-      <p class="sub">El carro no tiene encoders: la distancia se estima con la potencia del motor (PWM). Haz avanzar el carro una distancia medida con cinta y toma el tiempo con un cronómetro. Usa al menos 2 PWM distintos.</p>
-      <div class="tw"><table id="carTable"><thead><tr><th>PWM (%)</th><th>Distancia (m)</th><th>Tiempo (s)</th></tr></thead><tbody></tbody></table></div>
+    <section class="card">
+      <div class="hd"><h2>C. Velocidad del carro (carro + celular)</h2></div>
+      <p class="hint">El carro no tiene encoders: la distancia se estima con la potencia del motor (PWM). Haz avanzar el carro una distancia medida con cinta y toma el tiempo con un cronómetro. Usa al menos 2 PWM distintos.</p>
+      <div class="tw"><table class="t" id="carTable"><thead><tr><th>PWM (%)</th><th>Distancia (m)</th><th>Tiempo (s)</th></tr></thead><tbody></tbody></table></div>
       <div class="row">
-        <input id="carPwm" type="number" inputmode="decimal" placeholder="PWM %">
-        <input id="carDist" type="number" inputmode="decimal" placeholder="Distancia m">
-        <input id="carSec" type="number" inputmode="decimal" placeholder="Tiempo s">
+        <input class="inp" id="carPwm" type="number" inputmode="decimal" placeholder="PWM %">
+        <input class="inp" id="carDist" type="number" inputmode="decimal" placeholder="Distancia m">
+        <input class="inp" id="carSec" type="number" inputmode="decimal" placeholder="Tiempo s">
       </div>
-      <div class="row"><button id="btnCarAdd">Agregar prueba</button><button class="main" id="btnCarSave">Guardar calibración</button></div>
-      <p class="msg" id="carMsg"></p>
+      <div class="row"><button class="sb" id="btnCarAdd">Agregar prueba</button><button class="sb red wide" id="btnCarSave">Guardar calibración</button></div>
+      <p class="hint" id="carMsg"></p>
     </section>
   </div>
 
   <!-- ===================== 3. MEDIR ===================== -->
   <div data-panel="medir" hidden>
-    <section id="setupBox">
-      <h2>Preparar la medición</h2>
-      <label for="method">¿Cómo se mide?</label>
-      <select id="method">
+    <section class="card" id="setupBox">
+      <div class="hd"><h2>Preparar la medición</h2></div>
+      <label class="lbl" for="method">¿Cómo se mide?</label>
+      <select class="inp" id="method">
         <option value="steps">Celular en la mano · por pasos (aula, patio)</option>
         <option value="gps">Celular en la mano · por GPS (cancha, terreno grande)</option>
         <option value="car">Carro + celular encima</option>
       </select>
       <div id="carBox" hidden>
-        <label for="carRunPwm">PWM con el que avanza el carro (%)</label>
-        <input id="carRunPwm" type="number" inputmode="decimal" placeholder="Ej. 40">
+        <label class="lbl" for="carRunPwm">PWM con el que avanza el carro (%)</label>
+        <input class="inp" id="carRunPwm" type="number" inputmode="decimal" placeholder="Ej. 40">
       </div>
-      <label for="place">Nombre del lugar</label>
-      <input id="place" placeholder="Ej. Aula 204">
+      <label class="lbl" for="place">Nombre del lugar</label>
+      <input class="inp" id="place" placeholder="Ej. Aula 204">
       <div class="row">
-        <div><label for="planL">Largo del plano (m, opcional)</label><input id="planL" type="number" inputmode="decimal"></div>
-        <div><label for="planW">Ancho del plano (m, opcional)</label><input id="planW" type="number" inputmode="decimal"></div>
+        <div><label class="lbl" for="planL">Largo del plano (m, opcional)</label><input class="inp" id="planL" type="number" inputmode="decimal"></div>
+        <div><label class="lbl" for="planW">Ancho del plano (m, opcional)</label><input class="inp" id="planW" type="number" inputmode="decimal"></div>
       </div>
-      <label for="planN">Escala del plano 1:N (1 si el largo y ancho ya son reales)</label>
-      <input id="planN" type="number" inputmode="decimal" value="1">
-      <label for="tape">Primer lado medido con cinta (m, opcional)</label>
-      <input id="tape" type="number" inputmode="decimal" placeholder="Del inicio a la primera esquina">
-      <ol class="sub">
+      <label class="lbl" for="planN">Escala del plano 1:N (1 si el largo y ancho ya son reales)</label>
+      <input class="inp" id="planN" type="number" inputmode="decimal" value="1">
+      <label class="lbl" for="tape">Primer lado medido con cinta (m, opcional)</label>
+      <input class="inp" id="tape" type="number" inputmode="decimal" placeholder="Del inicio a la primera esquina">
+      <ol>
         <li>Empieza en una <b>esquina</b>.</li>
         <li>En cada esquina toca <b>"Marcar esquina"</b>.</li>
         <li>Termina en el mismo punto y <b>vuelve a mirar hacia donde empezaste</b>.</li>
       </ol>
-      <div class="row"><button class="main" id="btnStart">Iniciar medición</button></div>
-      <p class="msg" id="startMsg"></p>
+      <div class="row"><button class="go" id="btnStart">Iniciar medición</button></div>
+      <p class="hint" id="startMsg"></p>
     </section>
-    <section id="runBox" hidden>
-      <h2>Midiendo…</h2>
+    <section class="card" id="runBox" hidden>
+      <div class="hd"><h2>Midiendo…</h2></div>
       <div class="kv">
         <span>Lecturas enviadas</span><b id="rSent">0</b>
         <span>Pendientes de enviar</span><b id="rPend">0</b>
         <span>Esquinas marcadas</span><b id="rCorners">0</b>
         <span>Tiempo</span><b id="rTime">0 s</b>
       </div>
-      <div class="row"><button id="btnCorner" style="min-height:72px;font-size:1.1rem">Marcar esquina</button></div>
-      <div class="row"><button class="stop" id="btnFinish">Terminar y calcular</button></div>
-      <p class="msg" id="runMsg"></p>
+      <div class="row"><button class="sb wide" id="btnCorner">Marcar esquina</button></div>
+      <div class="row"><button class="go stop" id="btnFinish">Terminar y calcular</button></div>
+      <p class="hint" id="runMsg"></p>
     </section>
-    <section id="resultBox" hidden>
-      <h2>Resultado <span class="tag" id="resTag"></span></h2>
-      <p id="resLabel"></p>
+    <section class="card" id="resultBox" hidden>
+      <div class="hd"><h2>Resultado <span class="tag" id="resTag"></span></h2></div>
+      <div class="semaforo" id="sem"><span class="dotl"></span><div><b id="resLabel">—</b><small id="resDesc"></small></div></div>
       <div class="kv">
         <span>Perímetro</span><b id="resP">—</b>
         <span>Área</span><b id="resA">—</b>
@@ -183,48 +211,48 @@ li{margin:3px 0}
         <span id="resNL">Pasos</span><b id="resN">—</b>
         <span>Frente al plano (perímetro / área)</span><b id="resRef">—</b>
       </div>
-      <ul id="resWarn" class="sub"></ul>
+      <ul id="resWarn" class="warns"></ul>
       <canvas id="cv"></canvas>
-      <p class="sub">Gris: recorrido medido · Azul: recorrido corregido · Puntos: esquinas usadas.</p>
-      <div class="row"><button class="main" id="btnAgain">Nueva medición</button></div>
+      <p class="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
+      <div class="row"><button class="sb red wide" id="btnAgain">Nueva medición</button></div>
     </section>
-    <section>
-      <h2>Mis mediciones</h2>
-      <div class="tw"><table><thead><tr><th>Lugar</th><th>Método</th><th>Perímetro</th><th>Área</th><th>Cierre</th></tr></thead><tbody id="histBody"></tbody></table></div>
-      <div class="row"><button id="btnHist">Actualizar</button></div>
+    <section class="card">
+      <div class="hd"><h2>Mis mediciones</h2></div>
+      <div class="tw"><table class="t"><thead><tr><th>Lugar</th><th>Método</th><th>Perímetro</th><th>Área</th><th>Cierre</th></tr></thead><tbody id="histBody"></tbody></table></div>
+      <div class="row"><button class="sb" id="btnHist">Actualizar</button></div>
     </section>
   </div>
 
   <!-- ===================== 4. ERROR GPS (SP-06) ===================== -->
   <div data-panel="gps" hidden>
-    <section>
-      <h2>Prueba de error del GPS</h2>
+    <section class="card">
+      <div class="hd"><h2>Prueba de error del GPS</h2></div>
       <ol>
         <li>Mide con cinta una distancia <b>mayor a 15 m</b> (30, 50 o 100 m). Escribe 0 si vuelves al mismo punto.</li>
         <li>Párate en el inicio, toca "Marcar inicio" y quédate quieta hasta que termine.</li>
         <li>Camina al final, toca "Marcar fin" y quédate quieta otra vez.</li>
       </ol>
-      <label for="gPlace">Lugar</label>
-      <input id="gPlace" placeholder="Ej. Cancha de fútbol">
-      <label for="gEnv">Entorno</label>
-      <select id="gEnv">
+      <label class="lbl" for="gPlace">Lugar</label>
+      <input class="inp" id="gPlace" placeholder="Ej. Cancha de fútbol">
+      <label class="lbl" for="gEnv">Entorno</label>
+      <select class="inp" id="gEnv">
         <option value="open">Al aire libre</option>
         <option value="buildings">Cerca de edificios</option>
         <option value="trees">Bajo árboles</option>
         <option value="indoor">Bajo techo</option>
       </select>
-      <label for="gReal">Distancia real con cinta (m)</label>
-      <input id="gReal" type="number" inputmode="decimal" value="30">
-      <label for="gSecs">Segundos quieta en cada punto</label>
-      <input id="gSecs" type="number" inputmode="numeric" value="20" min="5">
-      <div class="row"><button class="main" id="btnGStart">Marcar inicio</button><button class="main" id="btnGEnd" disabled>Marcar fin</button></div>
-      <p class="msg" id="gMsg"></p>
-      <div class="tw" id="gResBox" hidden><table><thead><tr><th>Método</th><th>Distancia GPS</th><th>Error</th><th>Error %</th></tr></thead><tbody id="gResBody"></tbody></table></div>
+      <label class="lbl" for="gReal">Distancia real con cinta (m)</label>
+      <input class="inp" id="gReal" type="number" inputmode="decimal" value="30">
+      <label class="lbl" for="gSecs">Segundos quieta en cada punto</label>
+      <input class="inp" id="gSecs" type="number" inputmode="numeric" value="20" min="5">
+      <div class="row"><button class="sb red wide" id="btnGStart">Marcar inicio</button><button class="sb red wide" id="btnGEnd" disabled>Marcar fin</button></div>
+      <p class="hint" id="gMsg"></p>
+      <div class="tw" id="gResBox" hidden><table class="t"><thead><tr><th>Método</th><th>Distancia GPS</th><th>Error</th><th>Error %</th></tr></thead><tbody id="gResBody"></tbody></table></div>
     </section>
-    <section>
-      <h2>Resumen de mis pruebas</h2>
+    <section class="card">
+      <div class="hd"><h2>Resumen de mis pruebas</h2></div>
       <div class="kv" id="gSum"><span>Pruebas</span><b>—</b></div>
-      <div class="row"><button id="btnGSum">Ver resumen</button></div>
+      <div class="row"><button class="sb" id="btnGSum">Ver resumen</button></div>
     </section>
   </div>
 </main>
@@ -240,7 +268,7 @@ const store = {
   get(k, d = null) { try { const v = localStorage.getItem("apaec.celular." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("apaec.celular." + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
 };
-function msg(el, text, kind = "") { const m = $(el); m.textContent = text; m.className = "msg" + (kind ? " " + kind : ""); }
+function msg(el, text, kind = "") { const m = $(el); m.textContent = text; m.className = "hint" + (kind ? " " + kind : ""); }
 
 /* Textos en español para los códigos del backend (el backend responde en inglés) */
 const REASONS = {
@@ -265,9 +293,9 @@ const WARNINGS = {
   gps_low_accuracy_dropped: "Se descartaron lecturas GPS con mala precisión.",
 };
 const QUALITY = {
-  green: ["ok", "Medición confiable", "Error de cierre menor a 3 %."],
+  green: ["good", "Medición confiable", "Error de cierre menor a 3 %."],
   yellow: ["warn", "Medición con error moderado", "Error de cierre entre 3 % y 6 %. Puedes repetir."],
-  red: ["bad", "Medición con mucho error", "Error de cierre mayor a 6 %. Repite la medición."],
+  red: ["red", "Medición con mucho error", "Error de cierre mayor a 6 %. Repite la medición."],
 };
 const METHOD_ES = { steps: "Pasos", gps: "GPS", car: "Carro + celular" };
 
@@ -431,13 +459,13 @@ $("#btnStepWalk").onclick = async () => {
       stepWalk = { dist, readings: [] };
       stepWalk.fn = (t, gz, acc) => { if (acc) stepWalk.readings.push({ seq: stepWalk.readings.length, t_ms: t, kind: "motion", gyro_z_dps: gz, accel: acc }); };
       live.listeners.add(stepWalk.fn);
-      b.textContent = "Terminar caminata " + (stepTrials.length + 1); b.className = "stop";
+      b.textContent = "Terminar caminata " + (stepTrials.length + 1); b.className = "sb wide stop";
       msg("#stepMsg", "Camina normal hasta el final de la cinta…");
       return;
     }
     live.listeners.delete(stepWalk.fn);
     stepTrials.push({ distance_m: stepWalk.dist, readings: stepWalk.readings.slice(0, 20000) });
-    stepWalk = null; b.className = "main";
+    stepWalk = null; b.className = "sb red wide";
     if (stepTrials.length < 3) {
       b.textContent = "Empezar caminata " + (stepTrials.length + 1) + " de 3";
       msg("#stepMsg", "Caminata " + stepTrials.length + " guardada. Vuelve al inicio.", "good");
@@ -451,7 +479,7 @@ $("#btnStepWalk").onclick = async () => {
     refreshCalibration();
   } catch (e) {
     msg("#stepMsg", e.message + " Vuelve a hacer las 3 caminatas.", "err");
-    stepTrials = []; stepWalk = null; b.className = "main";
+    stepTrials = []; stepWalk = null; b.className = "sb red wide";
   } finally {
     if (!stepWalk && stepTrials.length === 0) { b.disabled = false; b.textContent = "Empezar caminata 1 de 3"; }
   }
@@ -566,8 +594,9 @@ $("#btnFinish").onclick = async () => {
 function showResult(m) {
   const r = m.result;
   const [cls, label, desc] = QUALITY[r.quality];
-  $("#resTag").className = "tag " + cls; $("#resTag").textContent = label;
-  $("#resLabel").textContent = desc;
+  $("#resTag").className = "tag " + cls;
+  $("#resTag").textContent = cls === "good" ? "Confiable" : cls === "warn" ? "Revisar" : "Repetir";
+  $("#sem").className = "semaforo " + cls; $("#resLabel").textContent = label; $("#resDesc").textContent = desc;
   $("#resP").textContent = fmt(r.perimeter_m, 2) + " m";
   $("#resA").textContent = fmt(r.area_m2, 2) + " m²";
   $("#resC").textContent = fmt(r.closure_error_m, 2) + " m (" + fmt(r.closure_error_pct, 1) + " %)";
@@ -593,8 +622,8 @@ function draw(r) {
   const P = (p) => [12 + (p.x - x0) * k, h - 12 - (p.y - y0) * k];
   const css = getComputedStyle(document.documentElement);
   const line = (pts, color, width) => { ctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); };
-  line(r.raw_path, css.getPropertyValue("--mute"), 1.2);
-  line(r.corrected_path, css.getPropertyValue("--acc"), 2.4);
+  line(r.raw_path, css.getPropertyValue("--dim"), 1.2);
+  line(r.corrected_path, css.getPropertyValue("--red"), 2.4);
   ctx.fillStyle = css.getPropertyValue("--ink");
   r.polygon.forEach((p) => { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); });
 }

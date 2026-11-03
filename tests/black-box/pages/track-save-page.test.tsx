@@ -475,3 +475,13 @@ describe("largo, perímetro y área en la verificación", () => {
     expect(stat("Área")).toMatch(/m²$/);
   });
 });
+
+describe("aviso de «gana la última versión guardada»", () => {
+  it("solo aparece con una pista que ya está en la API", async () => {
+    render(<TrackTracer />);
+    await openExample("Ocho libre");
+    expect(screen.queryByText(/gana la que se guarde al final/)).toBeNull();
+    await openSaved();
+    expect(screen.getByText(/gana la que se guarde al final/)).toBeTruthy();
+  });
+});

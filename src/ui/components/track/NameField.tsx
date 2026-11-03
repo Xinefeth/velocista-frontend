@@ -6,9 +6,14 @@ import { TRACK_LIMITS } from "@/domain/track/limits";
 export function NameField({
   value,
   error,
+  label = "Nombre de la pista",
+  maxLength = TRACK_LIMITS.nameLength[1],
   onCommit,
 }: {
   value: string;
+  /** Texto de la etiqueta del campo. */
+  label?: string;
+  maxLength?: number;
   /** Error de guardado asociado al nombre (local o del servidor). */
   error?: string;
   onCommit: (name: string) => void;
@@ -24,11 +29,11 @@ export function NameField({
 
   return (
     <div className="fld">
-      <label htmlFor={id}>Nombre de la pista</label>
+      <label htmlFor={id}>{label}</label>
       <input
         id={id}
         className="inp"
-        maxLength={TRACK_LIMITS.nameLength[1]}
+        maxLength={maxLength}
         value={text}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? `${id}-err` : undefined}

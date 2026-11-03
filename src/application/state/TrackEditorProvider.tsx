@@ -53,7 +53,9 @@ interface TrackEditor {
   selection: Selection;
   setSelection: (selection: Selection) => void;
   tool: Tool;
-  setTool: (tool: Tool) => void;
+  /** Plantilla elegida cuando la herramienta es `tpl`. */
+  template: string | null;
+  setTool: (tool: Tool, template?: string | null) => void;
   options: EditorOptions;
   setOptions: (patch: Partial<EditorOptions>) => void;
   /** Hay cambios que la API todavía no tiene. */
@@ -192,7 +194,8 @@ export function TrackEditorProvider({
       selection: state.selection,
       setSelection: (s) => store.setSelection(s),
       tool: state.tool,
-      setTool: (t) => store.setTool(t),
+      template: state.template,
+      setTool: (t, tpl) => store.setTool(t, tpl ?? null),
       options: state.options,
       setOptions: (patch) => store.setOptions(patch),
       dirty: state.dirty,

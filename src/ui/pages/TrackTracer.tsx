@@ -1,6 +1,7 @@
 // Vista Trazador de pistas (EN-28): lista, plano editable, inspector, verificación, guardado y exportación.
 // Usa solo hooks de application/ (sin imports de infraestructura) y las clases de la consola.
 import { useEffect, useMemo, useState } from "react";
+import { useTrackDraft } from "@/application/hooks/useTrackDraft";
 import { useTrackExport } from "@/application/hooks/useTrackExport";
 import { useTracks, type TracksState } from "@/application/hooks/useTracks";
 import { TrackEditorProvider, useTrackEditor } from "@/application/state/TrackEditorProvider";
@@ -9,6 +10,7 @@ import type { ExportKind } from "@/domain/track/files";
 import { areaUnavailableReason, measures } from "@/domain/track/measures";
 import type { Track } from "@/domain/track/types";
 import { Card } from "@/ui/components/Card";
+import { DraftBanner } from "@/ui/components/track/DraftBanner";
 import { ExportMenu } from "@/ui/components/track/ExportMenu";
 import { IssuesPanel } from "@/ui/components/track/IssuesPanel";
 import { ProfilePicker } from "@/ui/components/track/ProfilePicker";
@@ -46,6 +48,7 @@ function SaveStatus() {
 function TrackTracerView({ tracks }: { tracks: TracksState }) {
   const editor = useTrackEditor();
   const exporter = useTrackExport(editor.track, editor.rules);
+  const draft = useTrackDraft(editor.store);
   const [message, setMessage] = useState("");
   /** Acción que espera la confirmación de descartar cambios sin guardar. */
   const [pending, setPending] = useState<(() => void) | null>(null);
@@ -123,6 +126,7 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
               onClick={() => {
                 const action = pending;
                 setPending(null);
+                draft.discardCurrent(); // se descartan los cambios a propósito: el borrador sobra
                 action();
               }}
             >
@@ -133,8 +137,19 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
             </button>
           </div>
         )}
+        <DraftBanner
+          pending={draft.pending}
+          onRecover={(d) => guarded(() => draft.recover(d))()}
+          onDiscard={draft.discard}
+        />
         <SaveStatus />
         <TrackCanvas />
+        {t && t.id !== null && (
+          <p className="note">
+            La API guarda la última versión que recibe: si abres esta pista en dos pestañas, gana la
+            que se guarde al final (no hay aviso de conflicto).
+          </p>
+        )}
         <ExportMenu disabled={!t} message={message} onExport={exportAs} />
       </Card>
       <div className="s4 stack">
@@ -173,7 +188,10 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
             onOpen={(id) => guarded(() => void openSaved(id))()}
             onOpenExample={(ex) => guarded(() => openExample(ex))()}
             onRemove={async (id) => {
-              if ((await tracks.remove(id)) && t?.id === id) editor.closeTrack();
+              if (await tracks.remove(id)) {
+                draft.discardFor(id);
+                if (t?.id === id) editor.closeTrack();
+              }
             }}
           />
         </Card>

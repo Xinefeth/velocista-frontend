@@ -1,18 +1,25 @@
 // Envoltorio React del controlador del lienzo: crea el controlador una vez, le conecta el <canvas>
 // y le entrega el almacén del editor por una interfaz pequeña (`TrackCanvasHost`).
-import { useEffect, useMemo, useRef, useState } from "react";
+// También muestra el menú contextual cuando el controlador lo pide.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCanvas } from "@/application/hooks/useCanvas";
 import { useTrackEditor } from "@/application/state/TrackEditorProvider";
+import { build } from "@/domain/track/geometry";
+import { ContextMenu } from "@/ui/components/track/ContextMenu";
+import { buildMenu, type MenuItem } from "@/ui/components/track/contextItems";
 import {
   TrackCanvasController,
+  type MenuRequest,
   type TrackCanvasHost,
 } from "@/ui/components/track/TrackCanvasController";
 import type { Scene } from "@/ui/components/track/drawScene";
 
 const HINTS = {
   select:
-    "Clic para elegir un punto o un tramo · Mayús+clic o arrastre para varios · Ctrl+A todo · arrastra la bandera para mover la salida · doble clic en un tramo agrega un punto · Supr borra.",
-  draw: "Clic para agregar puntos. Clic en el primer punto cierra el circuito. Con el circuito cerrado, clic sobre la línea agrega un punto. Enter o V para volver a seleccionar.",
+    "Clic para elegir un punto, un tramo o una zona · Mayús+clic o arrastre para varios · Ctrl+A todo · arrastra la bandera para mover la salida · doble clic en un tramo agrega un punto · clic derecho abre el menú · Supr borra.",
+  draw: "Clic para agregar puntos (Mayús ajusta el ángulo, Alt desactiva la rejilla). Clic en el primer punto cierra el circuito. Con el circuito cerrado, clic sobre la línea agrega un punto. Enter o V para volver a seleccionar.",
+  zone: "Arrastra para dibujar una zona donde la línea no puede pasar (postes, logos, rampas). V para volver a seleccionar.",
+  tpl: "Clic sobre un tramo recto para insertar la figura hacia ese lado · Esc para salir.",
 } as const;
 
 export function TrackCanvas() {
@@ -21,7 +28,11 @@ export function TrackCanvas() {
   editorRef.current = editor;
   const [message, setMessage] = useState("");
   const [coords, setCoords] = useState("");
+  const [menu, setMenu] = useState<{ request: MenuRequest; items: MenuItem[] } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  const controllerRef = useRef<TrackCanvasController>();
+
+  const closeMenu = useCallback(() => setMenu(null), []);
 
   const controller = useMemo(() => {
     const host: TrackCanvasHost = {
@@ -39,7 +50,8 @@ export function TrackCanvas() {
           showNodes: s.options.nodes,
         };
       },
-      getRadius: () => editorRef.current.store.getState().options.radius,
+      getOptions: () => editorRef.current.store.getState().options,
+      getTemplate: () => editorRef.current.store.getState().template,
       preview: (t) => editorRef.current.store.preview(t),
       apply: (t, sel) => editorRef.current.store.apply(t, sel),
       commit: (before) => editorRef.current.store.commit(before),
@@ -52,15 +64,40 @@ export function TrackCanvas() {
         editorRef.current.store.setOptions({
           nodes: !editorRef.current.store.getState().options.nodes,
         }),
+      toggleSnap: () =>
+        editorRef.current.store.setOptions({
+          snap: !editorRef.current.store.getState().options.snap,
+        }),
       notify: (text) => {
         setMessage(text);
         clearTimeout(timer.current);
         timer.current = setTimeout(() => setMessage(""), 4000);
       },
       coords: setCoords,
+      openMenu: (request) => {
+        const store = editorRef.current.store;
+        const s = store.getState();
+        if (!s.track) return;
+        const items = buildMenu({
+          request,
+          track: s.track,
+          // La selección ya se ajustó en el controlador: se lee del almacén.
+          selection: s.selection,
+          geometry: build(s.track),
+          options: s.options,
+          apply: (t, sel) => store.apply(t, sel),
+          setSelection: (sel) => store.setSelection(sel),
+          fit: () => controllerRef.current?.fit(),
+          notify: (m) => host.notify(m),
+        });
+        setMenu({ request, items });
+      },
+      closeMenu,
     };
-    return new TrackCanvasController(host);
-  }, []);
+    const c = new TrackCanvasController(host);
+    controllerRef.current = c;
+    return c;
+  }, [closeMenu]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
   const ref = useCanvas((cv) => controller.render(cv));
@@ -124,6 +161,9 @@ export function TrackCanvas() {
           </div>
         )}
       </div>
+      {menu && (
+        <ContextMenu items={menu.items} x={menu.request.x} y={menu.request.y} onClose={closeMenu} />
+      )}
     </>
   );
 }

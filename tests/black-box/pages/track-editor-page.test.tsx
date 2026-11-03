@@ -130,7 +130,9 @@ describe("Trazador de pistas: herramientas e inspector", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Borrar punto" }));
     expect(screen.queryByRole("heading", { name: "Punto 3" })).toBeNull();
-    expect(screen.getByText("Elige un punto o un tramo en el plano para editarlo.")).toBeTruthy();
+    expect(
+      screen.getByText("Elige un punto, un tramo o una zona en el plano para editarlo."),
+    ).toBeTruthy();
   });
 
   it("cierra el circuito con un clic en el primer punto y vuelve a la herramienta de selección", async () => {
@@ -168,7 +170,7 @@ describe("Trazador de pistas: herramientas e inspector", () => {
     })[0] as HTMLInputElement;
     expect(radius.placeholder).toBe("varios");
     expect(radius.value).toBe("");
-    fireEvent.click(screen.getByRole("button", { name: "Borrar 12 puntos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Borrar 13 objetos" }));
     expect(screen.getByText("Pista vacía")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Cerrar circuito" }).hasAttribute("disabled")).toBe(
       true,

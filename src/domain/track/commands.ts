@@ -1,6 +1,7 @@
 // Comandos de edición puros (portados de las funciones de edición del prototipo, ~1663-1745).
 // Cada comando recibe una pista y devuelve una pista nueva; nunca mutan la entrada.
 import { build, edgesOf } from "@/domain/track/geometry";
+import { TRACK_LIMITS } from "@/domain/track/limits";
 import type { Track, TrackZone } from "@/domain/track/types";
 
 /** Redondeo a un decimal, como el prototipo. */
@@ -191,4 +192,89 @@ export const setProfile = (track: Track, profileId: string | null): Track => ({
 export function setClosed(track: Track, closed: boolean): Track | null {
   if (closed && track.points.length < 3) return null;
   return track.closed === closed ? track : { ...track, closed };
+}
+
+/** Lado mínimo de una zona al dibujarla o redimensionarla, en cm. */
+export const MIN_ZONE_CM = 2;
+
+/** Zona nueva a partir de dos esquinas (cualquier orden); `null` si es muy pequeña o ya hay 100 zonas. */
+export function newZone(
+  track: Track,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): Track | null {
+  const w = Math.abs(x1 - x0);
+  const h = Math.abs(y1 - y0);
+  if (w < MIN_ZONE_CM || h < MIN_ZONE_CM || track.zones.length >= TRACK_LIMITS.zones[1])
+    return null;
+  const zone: TrackZone = {
+    x: r1(Math.min(x0, x1)),
+    y: r1(Math.min(y0, y1)),
+    width: r1(w),
+    height: r1(h),
+    name: "zona " + (track.zones.length + 1),
+  };
+  return addZone(track, zone);
+}
+
+/** Cambia datos de una zona (nombre, posición o tamaño). */
+export function setZone(track: Track, i: number, patch: Partial<TrackZone>): Track {
+  if (!track.zones[i]) return track;
+  return { ...track, zones: track.zones.map((z, k) => (k === i ? { ...z, ...patch } : { ...z })) };
+}
+
+/** Mueve la zona `i` de `before` para que su esquina inferior izquierda quede en (x, y). */
+export function moveZoneTo(before: Track, i: number, x: number, y: number): Track {
+  return setZone(before, i, { x: r1(x), y: r1(y) });
+}
+
+/**
+ * Redimensiona la zona `i` de `before` arrastrando su esquina inferior derecha a (cx, cy):
+ * el borde izquierdo y el superior no se mueven (como el prototipo).
+ */
+export function resizeZone(before: Track, i: number, cx: number, cy: number): Track {
+  const o = before.zones[i];
+  if (!o) return before;
+  const right = Math.max(o.x + MIN_ZONE_CM, cx);
+  const bottom = Math.min(o.y + o.height - MIN_ZONE_CM, cy);
+  return setZone(before, i, {
+    width: r1(right - o.x),
+    y: r1(bottom),
+    height: r1(o.y + o.height - bottom),
+  });
+}
+
+/** Copia la zona `i` un poco desplazada; `null` si ya hay 100 zonas. */
+export function duplicateZone(track: Track, i: number): Track | null {
+  const z = track.zones[i];
+  if (!z || track.zones.length >= TRACK_LIMITS.zones[1]) return null;
+  return addZone(track, {
+    ...z,
+    x: r1(z.x + 10),
+    y: r1(z.y - 10),
+    name: (z.name || "zona") + " (copia)",
+  });
+}
+
+/** Borra los puntos y las zonas elegidos. */
+export function deleteSelection(track: Track, sel: { points: number[]; zones: number[] }): Track {
+  const withoutZones = sel.zones.length ? deleteZones(track, sel.zones) : track;
+  return sel.points.length ? deletePoints(withoutZones, sel.points) : withoutZones;
+}
+
+/** Pone la salida en el tramo `ei`, en la proyección de (wx, wy) sobre el tramo recto. */
+export function setStartAt(track: Track, ei: number, wx: number, wy: number): Track {
+  const st = build(track).straights.find((s) => s.e === ei);
+  let t = 0.5;
+  if (st && st.L > 0)
+    t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((wx - st.a.x) * (st.b.x - st.a.x) + (wy - st.a.y) * (st.b.y - st.a.y)) / (st.L * st.L),
+      ),
+    );
+  return { ...track, start: { edge: ei, t: Math.round(t * 1000) / 1000 } };
 }

@@ -193,3 +193,90 @@
     height: clamp(260px, 50vh, 420px);
   }
 }
+
+/* Menú contextual del plano */
+.trk-ctx {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 4px;
+  min-width: 230px;
+  max-width: min(340px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  padding: 6px;
+  background: var(--panel3);
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+}
+.trk-ctx hr {
+  width: 100%;
+  margin: 2px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.trk-ctx-hd {
+  padding: 4px 6px 2px;
+  font-size: 11px;
+  color: var(--mid);
+}
+.trk-ctx-item {
+  justify-content: space-between;
+  width: 100%;
+}
+.trk-ctx-item.danger {
+  color: var(--red-hi);
+}
+.trk-ctx-item kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--mid);
+}
+.trk-ctx-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+.trk-ctx-field > span {
+  min-width: 64px;
+  color: var(--mid);
+}
+.trk-ctx-field .inp {
+  width: 72px;
+}
+.trk-ctx-field em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--mid);
+}
+.trk-mini {
+  width: auto;
+  height: 28px;
+  padding-right: 24px;
+  font-size: 12px;
+}
+.trk-tpls {
+  align-items: center;
+}
+
+.trk-transform {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.trk-transform h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mid);
+}
+.trk-transform .trk-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}

@@ -18,24 +18,27 @@ import {
   sanitizeSelection,
   type Selection,
 } from "@/domain/track/selection";
+import { DEFAULT_SNAP, type SnapOptions } from "@/domain/track/snap";
 import type { Track } from "@/domain/track/types";
 
-export type Tool = "select" | "draw";
+export type Tool = "select" | "draw" | "zone" | "tpl";
 
-export interface EditorOptions {
+export interface EditorOptions extends SnapOptions {
   /** Radio con el que nace cada punto nuevo, en cm. */
   radius: number;
   /** Mostrar siempre todos los puntos de control. */
   nodes: boolean;
 }
 
-export const DEFAULT_OPTIONS: EditorOptions = { radius: 15, nodes: false };
+export const DEFAULT_OPTIONS: EditorOptions = { ...DEFAULT_SNAP, radius: 15, nodes: false };
 
 export interface EditorState {
   /** Pista abierta, o `null`. */
   track: Track | null;
   selection: Selection;
   tool: Tool;
+  /** Plantilla elegida cuando `tool` es `tpl`. */
+  template: string | null;
   options: EditorOptions;
   /** Historial de la pista abierta (en memoria, hasta 200 pasos). */
   history: History<Track>;
@@ -51,6 +54,7 @@ const initial = (): EditorState => ({
   track: null,
   selection: EMPTY_SELECTION,
   tool: "select",
+  template: null,
   options: DEFAULT_OPTIONS,
   history: emptyHistory<Track>(),
   clean: null,
@@ -101,7 +105,7 @@ export class TrackEditorStore {
     const next = { ...this.state, ...patch };
     // Los cambios pendientes salen de comparar con la pista limpia: deshacer hasta ahí los apaga.
     if ("track" in patch || "clean" in patch)
-      next.dirty = !!next.track && !!next.clean && !sameValue(next.clean, next.track);
+      next.dirty = !!next.track && (!next.clean || !sameValue(next.clean, next.track));
     this.state = next;
     if (soon) this.emitSoon();
     else this.emit();
@@ -118,6 +122,7 @@ export class TrackEditorStore {
       selection: EMPTY_SELECTION,
       issueSel: -1,
       tool: "select",
+      template: null,
     });
   }
 
@@ -131,6 +136,20 @@ export class TrackEditorStore {
       selection: EMPTY_SELECTION,
       issueSel: -1,
       tool: "draw",
+      template: null,
+    });
+  }
+
+  /** Recupera un borrador: queda como cambio pendiente (no hay pista limpia con la que compararlo). */
+  restore(track: Track): void {
+    this.set({
+      track,
+      clean: null,
+      history: emptyHistory<Track>(),
+      selection: EMPTY_SELECTION,
+      issueSel: -1,
+      tool: "select",
+      template: null,
     });
   }
 
@@ -222,9 +241,10 @@ export class TrackEditorStore {
     this.set({ selection: next });
   }
 
-  setTool(tool: Tool): void {
-    if (tool === this.state.tool) return;
-    this.set({ tool });
+  setTool(tool: Tool, template: string | null = null): void {
+    const tpl = tool === "tpl" ? template : null;
+    if (tool === this.state.tool && tpl === this.state.template) return;
+    this.set({ tool, template: tpl });
   }
 
   setOptions(patch: Partial<EditorOptions>): void {

@@ -1,9 +1,9 @@
-// Capa de edición sobre la escena: puntos de control, tramo seleccionado, vista previa del próximo
-// punto y rectángulo de selección por arrastre. Solo usa tokens de la consola (`themeColors()`);
-// la transparencia se hace con `globalAlpha`.
+// Capa de edición sobre la escena: puntos de control, tramo y zonas seleccionados, recuadro del grupo,
+// vista previa del próximo punto y rectángulos de arrastre. Solo usa tokens de la consola
+// (`themeColors()`); la transparencia se hace con `globalAlpha`.
 import type { Geometry } from "@/domain/track/types";
+import { groupBox, visibleNodes, type Hit } from "@/ui/components/track/hitTest";
 import type { Scene } from "@/ui/components/track/drawScene";
-import { visibleNodes, type Hit } from "@/ui/components/track/hitTest";
 import { worldToScreen, type Viewport } from "@/ui/components/track/viewport";
 
 type Colors = Record<string, string>;
@@ -19,13 +19,15 @@ export interface ScreenBox {
 /** Estado transitorio del puntero que solo existe mientras se interactúa. */
 export interface Overlay {
   hover: Hit | null;
-  /** Dónde caería el próximo punto al dibujar, en el tablero. */
+  /** Dónde caería el próximo punto al dibujar (ya ajustado), en el tablero. */
   ghost: { x: number; y: number } | null;
   /** Rectángulo de selección por arrastre, en pantalla. */
   box: ScreenBox | null;
+  /** Zona que se está dibujando, en el tablero. */
+  newZone: { x0: number; y0: number; x1: number; y1: number } | null;
 }
 
-export const EMPTY_OVERLAY: Overlay = { hover: null, ghost: null, box: null };
+export const EMPTY_OVERLAY: Overlay = { hover: null, ghost: null, box: null, newZone: null };
 
 function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -53,7 +55,7 @@ function drawNode(
   ctx.restore();
 }
 
-/** Dibuja la capa de edición de `scene` (si no hay selección, no dibuja nada). */
+/** Dibuja la capa de edición de `scene` (si no hay selección ni herramienta, no dibuja nada). */
 export function drawOverlay(
   ctx: CanvasRenderingContext2D,
   vp: Viewport,
@@ -86,22 +88,68 @@ export function drawOverlay(
     }
   }
 
+  // Zonas elegidas (con asa de redimensionado si es una sola)
+  for (const i of selection.zones) {
+    const z = track.zones[i];
+    if (!z) continue;
+    const [zx, zy] = worldToScreen(vp, z.x, z.y + z.height);
+    ctx.save();
+    ctx.strokeStyle = c["--ink"];
+    ctx.lineWidth = 2;
+    ctx.strokeRect(zx, zy, z.width * vp.z, z.height * vp.z);
+    if (selection.zones.length === 1 && selection.points.length === 0) {
+      const [hx, hy] = worldToScreen(vp, z.x + z.width, z.y);
+      ctx.fillStyle = c["--ink"];
+      ctx.fillRect(hx - 4, hy - 4, 8, 8);
+    }
+    ctx.restore();
+  }
+
   // Puntos de control
   const issueRef = scene.analysis?.issues[scene.issueSel]?.ref;
-  const shown = visibleNodes({
+  const nodeCtx = {
     track,
     selection,
     tool,
     showNodes: !!scene.showNodes,
     hover: overlay.hover,
     issueVertex: issueRef && issueRef.v !== undefined ? issueRef.v : null,
-  });
+  };
+  const shown = visibleNodes(nodeCtx);
   const hoveredIndex = overlay.hover && overlay.hover.type === "v" ? overlay.hover.i : -1;
   track.points.forEach((p, i) => {
     if (!shown.has(i)) return;
     const [x, y] = worldToScreen(vp, p.x, p.y);
     drawNode(ctx, x, y, selection.points.includes(i), i === hoveredIndex, c);
   });
+
+  // Recuadro del grupo con asas de giro y escala
+  if (tool === "select") {
+    const gb = groupBox({ track, selection, vp });
+    if (gb && !overlay.box) {
+      ctx.save();
+      ctx.strokeStyle = c["--blue"];
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(gb.x0, gb.y0, gb.x1 - gb.x0, gb.y1 - gb.y0);
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(gb.rx, gb.y0);
+      ctx.lineTo(gb.rx, gb.ry);
+      ctx.stroke();
+      ctx.fillStyle = c["--bg"];
+      ctx.beginPath();
+      ctx.arc(gb.rx, gb.ry, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      for (const [cx, cy] of gb.corners) {
+        ctx.fillStyle = c["--bg"];
+        ctx.fillRect(cx - 5, cy - 5, 10, 10);
+        ctx.strokeRect(cx - 5, cy - 5, 10, 10);
+      }
+      ctx.restore();
+    }
+  }
 
   // Vista previa del próximo punto al dibujar
   if (tool === "draw" && overlay.ghost) {
@@ -129,18 +177,40 @@ export function drawOverlay(
   // Rectángulo de selección por arrastre
   if (overlay.box) {
     const b = overlay.box;
-    const x = Math.min(b.x0, b.x1);
-    const y = Math.min(b.y0, b.y1);
-    const w = Math.abs(b.x1 - b.x0);
-    const h = Math.abs(b.y1 - b.y0);
     ctx.save();
     ctx.globalAlpha = 0.1;
     ctx.fillStyle = c["--blue"];
-    ctx.fillRect(x, y, w, h);
+    ctx.fillRect(
+      Math.min(b.x0, b.x1),
+      Math.min(b.y0, b.y1),
+      Math.abs(b.x1 - b.x0),
+      Math.abs(b.y1 - b.y0),
+    );
     ctx.globalAlpha = 1;
     ctx.strokeStyle = c["--blue"];
     ctx.setLineDash([4, 3]);
-    ctx.strokeRect(x, y, w, h);
+    ctx.strokeRect(
+      Math.min(b.x0, b.x1),
+      Math.min(b.y0, b.y1),
+      Math.abs(b.x1 - b.x0),
+      Math.abs(b.y1 - b.y0),
+    );
+    ctx.restore();
+  }
+
+  // Zona que se está dibujando
+  if (overlay.newZone) {
+    const z = overlay.newZone;
+    const [ax, ay] = worldToScreen(vp, Math.min(z.x0, z.x1), Math.max(z.y0, z.y1));
+    const [bx, by] = worldToScreen(vp, Math.max(z.x0, z.x1), Math.min(z.y0, z.y1));
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = c["--yellow"];
+    ctx.fillRect(ax, ay, bx - ax, by - ay);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = c["--yellow"];
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(ax, ay, bx - ax, by - ay);
     ctx.restore();
   }
 }

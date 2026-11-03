@@ -2,23 +2,27 @@
 // documento al confirmar cada campo. Las cotas de aviso usan los límites del dominio.
 import { useTrackEditor } from "@/application/state/TrackEditorProvider";
 import {
-  deletePoints,
+  deleteSelection,
+  duplicateZone,
+  MIN_ZONE_CM,
   reverseTrack,
   setBoard,
   setClosed,
   setEdgeLength,
   setName,
   setRadius,
+  setZone,
   toggleGap,
 } from "@/domain/track/commands";
 import { edgesOf } from "@/domain/track/geometry";
 import { TRACK_LIMITS } from "@/domain/track/limits";
 import { fmt } from "@/domain/track/rules";
-import { EMPTY_SELECTION, edgeSelection } from "@/domain/track/selection";
+import { EMPTY_SELECTION, edgeSelection, groupSize } from "@/domain/track/selection";
 import type { Track } from "@/domain/track/types";
+import { NameField } from "@/ui/components/track/NameField";
 import { messageFor } from "@/ui/components/track/fieldLabels";
 import { NumberField } from "@/ui/components/track/NumberField";
-import { NameField } from "@/ui/components/track/NameField";
+import { TransformPanel } from "@/ui/components/track/TransformPanel";
 
 const COORD = TRACK_LIMITS.coordAbsCm;
 
@@ -27,6 +31,69 @@ function common(values: number[]): number | null {
   return values.length > 0 && values.every((v) => Math.abs(v - values[0]) < 1e-9)
     ? values[0]
     : null;
+}
+
+function ZoneFields({ track, index }: { track: Track; index: number }) {
+  const editor = useTrackEditor();
+  const z = track.zones[index];
+  const set = (patch: Partial<typeof z>) => editor.applyTrack(setZone(track, index, patch));
+  const size = { min: MIN_ZONE_CM, max: TRACK_LIMITS.zoneSizeMaxCm };
+  return (
+    <>
+      <h3>Zona {index + 1}</h3>
+      <NameField
+        label="Nombre de la zona"
+        maxLength={TRACK_LIMITS.zoneNameLength}
+        value={z.name}
+        onCommit={(name) => set({ name })}
+      />
+      <div className="trk-row">
+        <NumberField
+          label="X"
+          unit="cm"
+          value={z.x}
+          min={-COORD}
+          max={COORD}
+          onCommit={(x) => set({ x })}
+        />
+        <NumberField
+          label="Y"
+          unit="cm"
+          value={z.y}
+          min={-COORD}
+          max={COORD}
+          onCommit={(y) => set({ y })}
+        />
+        <NumberField
+          label="Ancho"
+          unit="cm"
+          value={z.width}
+          {...size}
+          onCommit={(width) => set({ width })}
+        />
+        <NumberField
+          label="Alto"
+          unit="cm"
+          value={z.height}
+          {...size}
+          onCommit={(height) => set({ height })}
+        />
+      </div>
+      <div className="trk-menu" role="group" aria-label="Zona">
+        <button
+          type="button"
+          className="sb"
+          onClick={() => {
+            const next = duplicateZone(track, index);
+            if (next)
+              editor.applyTrack(next, { points: [], edge: null, zones: [next.zones.length - 1] });
+          }}
+        >
+          Duplicar zona
+        </button>
+      </div>
+    </>
+  );
 }
 
 function PointFields({ track, index }: { track: Track; index: number }) {
@@ -81,6 +148,9 @@ export function TrackInspector() {
   const single =
     selection.points.length === 1 && selection.edge === null ? selection.points[0] : null;
   const many = selection.points.length >= 2 && !edge;
+  const oneZone =
+    selection.zones.length === 1 && selection.points.length === 0 ? selection.zones[0] : null;
+  const count = groupSize(selection);
   const canClose = track.points.length >= 3;
 
   return (
@@ -208,20 +278,27 @@ export function TrackInspector() {
         </>
       )}
 
-      {selection.points.length > 0 && (
+      {oneZone !== null && track.zones[oneZone] && <ZoneFields track={track} index={oneZone} />}
+
+      {count > 0 && (
         <button
           type="button"
           className="sb"
-          onClick={() => editor.applyTrack(deletePoints(track, selection.points), EMPTY_SELECTION)}
+          onClick={() => editor.applyTrack(deleteSelection(track, selection), EMPTY_SELECTION)}
         >
-          {selection.points.length === 1
-            ? "Borrar punto"
-            : `Borrar ${selection.points.length} puntos`}
+          {selection.zones.length > 0
+            ? count === 1
+              ? "Borrar zona"
+              : `Borrar ${count} objetos`
+            : selection.points.length === 1
+              ? "Borrar punto"
+              : `Borrar ${selection.points.length} puntos`}
         </button>
       )}
-      {selection.points.length === 0 && (
-        <p className="note">Elige un punto o un tramo en el plano para editarlo.</p>
+      {count === 0 && (
+        <p className="note">Elige un punto, un tramo o una zona en el plano para editarlo.</p>
       )}
+      <TransformPanel />
       {track.points.length > 0 && (
         <p className="note">
           Salida: tramo {track.start.edge + 1}, al {fmt(track.start.t * 100)} %. Arrastra la bandera

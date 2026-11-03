@@ -110,7 +110,7 @@ describe("almacén del editor", () => {
     expect(s.track).toBeNull();
     expect(s.tool).toBe("select");
     expect(s.selection).toEqual(EMPTY_SELECTION);
-    expect(s.options).toEqual({ radius: 15, nodes: false });
+    expect(s.options).toEqual({ snap: true, step: 5, angStep: 15, radius: 15, nodes: false });
   });
 
   it("abre una pista y una pista nueva (con la herramienta de dibujo)", () => {
@@ -189,7 +189,7 @@ describe("almacén del editor", () => {
     expect(store.getState().tool).toBe("draw");
     store.setOptions({ radius: 20 });
     store.setOptions({ nodes: true });
-    expect(store.getState().options).toEqual({ radius: 20, nodes: true });
+    expect(store.getState().options).toMatchObject({ radius: 20, nodes: true });
     store.setSelection(pointSelection(9)); // fuera de rango: se descarta
     expect(store.getState().selection.points).toEqual([]);
     let n = 0;

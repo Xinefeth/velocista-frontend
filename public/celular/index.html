@@ -158,6 +158,8 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       </div>
       <div class="kv" style="margin-top:12px">
         <span>Pasos contados</span><b id="stepLive">—</b>
+        <span>Distancia aprox.</span><b id="stepDistLive">—</b>
+        <span>Dirección</span><b id="stepDirLive">—</b>
         <span id="stepGpsLbl" hidden>Distancia GPS</span><b id="stepGpsLive" hidden>—</b>
       </div>
       <div class="row"><button class="sb red wide" id="btnStepWalk">Empezar caminata 1 de 3</button></div>
@@ -438,10 +440,12 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => {
 }));
 
 /* ---------- 2. calibración ---------- */
+let CAL = null; // última calibración leída del backend
 async function refreshCalibration() {
   try {
     const s = await api("/api/calibrations/" + encodeURIComponent(DEVICE));
     const c = s.calibration;
+    CAL = c;
     $("#cGyro").textContent = c.gyro_calibrated ? "✔ sesgo " + fmt(c.gyro_bias_dps, 2) + " °/s" : "Falta";
     $("#cStep").textContent = c.step_length_m ? "✔ " + fmt(c.step_length_m, 3) + " m" : "Falta";
     $("#cCar").textContent = c.speed_k != null ? "✔ v = " + fmt(c.speed_k, 4) + "·PWM + " + fmt(c.speed_c, 3) : "Falta (solo carro)";
@@ -535,8 +539,13 @@ $("#btnStepWalk").onclick = async () => {
       if (!gps && !(dist > 0)) throw new Error("Escribe la distancia de la recta.");
       if (gps && !(goal >= 20)) throw new Error("La meta debe ser de al menos 20 m.");
       if (gps && !live.fix) throw new Error("No hay señal GPS. Activa los sensores y sal al aire libre.");
-      stepWalk = { gps, dist, goal, readings: [], count: stepCounter(), start: null, warned: false };
+      stepWalk = { gps, dist, goal, readings: [], count: stepCounter(), start: null, warned: false, heading: 0, lastT: null };
+      // Paso para la distancia en vivo: la calibración anterior o 0,70 m (promedio de un adulto).
+      stepWalk.stepM = (CAL && CAL.step_length_m) || 0.7;
+      stepWalk.bias = (CAL && CAL.gyro_calibrated && CAL.gyro_bias_dps) || 0;
       $("#stepLive").textContent = "0";
+      $("#stepDistLive").textContent = "0,00 m";
+      $("#stepDirLive").textContent = "recto ✔";
       if (gps) {
         stepBusy = true; b.disabled = true;
         const fixes = await collectStill(5, "#stepMsg", "Quédate quieta: marcando el inicio");
@@ -562,7 +571,17 @@ $("#btnStepWalk").onclick = async () => {
       stepWalk.fn = (t, gz, acc) => {
         if (!acc) return;
         stepWalk.readings.push({ seq: stepWalk.readings.length, t_ms: t, kind: "motion", gyro_z_dps: gz, accel: acc });
-        $("#stepLive").textContent = stepWalk.count(t, acc);
+        const steps = stepWalk.count(t, acc);
+        $("#stepLive").textContent = steps;
+        const d = steps * stepWalk.stepM;
+        $("#stepDistLive").textContent = "≈ " + fmt(d, 2) + " m" + (stepWalk.gps ? "" : " de " + fmt(stepWalk.dist, 1) + " m");
+        // Giro acumulado desde el inicio (giroscopio menos su sesgo); positivo = a la izquierda.
+        if (gz != null && stepWalk.lastT != null) stepWalk.heading += (gz - stepWalk.bias) * Math.min(t - stepWalk.lastT, 1000) / 1000;
+        if (gz != null) stepWalk.lastT = t;
+        const turn = stepWalk.heading;
+        $("#stepDirLive").textContent = Math.abs(turn) < 15 ? "recto ✔"
+          : "giraste " + fmt(Math.abs(turn), 0) + "° a la " + (turn > 0 ? "izquierda" : "derecha") + ": corrige";
+        $("#stepDirLive").style.color = Math.abs(turn) < 15 ? "var(--green)" : "var(--yellow)";
       };
       live.listeners.add(stepWalk.fn);
       b.textContent = "Terminar caminata " + (stepTrials.length + 1); b.className = "sb wide stop";

@@ -40,6 +40,7 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradi
 .sb.stop{background:var(--panel3);border-color:var(--red);color:var(--red-hi)}
 .go{width:100%;height:62px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--mono);font-size:16px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 10px 30px -8px rgba(255,45,85,.6)}
 .go.stop{background:var(--panel3);color:var(--ink);box-shadow:0 0 0 1px var(--red) inset}
+.bigside{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,45,85,.4);border-radius:12px;background:var(--red-soft)}.bigside span{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--red-hi)}.bigside b{font-family:var(--mono);font-size:40px;font-weight:500;font-variant-numeric:tabular-nums}
 #btnCorner{height:72px;font-size:15px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .row>*{flex:1 1 140px}
@@ -221,7 +222,9 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     </section>
     <section class="card" id="runBox" hidden>
       <div class="hd"><h2>Midiendo…</h2><span class="tag red"><span class="dot"></span>En vivo</span></div>
+      <div class="bigside"><span id="bigSideLbl">Lado 1</span><b id="bigSide">0,0 m</b></div>
       <canvas id="cvLive"></canvas>
+      <p class="hint">Al girar en una esquina, el lado se marca solo y la cuenta vuelve a 0.</p>
       <p class="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
       <p class="hint">El mapa es aproximado. <b>Termina en tu marca real del piso</b>, aunque el mapa muestre el inicio en otro lugar: esa diferencia es el error que el sistema mide y corrige.</p>
       <div class="kv" style="margin-top:10px">
@@ -755,7 +758,7 @@ $("#btnStart").onclick = async () => {
       // recorrido en vivo (aproximado; el resultado final lo calcula el backend con correcciones)
       path: [{ x: 0, y: 0 }], marks: [], heading: 0, lastT: null, steps: 0, dist: 0, count: stepCounter(),
       stepM: (CAL && CAL.step_length_m) || 0.7, bias: (CAL && CAL.gyro_calibrated && CAL.gyro_bias_dps) || 0,
-      gps0: null, lastCorner: 0, sides: [], sideFrom: 0, sideIdx: [0] };
+      gps0: null, lastCorner: 0, sides: [], sideFrom: 0, sideIdx: [0], sideHeading: null };
     run.motionFn = (t, gz, acc) => {
       if (method === "gps") return;
       const r = { seq: run.seq++, t_ms: t, kind: "motion" };
@@ -772,6 +775,11 @@ $("#btnStart").onclick = async () => {
         run.path.push({ x: last.x + run.stepM * Math.cos(a), y: last.y + run.stepM * Math.sin(a) });
         run.dist += run.stepM;
       }
+      // Esquina automática: el rumbo del lado se fija tras caminar 0,5 m; si después giras más de 60°
+      // (y ya caminaste 1 m en este lado) se marca la esquina y la cuenta del lado vuelve a 0.
+      const walked = run.dist - run.sideFrom;
+      if (run.sideHeading == null && walked >= 0.5) run.sideHeading = run.heading;
+      if (run.sideHeading != null && walked >= 1 && Math.abs(run.heading - run.sideHeading) > 60) markCorner(true);
     };
     run.fixFn = (f) => {
       run.queue.push({ seq: run.seq++, t_ms: f.t_ms, kind: "gps", lat: f.lat, lon: f.lon, accuracy_m: f.accuracy_m });
@@ -809,19 +817,24 @@ async function flush() {
   } finally { run.sending = false; }
 }
 
-$("#btnCorner").onclick = () => {
+$("#btnCorner").onclick = () => markCorner(false);
+function markCorner(auto) {
   if (!run) return;
   const now = Date.now();
-  if (now - run.lastCorner < 1500) { msg("#runMsg", "Esa esquina ya se marcó. Camina hasta la siguiente."); return; }
-  run.lastCorner = now;
+  // el botón no vuelve a marcar una esquina que el giro marcó hace poco (4 s)
+  if (now - run.lastCorner < (auto ? 1500 : run.lastAuto ? 4000 : 1500)) {
+    if (!auto) msg("#runMsg", "Esa esquina ya se marcó. Camina hasta la siguiente.");
+    return;
+  }
+  run.lastCorner = now; run.lastAuto = auto; run.sideHeading = null;
   run.queue.push({ seq: run.seq++, t_ms: now, kind: "corner" });
   run.marks.push(run.path[run.path.length - 1]);
   const side = run.dist - run.sideFrom;
   run.sides.push(side); run.sideFrom = run.dist; run.sideIdx.push(run.path.length - 1);
   run.corners++; $("#rCorners").textContent = run.corners;
-  msg("#runMsg", "Esquina " + run.corners + " marcada ✔ · lado " + run.sides.length + ": " + fmt(side, 1) + " m", "good");
-  if (navigator.vibrate) navigator.vibrate(120);
-};
+  msg("#runMsg", (auto ? "Giraste: " : "") + "esquina " + run.corners + " ✔ · lado " + run.sides.length + " = " + fmt(side, 1) + " m. Empieza el lado " + (run.sides.length + 1) + ".", "good");
+  if (navigator.vibrate) navigator.vibrate(auto ? [120, 80, 120] : 120);
+}
 
 /* Mapa en vivo: inicio, camino, posición actual y esquinas; distancia para volver al inicio. */
 function drawLive() {
@@ -875,6 +888,8 @@ function drawLive() {
   $("#rSteps").textContent = run.method === "gps" ? "—" : run.steps;
   $("#rDist").textContent = fmt(run.dist, 1) + " m";
   $("#rSide").textContent = "lado " + (run.sides.length + 1) + ": " + fmt(run.dist - run.sideFrom, 1) + " m";
+  $("#bigSideLbl").textContent = run.method === "gps" ? "Recorrido" : "Lado " + (run.sides.length + 1);
+  $("#bigSide").textContent = fmt(run.method === "gps" ? run.dist : run.dist - run.sideFrom, 1) + " m";
   $("#rSides").textContent = run.sides.length ? run.sides.map((s, i) => (i + 1) + ") " + fmt(s, 1) + " m").join(" · ") : "—";
   $("#rBack").textContent = "a " + fmt(back, 1) + " m";
   $("#rBack").style.color = run.dist > 5 && back < 1.5 ? "var(--green)" : "";

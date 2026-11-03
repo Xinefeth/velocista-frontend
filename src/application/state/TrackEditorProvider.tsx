@@ -5,6 +5,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -19,6 +20,11 @@ import {
   type EditorOptions,
   type Tool,
 } from "@/application/state/trackEditorStore";
+import {
+  NO_LENGTH_MESSAGE,
+  TrackSimulation,
+  type SimulationState,
+} from "@/application/state/trackSimulation";
 import { sameValue } from "@/domain/track/history";
 import { normalizeTrack, validateTrack } from "@/domain/track/limits";
 import { GEOMETRY_ONLY_RULES, analyze } from "@/domain/track/rules";
@@ -39,12 +45,30 @@ export interface SaveState {
 
 const IDLE: SaveState = { status: "idle", message: "", fields: [] };
 
+/** Simulación de vuelta con el robot de prueba (no cambia el documento). */
+export interface SimulationControls {
+  state: SimulationState;
+  /** Abre la barra de simulación; devuelve el motivo si no se pudo (la pista no tiene largo). */
+  open: () => string | null;
+  close: () => void;
+  toggle: () => void;
+  /** Coloca el robot a una fracción (0..1) de la vuelta. */
+  seek: (fraction: number) => void;
+  setParams: TrackSimulation["setParams"];
+  /** Posición (0..1) y tiempos transcurrido / total, en segundos. */
+  progress: { fraction: number; elapsed: number; total: number };
+  /** Para el controlador del lienzo, que lo lee sin pasar por React. */
+  store: TrackSimulation;
+}
+
 interface TrackEditor {
   /** Almacén del editor (lo usa el controlador del lienzo para leer y escribir sin pasar por React). */
   store: TrackEditorStore;
   /** Pista abierta, o `null`. */
   track: Track | null;
   openTrack: (track: Track) => void;
+  /** Abre una pista que aún no está en la API (importada o recuperada): queda con cambios pendientes. */
+  restoreTrack: (track: Track) => void;
   /** Empieza una pista en blanco. */
   newTrack: () => void;
   closeTrack: () => void;
@@ -79,6 +103,7 @@ interface TrackEditor {
   analysis: Analysis | null;
   issueSel: number;
   selectIssue: (index: number) => void;
+  sim: SimulationControls;
 }
 
 const Context = createContext<TrackEditor | null>(null);
@@ -96,6 +121,8 @@ export function TrackEditorProvider({
   const state = useSyncExternalStore(store.subscribe, store.getState);
   // El perfil forma parte de la pista (`profile_id`): así deshacer, guardar y abrir lo respetan.
   const profileId = state.track?.profileId ?? null;
+  const simStore = useMemo(() => new TrackSimulation(), []);
+  const sim = useSyncExternalStore(simStore.subscribe, simStore.getState);
   const [saveState, setSaveState] = useState<SaveState>(IDLE);
   const saving = useRef(false);
   const onSavedRef = useRef(onSaved);
@@ -103,19 +130,30 @@ export function TrackEditorProvider({
 
   const openTrack = useCallback(
     (next: Track) => {
+      simStore.close();
       store.open(next);
       setSaveState(IDLE);
     },
-    [store],
+    [store, simStore],
+  );
+  const restoreTrack = useCallback(
+    (next: Track) => {
+      simStore.close();
+      store.restore(next);
+      setSaveState(IDLE);
+    },
+    [store, simStore],
   );
   const newTrack = useCallback(() => {
+    simStore.close();
     store.newTrack();
     setSaveState(IDLE);
-  }, [store]);
+  }, [store, simStore]);
   const closeTrack = useCallback(() => {
+    simStore.close();
     store.close();
     setSaveState(IDLE);
-  }, [store]);
+  }, [store, simStore]);
   const selectProfile = useCallback(
     (id: string | null) => {
       store.selectIssue(-1);
@@ -183,11 +221,70 @@ export function TrackEditorProvider({
     return rules ? result : { ...result, issues: [] };
   }, [state.track, rules]);
 
+  // La geometría viva para la simulación: se lee desde el bucle de animación sin volver a suscribirse.
+  const liveRef = useRef<{ analysis: Analysis | null; start: Track["start"] | null }>({
+    analysis: null,
+    start: null,
+  });
+  liveRef.current = { analysis, start: state.track?.start ?? null };
+
+  // Si la pista editada se queda sin largo, la simulación se cierra sola.
+  const noLength = !analysis || analysis.g.L <= 0;
+  useEffect(() => {
+    if (noLength) simStore.close();
+  }, [noLength, simStore]);
+
+  // Bucle de animación: solo corre mientras se reproduce.
+  useEffect(() => {
+    if (!sim.playing) return;
+    let raf = 0;
+    let last = 0;
+    const frame = (ts: number) => {
+      const g = liveRef.current.analysis?.g;
+      if (!g) return;
+      simStore.tick(g, last ? (ts - last) / 1000 : 0);
+      last = ts;
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [sim.playing, simStore]);
+
+  const simControls = useMemo<SimulationControls>(
+    () => ({
+      state: sim,
+      open: () => {
+        const { analysis: a, start } = liveRef.current;
+        if (!a || !start || !simStore.open(a.g, start)) return NO_LENGTH_MESSAGE;
+        return null;
+      },
+      close: () => simStore.close(),
+      toggle: () => {
+        const g = liveRef.current.analysis?.g;
+        if (g) simStore.toggle(g);
+      },
+      seek: (f) => {
+        const { analysis: a, start } = liveRef.current;
+        if (a && start) simStore.seek(a.g, start, f);
+      },
+      setParams: (p) => simStore.setParams(p),
+      progress:
+        analysis && state.track
+          ? simStore.progress(analysis.g, state.track.start)
+          : { fraction: 0, elapsed: 0, total: 0 },
+      store: simStore,
+    }),
+    // `sim` cambia en cada cuadro: el progreso se recalcula con él.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sim, simStore, analysis, state.track?.start],
+  );
+
   const value = useMemo<TrackEditor>(
     () => ({
       store,
       track: state.track,
       openTrack,
+      restoreTrack,
       newTrack,
       closeTrack,
       applyTrack: (track, selection) => store.apply(track, selection),
@@ -214,11 +311,13 @@ export function TrackEditorProvider({
       analysis,
       issueSel: state.issueSel,
       selectIssue: (i) => store.selectIssue(i),
+      sim: simControls,
     }),
     [
       store,
       state,
       openTrack,
+      restoreTrack,
       newTrack,
       closeTrack,
       save,
@@ -229,6 +328,7 @@ export function TrackEditorProvider({
       rules,
       selectProfile,
       analysis,
+      simControls,
     ],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;

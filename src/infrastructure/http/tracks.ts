@@ -100,3 +100,46 @@ export const tracksApi = {
     return requestFile(`${idPath(id)}/export`);
   },
 };
+
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+/**
+ * Lee una pista con la forma del contrato (la que exporta la API: `board.width_cm`, `profile_id`…) y la
+ * traduce al dominio, sin id. Ignora largo, perímetro, área y fechas (se recalculan). Lanza `Error` con un
+ * mensaje claro si falta algo o tiene el tipo equivocado. No ejecuta ni interpreta nada del contenido.
+ */
+export function trackFromWire(data: unknown): Track {
+  if (!isObject(data)) throw new Error("El archivo no contiene una pista.");
+  if (typeof data.name !== "string") throw new Error("Falta el nombre de la pista (name).");
+  const board = data.board;
+  if (!isObject(board) || !isNum(board.width_cm) || !isNum(board.height_cm))
+    throw new Error("Falta el tablero (board.width_cm y board.height_cm).");
+  if (!Array.isArray(data.points)) throw new Error("Falta la lista de puntos (points).");
+  const points = data.points.map((p, i) => {
+    if (!isObject(p) || !isNum(p.x) || !isNum(p.y))
+      throw new Error(`El punto ${i + 1} no tiene coordenadas x e y numéricas.`);
+    if (p.radius !== undefined && !isNum(p.radius))
+      throw new Error(`El radio del punto ${i + 1} no es un número.`);
+    return { x: p.x, y: p.y, radius: isNum(p.radius) ? p.radius : 0, gap: p.gap === true };
+  });
+  const zonesRaw = data.zones === undefined ? [] : data.zones;
+  if (!Array.isArray(zonesRaw)) throw new Error("La lista de zonas (zones) no es válida.");
+  const zones = zonesRaw.map((z, i) => {
+    if (!isObject(z) || !isNum(z.x) || !isNum(z.y) || !isNum(z.width) || !isNum(z.height))
+      throw new Error(`La zona ${i + 1} necesita x, y, width y height numéricos.`);
+    return { x: z.x, y: z.y, width: z.width, height: z.height, name: String(z.name ?? "") };
+  });
+  const start = isObject(data.start) ? data.start : {};
+  return {
+    id: null,
+    name: data.name,
+    board: { widthCm: board.width_cm, heightCm: board.height_cm },
+    closed: data.closed === true,
+    points,
+    zones,
+    start: { edge: isNum(start.edge) ? start.edge : 0, t: isNum(start.t) ? start.t : 0.5 },
+    profileId: typeof data.profile_id === "string" ? data.profile_id : null,
+  };
+}

@@ -10,7 +10,9 @@ import { GEOMETRY_ONLY_RULES } from "@/domain/track/rules";
 
 export interface TrackExport {
   /** Descarga el archivo y devuelve el mensaje para el piloto. */
-  run: (kind: ExportKind) => Promise<string>;
+  run: (kind: Exclude<ExportKind, "png">) => Promise<string>;
+  /** Descarga el PNG del plano (lo dibuja la capa de interfaz) y devuelve el mensaje para el piloto. */
+  savePng: (png: Blob) => string;
 }
 
 /**
@@ -19,7 +21,7 @@ export interface TrackExport {
  */
 export function useTrackExport(track: Track | null, rules: TrackRules | null): TrackExport {
   const run = useCallback(
-    async (kind: ExportKind): Promise<string> => {
+    async (kind: Exclude<ExportKind, "png">): Promise<string> => {
       if (!track) return "Abre una pista antes de exportar.";
       if (kind === "json") {
         try {
@@ -46,5 +48,13 @@ export function useTrackExport(track: Track | null, rules: TrackRules | null): T
     },
     [track, rules],
   );
-  return { run };
+  const savePng = useCallback(
+    (png: Blob): string => {
+      const name = exportFilename(track?.name ?? "", "png");
+      saveBlob(name, png, "image/png");
+      return `Guardado: ${name}`;
+    },
+    [track?.name],
+  );
+  return { run, savePng };
 }

@@ -26,6 +26,8 @@ export function TrackCanvas() {
   const editor = useTrackEditor();
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  const simRef = useRef(editor.sim.state);
+  simRef.current = editor.sim.state;
   const [message, setMessage] = useState("");
   const [coords, setCoords] = useState("");
   const [menu, setMenu] = useState<{ request: MenuRequest; items: MenuItem[] } | null>(null);
@@ -48,6 +50,10 @@ export function TrackCanvas() {
           selection: s.selection,
           tool: s.tool,
           showNodes: s.options.nodes,
+          dims: s.options.dims,
+          sim: simRef.current.on
+            ? { s: simRef.current.s, w: simRef.current.width, l: simRef.current.length }
+            : null,
         };
       },
       getOptions: () => editorRef.current.store.getState().options,
@@ -63,6 +69,10 @@ export function TrackCanvas() {
       toggleNodes: () =>
         editorRef.current.store.setOptions({
           nodes: !editorRef.current.store.getState().options.nodes,
+        }),
+      toggleDims: () =>
+        editorRef.current.store.setOptions({
+          dims: !editorRef.current.store.getState().options.dims,
         }),
       toggleSnap: () =>
         editorRef.current.store.setOptions({
@@ -100,6 +110,9 @@ export function TrackCanvas() {
   }, [closeMenu]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+  // El robot de la simulación cambia fuera del almacén del editor: se pide un redibujado.
+  const { sim } = editor;
+  useEffect(() => controller.redraw(), [controller, sim.state]);
   const ref = useCanvas((cv) => controller.render(cv));
   useEffect(() => {
     const cv = ref.current;

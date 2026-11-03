@@ -17,6 +17,7 @@ export function IssuesPanel({
   onSelect,
   measures,
   areaReason,
+  onFix,
 }: {
   analysis: Analysis | null;
   /** Largo, perímetro y área de la pista abierta (en cm y cm²). */
@@ -27,6 +28,8 @@ export function IssuesPanel({
   verified: boolean;
   issueSel: number;
   onSelect: (index: number) => void;
+  /** Aplica la corrección de un clic de una incidencia (aviso «ajuste»). */
+  onFix?: (fix: { v: number; r: number }) => void;
 }) {
   if (!analysis) return <p className="empty">Abre una pista para verla verificada.</p>;
   const { stats, issues } = analysis;
@@ -72,8 +75,10 @@ export function IssuesPanel({
           </span>
         )}
       </div>
-      <p className="trk-sr" role="status">
-        {verified ? `${errors} errores y ${warns} avisos` : "Sin verificación"}
+      <p className="trk-sr" role="status" aria-live="polite">
+        {verified
+          ? `${errors} ${errors === 1 ? "problema" : "problemas"} y ${warns} ${warns === 1 ? "aviso" : "avisos"}`
+          : "Sin verificación"}
       </p>
       <div className="kv trk-stats" aria-label="Estadísticas de la pista">
         {cells.map(([label, value, hint]) => (
@@ -105,6 +110,18 @@ export function IssuesPanel({
                 <SeverityTag sev={issue.sev} />
                 <span>{issue.msg}</span>
               </button>
+              {issue.fix && onFix && (
+                <div className="trk-fix">
+                  <button
+                    type="button"
+                    className="sb"
+                    title="Baja el radio de este punto y el de sus vecinos recortados al que realmente entra"
+                    onClick={() => onFix(issue.fix!)}
+                  >
+                    Usar el radio que entra (R {fmt(issue.fix.r)})
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

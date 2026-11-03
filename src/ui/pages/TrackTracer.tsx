@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTrackDraft } from "@/application/hooks/useTrackDraft";
 import { useTrackExport } from "@/application/hooks/useTrackExport";
+import { useTrackImport } from "@/application/hooks/useTrackImport";
 import { useTracks, type TracksState } from "@/application/hooks/useTracks";
 import { TrackEditorProvider, useTrackEditor } from "@/application/state/TrackEditorProvider";
+import { fitRadii } from "@/domain/track/commands";
 import { EXAMPLES } from "@/domain/track/examples";
 import type { ExportKind } from "@/domain/track/files";
 import { areaUnavailableReason, measures } from "@/domain/track/measures";
@@ -14,6 +16,8 @@ import { DraftBanner } from "@/ui/components/track/DraftBanner";
 import { ExportMenu } from "@/ui/components/track/ExportMenu";
 import { IssuesPanel } from "@/ui/components/track/IssuesPanel";
 import { ProfilePicker } from "@/ui/components/track/ProfilePicker";
+import { renderPlanPng } from "@/ui/components/track/exportPng";
+import { SimulationBar } from "@/ui/components/track/SimulationBar";
 import { TrackCanvas } from "@/ui/components/track/TrackCanvas";
 import { TrackInspector } from "@/ui/components/track/TrackInspector";
 import { TrackList } from "@/ui/components/track/TrackList";
@@ -49,7 +53,13 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
   const editor = useTrackEditor();
   const exporter = useTrackExport(editor.track, editor.rules);
   const draft = useTrackDraft(editor.store);
+  const profileIds = useMemo(
+    () => (editor.profiles.profiles.length ? editor.profiles.profiles.map((p) => p.id) : null),
+    [editor.profiles.profiles],
+  );
+  const importer = useTrackImport(profileIds);
   const [message, setMessage] = useState("");
+  const [simMessage, setSimMessage] = useState("");
   /** Acción que espera la confirmación de descartar cambios sin guardar. */
   const [pending, setPending] = useState<(() => void) | null>(null);
 
@@ -80,7 +90,34 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
     editor.openTrack(t);
     setMessage("");
   };
-  const exportAs = async (kind: ExportKind) => setMessage(await exporter.run(kind));
+  const exportAs = async (kind: ExportKind) => {
+    if (kind !== "png") return setMessage(await exporter.run(kind));
+    if (!editor.track || !editor.analysis) return setMessage("Abre una pista antes de exportar.");
+    try {
+      const png = await renderPlanPng({
+        track: editor.track,
+        analysis: editor.analysis,
+        rules: editor.rules,
+        profileName: editor.profile?.name ?? null,
+        dims: editor.options.dims,
+      });
+      setMessage(exporter.savePng(png));
+    } catch (e) {
+      setMessage(
+        `No se pudo crear el PNG: ${e instanceof Error ? e.message : "error desconocido"}`,
+      );
+    }
+  };
+  const importFile = async (file: File) => {
+    const result = await importer.readFile(file);
+    if (!result.ok) return setMessage(`No se pudo importar: ${result.message}`);
+    guarded(() => {
+      editor.restoreTrack(result.track);
+      setMessage(
+        ["Pista importada: guárdala para crearla en la API.", ...result.notices].join(" "),
+      );
+    })();
+  };
 
   const m = useMemo(() => (editor.track ? measures(editor.track) : null), [editor.track]);
   const areaReason = useMemo(
@@ -144,13 +181,19 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
         />
         <SaveStatus />
         <TrackCanvas />
+        <SimulationBar message={simMessage} onMessage={setSimMessage} />
         {t && t.id !== null && (
           <p className="note">
             La API guarda la última versión que recibe: si abres esta pista en dos pestañas, gana la
             que se guarde al final (no hay aviso de conflicto).
           </p>
         )}
-        <ExportMenu disabled={!t} message={message} onExport={exportAs} />
+        <ExportMenu
+          disabled={!t}
+          message={message}
+          onExport={exportAs}
+          onImport={(file) => void importFile(file)}
+        />
       </Card>
       <div className="s4 stack">
         <Card>
@@ -168,6 +211,9 @@ function TrackTracerView({ tracks }: { tracks: TracksState }) {
             verified={editor.rules !== null}
             issueSel={editor.issueSel}
             onSelect={editor.selectIssue}
+            onFix={(fix) => {
+              if (editor.track) editor.applyTrack(fitRadii(editor.track, fix.v));
+            }}
             measures={m}
             areaReason={areaReason}
           />

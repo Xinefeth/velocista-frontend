@@ -280,3 +280,30 @@
   gap: 8px;
   align-items: end;
 }
+
+/* Simulación de vuelta */
+.trk-sim {
+  margin-top: 10px;
+}
+.trk-num {
+  width: 7ch;
+  height: 28px;
+  padding: 0 6px;
+  text-align: right;
+  font-size: 12px;
+}
+.trk-range {
+  flex: 1 1 140px;
+  min-width: 100px;
+  accent-color: var(--red);
+}
+.trk-range:focus-visible,
+.trk-canvas:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+/* Corrección de un clic bajo una incidencia */
+.trk-fix {
+  padding: 6px 0 0 10px;
+}

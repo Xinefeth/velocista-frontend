@@ -81,7 +81,12 @@ beforeEach(() => {
     toJSON: () => ({}),
   } as DOMRect);
   const ctx = new Proxy({} as Record<string, unknown>, {
-    get: (target, prop: string) => (prop in target ? target[prop] : () => undefined),
+    get: (target, prop: string) =>
+      prop in target
+        ? target[prop]
+        : prop === "measureText"
+          ? () => ({ width: 20 })
+          : () => undefined,
     set: (target, prop: string, value) => {
       target[prop] = value;
       return true;

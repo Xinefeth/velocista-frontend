@@ -76,6 +76,7 @@ export interface TrackCanvasHost {
   toggleNodes(): void;
   /** Alterna el ajuste a la rejilla. */
   toggleSnap(): void;
+  toggleDims(): void;
   /** Mensaje breve para el piloto. */
   notify(message: string): void;
   /** Texto de coordenadas bajo el puntero (opcional). */
@@ -182,6 +183,11 @@ export class TrackCanvasController {
     const colors = themeColors();
     drawScene(surface.ctx, surface.w, surface.h, this.vp, live, colors);
     drawOverlay(surface.ctx, this.vp, g, live, this.overlay, colors);
+  }
+
+  /** Pide un redibujado (cambió algo que el controlador no ve, como el robot de la simulación). */
+  redraw(): void {
+    this.schedule();
   }
 
   /** Reencuadra todo el tablero. */
@@ -729,6 +735,7 @@ export class TrackCanvasController {
     else if (k === "-") this.zoomBy(0.8);
     else if (k === "n") this.host.toggleNodes();
     else if (k === "g") this.host.toggleSnap();
+    else if (k === "c") this.host.toggleDims();
     else if (k.startsWith("arrow")) {
       const step = (opts.snap ? opts.step : 1) * (e.shiftKey ? 10 : 1);
       const dx = k === "arrowleft" ? -step : k === "arrowright" ? step : 0;

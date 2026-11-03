@@ -278,3 +278,28 @@ export function setStartAt(track: Track, ei: number, wx: number, wy: number): Tr
     );
   return { ...track, start: { edge: ei, t: Math.round(t * 1000) / 1000 } };
 }
+
+/**
+ * Corrección de un clic del aviso «ajuste»: baja al radio que entra el vértice `i` y también sus vecinos
+ * recortados (sus radios se calculan juntos, así que arreglar uno solo desplazaría el problema).
+ */
+export function fitRadii(track: Track, i: number): Track {
+  const V = build(track).V;
+  const n = track.points.length;
+  const cut = (k: number) => !!V[k] && V[k].r > 0 && V[k].r - V[k].rEff > 0.15;
+  const todo = new Set<number>([i]);
+  for (let grown = true; grown; ) {
+    grown = false;
+    for (const k of [...todo])
+      for (const m of [(k - 1 + n) % n, (k + 1) % n])
+        if (!todo.has(m) && cut(m)) {
+          todo.add(m);
+          grown = true;
+        }
+  }
+  const points = clonePoints(track);
+  todo.forEach((k) => {
+    if (points[k] && V[k]) points[k].radius = Math.floor(V[k].rEff * 10) / 10;
+  });
+  return { ...track, points };
+}

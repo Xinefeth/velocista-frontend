@@ -110,7 +110,14 @@ describe("almacén del editor", () => {
     expect(s.track).toBeNull();
     expect(s.tool).toBe("select");
     expect(s.selection).toEqual(EMPTY_SELECTION);
-    expect(s.options).toEqual({ snap: true, step: 5, angStep: 15, radius: 15, nodes: false });
+    expect(s.options).toEqual({
+      snap: true,
+      step: 5,
+      angStep: 15,
+      radius: 15,
+      nodes: false,
+      dims: true,
+    });
   });
 
   it("abre una pista y una pista nueva (con la herramienta de dibujo)", () => {

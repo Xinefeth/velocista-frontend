@@ -28,9 +28,16 @@ export interface EditorOptions extends SnapOptions {
   radius: number;
   /** Mostrar siempre todos los puntos de control. */
   nodes: boolean;
+  /** Mostrar las cotas (largos, radios y ángulos). Activas por defecto, como en el prototipo. */
+  dims: boolean;
 }
 
-export const DEFAULT_OPTIONS: EditorOptions = { ...DEFAULT_SNAP, radius: 15, nodes: false };
+export const DEFAULT_OPTIONS: EditorOptions = {
+  ...DEFAULT_SNAP,
+  radius: 15,
+  nodes: false,
+  dims: true,
+};
 
 export interface EditorState {
   /** Pista abierta, o `null`. */

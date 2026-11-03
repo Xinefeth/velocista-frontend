@@ -94,6 +94,7 @@ function harness(
     getOptions: () => store.getState().options,
     getTemplate: () => store.getState().template,
     toggleSnap: () => store.setOptions({ snap: !store.getState().options.snap }),
+    toggleDims: () => store.setOptions({ dims: !store.getState().options.dims }),
     openMenu: (r) => menus.push(r),
     closeMenu: () => closes.push(1),
     preview: (t) => store.preview(t),
@@ -123,7 +124,12 @@ function harness(
       toJSON: () => ({}),
     }) as DOMRect;
   const ctx = new Proxy({} as Record<string, unknown>, {
-    get: (target, prop: string) => (prop in target ? target[prop] : () => undefined),
+    get: (target, prop: string) =>
+      prop in target
+        ? target[prop]
+        : prop === "measureText"
+          ? () => ({ width: 20 })
+          : () => undefined,
     set: (target, prop: string, value) => {
       target[prop] = value;
       return true;

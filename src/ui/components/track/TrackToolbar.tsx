@@ -14,7 +14,7 @@ export function TrackToolbar({ onNew }: { onNew: () => void }) {
   const { options } = editor;
   return (
     <>
-      <div className="trk-bar">
+      <div className="trk-bar" role="toolbar" aria-label="Herramientas del plano">
         <div className="seg" role="group" aria-label="Herramienta">
           <button
             type="button"
@@ -53,6 +53,15 @@ export function TrackToolbar({ onNew }: { onNew: () => void }) {
             onClick={() => editor.setOptions({ nodes: !options.nodes })}
           >
             Puntos
+          </button>
+          <button
+            type="button"
+            aria-pressed={options.dims}
+            disabled={!has}
+            title="Largos, radios y ángulos sobre el plano (C)"
+            onClick={() => editor.setOptions({ dims: !options.dims })}
+          >
+            Cotas
           </button>
           <button
             type="button"
@@ -97,7 +106,7 @@ export function TrackToolbar({ onNew }: { onNew: () => void }) {
           ))}
         </select>
       </div>
-      <div className="trk-bar trk-tpls">
+      <div className="trk-bar trk-tpls" role="toolbar" aria-label="Plantillas de figuras">
         <span className="note">Plantillas</span>
         <div className="chips" role="group" aria-label="Plantillas">
           {TEMPLATES.map((t) => (
@@ -114,7 +123,7 @@ export function TrackToolbar({ onNew }: { onNew: () => void }) {
           ))}
         </div>
       </div>
-      <div className="trk-bar">
+      <div className="trk-bar" role="toolbar" aria-label="Historial y guardado">
         <div className="trk-menu" role="group" aria-label="Historial">
           <button
             type="button"

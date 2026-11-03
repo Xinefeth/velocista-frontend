@@ -55,6 +55,19 @@ carpetas están vacías: las pruebas las escribirá el equipo más adelante.
 | `tests/integration/` | Varias piezas juntas: hook + state + `http` con API simulada | Vitest + MSW |
 | `tests/e2e/` | Flujo completo en navegador (consola + backend arriba) | Playwright (a decidir) |
 
+## Trazador de pistas (EN-28)
+
+Vista de la consola para dibujar, verificar y guardar pistas. Sigue las mismas capas:
+
+- `domain/track/`: geometría, 13 reglas, plantillas, transformaciones, medidas, simulación, importación del prototipo v2. Solo importa de sí mismo.
+- `application/`: almacén del editor (`trackEditorStore`), simulación (`trackSimulation`), proveedor React y los hooks `useTracks`, `useTrackProfiles`, `useTrackDraft`, `useTrackExport`, `useTrackImport`.
+- `infrastructure/`: `http/tracks.ts` (traduce el contrato a `Track`), borrador local (`persistence/trackDraft.ts`) y descarga de archivos (`download/saveBlob.ts`).
+- `ui/components/track/` y `ui/pages/TrackTracer.tsx`: lienzo, barras, inspector, menú contextual, panel de verificación, barra de simulación, exportaciones (SVG, PNG, JSON) e importación. No importan de `@/infrastructure` (lo comprueba `tests/unit/track/layering.test.ts`).
+
+Paleta: solo los tokens de la consola más tres `--track-*` en `ui/styles/track.css`; `tests/unit/track/palette-guard.test.ts` falla si aparece un color literal. El PNG usa la paleta oscura de la consola (pregunta abierta 15) y «SVG con cotas» **no** existe hasta que lo confirme el PO (pregunta abierta 3).
+
+Pruebas del Trazador: `tests/unit/track/` (dominio, controlador, almacén, cotas, simulación, importación y PNG), `tests/unit/track-draft.test.ts`, `tests/black-box/pages/track-*.test.tsx` (vista completa con API y lienzo simulados) y `tests/integration/qa-live-tracks.test.ts` (opt-in con `RUN_LIVE_QA=1`).
+
 ## Política de idioma y contrato (migración por fases)
 
 - **Hecho:** estructura Clean, nombres de carpeta y archivo en inglés, imports con alias,

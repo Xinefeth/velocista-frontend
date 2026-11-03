@@ -218,12 +218,18 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <p class="hint" id="startMsg"></p>
     </section>
     <section class="card" id="runBox" hidden>
-      <div class="hd"><h2>Midiendo…</h2></div>
-      <div class="kv">
-        <span>Lecturas enviadas</span><b id="rSent">0</b>
-        <span>Pendientes de enviar</span><b id="rPend">0</b>
+      <div class="hd"><h2>Midiendo…</h2><span class="tag red"><span class="dot"></span>En vivo</span></div>
+      <canvas id="cvLive"></canvas>
+      <p class="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
+      <div class="kv" style="margin-top:10px">
+        <span>Pasos</span><b id="rSteps">0</b>
+        <span>Distancia caminada</span><b id="rDist">0 m</b>
+        <span>Para volver al inicio</span><b id="rBack">—</b>
+        <span>Dirección</span><b id="rDir">—</b>
         <span>Esquinas marcadas</span><b id="rCorners">0</b>
         <span>Tiempo</span><b id="rTime">0 s</b>
+        <span>Lecturas enviadas</span><b id="rSent">0</b>
+        <span>Pendientes de enviar</span><b id="rPend">0</b>
       </div>
       <div class="row"><button class="sb wide" id="btnCorner">Marcar esquina</button></div>
       <div class="row"><button class="go stop" id="btnFinish">Terminar y calcular</button></div>
@@ -255,28 +261,36 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
   <!-- ===================== 4. ERROR GPS (SP-06) ===================== -->
   <div data-panel="gps" hidden>
     <section class="card">
-      <div class="hd"><h2>Prueba de error del GPS</h2></div>
-      <ol>
-        <li>Mide con cinta una distancia <b>mayor a 15 m</b> (30, 50 o 100 m). Escribe 0 si vuelves al mismo punto.</li>
-        <li>Párate en el inicio, toca "Marcar inicio" y quédate quieta hasta que termine.</li>
-        <li>Camina al final, toca "Marcar fin" y quédate quieta otra vez.</li>
-      </ol>
-      <label class="lbl" for="gPlace">Lugar</label>
-      <input class="inp" id="gPlace" placeholder="Ej. Cancha de fútbol">
-      <label class="lbl" for="gEnv">Entorno</label>
-      <select class="inp" id="gEnv">
-        <option value="open">Al aire libre</option>
-        <option value="buildings">Cerca de edificios</option>
-        <option value="trees">Bajo árboles</option>
-        <option value="indoor">Bajo techo</option>
-      </select>
-      <label class="lbl" for="gReal">Distancia real con cinta (m)</label>
-      <input class="inp" id="gReal" type="number" inputmode="decimal" value="30">
-      <label class="lbl" for="gSecs">Segundos quieta en cada punto</label>
-      <input class="inp" id="gSecs" type="number" inputmode="numeric" value="20" min="5">
-      <div class="row"><button class="sb red wide" id="btnGStart">Marcar inicio</button><button class="sb red wide" id="btnGEnd" disabled>Marcar fin</button></div>
+      <div class="hd"><h2>¿Cuánto se equivoca el GPS?</h2><span class="tag" id="gStage">Paso 1 de 3</span></div>
+      <p class="hint">Necesitas una distancia que ya conozcas (cinta, líneas de una cancha o baldosas) <b>al aire libre</b>. El sistema compara lo que dice el GPS con la distancia real.</p>
+      <div id="gSetup">
+        <label class="lbl" for="gPlace">Lugar</label>
+        <input class="inp" id="gPlace" placeholder="Ej. Cancha de fútbol">
+        <label class="lbl" for="gEnv">¿Cómo es el lugar?</label>
+        <select class="inp" id="gEnv">
+          <option value="open">Al aire libre, sin edificios cerca</option>
+          <option value="buildings">Cerca de edificios</option>
+          <option value="trees">Bajo árboles</option>
+          <option value="indoor">Bajo techo</option>
+        </select>
+        <label class="lbl" for="gReal">Distancia real entre el inicio y el final (m)</label>
+        <input class="inp" id="gReal" type="number" inputmode="decimal" value="30">
+        <p class="hint">Usa más de 15 m (30 o 50 m es mejor): el GPS suele equivocarse varios metros.</p>
+      </div>
+      <div class="semaforo" id="gGuide" style="margin-top:12px"><span class="dotl"></span><div><b id="gGuideT">Párate en el punto de inicio</b><small id="gGuideS">Cuando estés ahí, toca el botón. Tendrás que quedarte quieta unos segundos.</small></div></div>
+      <canvas id="cvGps" hidden></canvas>
+      <div class="kv" id="gLive" hidden>
+        <span>Pasos caminados</span><b id="gSteps">0</b>
+        <span>Distancia según el GPS</span><b id="gDist">—</b>
+        <span>Precisión del GPS ahora</span><b id="gAcc">—</b>
+      </div>
+      <div class="row"><button class="go" id="btnGps">Estoy en el inicio</button></div>
       <p class="hint" id="gMsg"></p>
-      <div class="tw" id="gResBox" hidden><table class="t"><thead><tr><th>Método</th><th>Distancia GPS</th><th>Error</th><th>Error %</th></tr></thead><tbody id="gResBody"></tbody></table></div>
+      <div id="gResBox" hidden>
+        <div class="semaforo" id="gResSem"><span class="dotl"></span><div><b id="gResT"></b><small id="gResS"></small></div></div>
+        <div class="tw"><table class="t"><thead><tr><th>Cómo se calculó</th><th>GPS dijo</th><th>Error</th></tr></thead><tbody id="gResBody"></tbody></table></div>
+        <div class="row"><button class="sb wide" id="btnGAgain">Hacer otra prueba</button></div>
+      </div>
     </section>
     <section class="card">
       <div class="hd"><h2>Resumen de mis pruebas</h2></div>
@@ -317,6 +331,7 @@ const REASONS = {
 };
 const WARNINGS = {
   end_heading_unknown: "Al terminar no volviste a mirar hacia donde empezaste: no se pudo corregir el giroscopio.",
+  step_not_calibrated: "No calibraste tu paso: se usó 0,70 m. Escribe el primer lado medido para corregirlo.",
   scale_needs_corner: "Para usar el lado medido con cinta, marca al menos una esquina.",
   gps_space_too_small: "El lugar es chico para el GPS: usa la medición por pasos.",
   gps_low_accuracy_dropped: "Se descartaron lecturas GPS con mala precisión.",
@@ -382,11 +397,40 @@ $("#btnConnect").onclick = async () => {
 /* ---------- sensores ---------- */
 const live = { gyro: null, acc: null, gyroAt: 0, accAt: 0, fix: null, listeners: new Set(), fixListeners: new Set() };
 let wakeLock = null;
+/* Giro alrededor de la vertical (°/s, positivo = a la izquierda).
+   Se usa la orientación que ya calcula el celular (deviceorientation: une giroscopio y acelerómetro),
+   así no importa cómo se sostiene. rotationRate.alpha NO sirve solo: según el navegador es el eje X
+   o el Z del celular, y con el celular inclinado mezcla el balanceo de cada paso. */
+const yaw = { value: null, raw: null, at: 0, prev: null, prevT: 0 };
+function onOrientation(e) {
+  if (e.alpha == null) return;
+  if (yaw.raw == null) yaw.value = e.alpha;
+  else { let d = e.alpha - yaw.raw; if (d > 180) d -= 360; if (d < -180) d += 360; yaw.value += d; }
+  yaw.raw = e.alpha; yaw.at = Date.now();
+}
+const gravity = { x: 0, y: 0, z: 9.8 };
+function verticalRate(e, acc) {
+  // Respaldo sin orientación: proyecta el vector de giro sobre la vertical (gravedad suavizada).
+  const r = e.rotationRate;
+  if (!r || r.alpha == null || !acc) return null;
+  gravity.x += 0.1 * (acc[0] - gravity.x); gravity.y += 0.1 * (acc[1] - gravity.y); gravity.z += 0.1 * (acc[2] - gravity.z);
+  const n = Math.hypot(gravity.x, gravity.y, gravity.z) || 1;
+  return ((r.beta || 0) * gravity.x + (r.gamma || 0) * gravity.y + r.alpha * gravity.z) / n;
+}
+function turnRate(t, e, acc) {
+  if (yaw.value != null && t - yaw.at < 500) {
+    let rate = 0;
+    if (yaw.prev != null && t > yaw.prevT) rate = (yaw.value - yaw.prev) / ((t - yaw.prevT) / 1000);
+    yaw.prev = yaw.value; yaw.prevT = t;
+    return rate;
+  }
+  return verticalRate(e, acc);
+}
 function onMotion(e) {
   const t = Date.now();
-  const gz = e.rotationRate && e.rotationRate.alpha != null ? e.rotationRate.alpha : null;
   const g = e.accelerationIncludingGravity;
   const acc = g && g.x != null ? [g.x, g.y, g.z] : null;
+  const gz = turnRate(t, e, acc);
   if (gz == null && acc == null) return; // algunos navegadores mandan eventos vacíos: se ignoran
   if (gz != null) { live.gyro = gz; live.gyroAt = t; }
   if (acc != null) { live.acc = acc; live.accAt = t; }
@@ -413,6 +457,10 @@ $("#btnSensors").onclick = async () => {
       const ok = await DeviceMotionEvent.requestPermission();
       if (ok !== "granted") throw new Error("No diste permiso de movimiento.");
     }
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      await DeviceOrientationEvent.requestPermission().catch(() => "denied");
+    }
+    window.addEventListener("deviceorientation", onOrientation);
     window.addEventListener("devicemotion", onMotion);
     if (!navigator.geolocation) throw new Error("Este navegador no tiene GPS.");
     navigator.geolocation.watchPosition(onFix, (err) => { $("#sGps").textContent = "Sin permiso o sin señal"; msg("#sensMsg", "GPS: " + err.message, "err"); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
@@ -450,7 +498,7 @@ async function refreshCalibration() {
     const c = s.calibration;
     CAL = c;
     $("#cGyro").textContent = c.gyro_calibrated ? "✔ sesgo " + fmt(c.gyro_bias_dps, 2) + " °/s" : "Falta";
-    $("#cStep").textContent = c.step_length_m ? "✔ " + fmt(c.step_length_m, 3) + " m" : "Falta";
+    $("#cStep").textContent = c.step_length_m ? "✔ " + fmt(c.step_length_m, 3) + " m" : "Opcional (se usa 0,70 m)";
     $("#cCar").textContent = c.speed_k != null ? "✔ v = " + fmt(c.speed_k, 4) + "·PWM + " + fmt(c.speed_c, 3) : "Falta (solo carro)";
   } catch { /* sin conexión todavía */ }
 }
@@ -664,7 +712,11 @@ $("#btnStart").onclick = async () => {
     if (num("#tape")) body.tape_side_m = num("#tape");
     b.disabled = true;
     const m = await api("/api/measurements", body);
-    run = { id: m.id, method, pwm, seq: 0, queue: [], sent: 0, corners: 0, t0: Date.now(), sending: false, stopped: false };
+    run = { id: m.id, method, pwm, seq: 0, queue: [], sent: 0, corners: 0, t0: Date.now(), sending: false, stopped: false,
+      // recorrido en vivo (aproximado; el resultado final lo calcula el backend con correcciones)
+      path: [{ x: 0, y: 0 }], marks: [], heading: 0, lastT: null, steps: 0, dist: 0, count: stepCounter(),
+      stepM: (CAL && CAL.step_length_m) || 0.7, bias: (CAL && CAL.gyro_calibrated && CAL.gyro_bias_dps) || 0,
+      gps0: null, lastCorner: 0 };
     run.motionFn = (t, gz, acc) => {
       if (method === "gps") return;
       const r = { seq: run.seq++, t_ms: t, kind: "motion" };
@@ -672,13 +724,32 @@ $("#btnStart").onclick = async () => {
       if (acc) r.accel = acc;
       if (method === "car") r.pwm = pwm;
       run.queue.push(r);
+      if (gz != null && run.lastT != null) run.heading += (gz - run.bias) * Math.min(t - run.lastT, 1000) / 1000;
+      if (gz != null) run.lastT = t;
+      const n = run.count(t, acc);
+      if (n > run.steps) {
+        run.steps = n;
+        const last = run.path[run.path.length - 1], a = run.heading * Math.PI / 180;
+        run.path.push({ x: last.x + run.stepM * Math.cos(a), y: last.y + run.stepM * Math.sin(a) });
+        run.dist += run.stepM;
+      }
     };
-    run.fixFn = (f) => run.queue.push({ seq: run.seq++, t_ms: f.t_ms, kind: "gps", lat: f.lat, lon: f.lon, accuracy_m: f.accuracy_m });
+    run.fixFn = (f) => {
+      run.queue.push({ seq: run.seq++, t_ms: f.t_ms, kind: "gps", lat: f.lat, lon: f.lon, accuracy_m: f.accuracy_m });
+      if (method !== "gps") return;
+      if (!run.gps0) { run.gps0 = f; return; }
+      const R = 6371008.8, rad = Math.PI / 180;
+      const p = { x: (f.lon - run.gps0.lon) * rad * R * Math.cos(run.gps0.lat * rad), y: (f.lat - run.gps0.lat) * rad * R };
+      const last = run.path[run.path.length - 1];
+      run.dist += Math.hypot(p.x - last.x, p.y - last.y);
+      run.path.push(p);
+    };
+    run.draw = setInterval(drawLive, 300);
     live.listeners.add(run.motionFn);
     live.fixListeners.add(run.fixFn);
     run.timer = setInterval(flush, 500);
     run.clock = setInterval(() => { $("#rTime").textContent = Math.round((Date.now() - run.t0) / 1000) + " s"; $("#rPend").textContent = run.queue.length; }, 500);
-    $("#setupBox").hidden = true; $("#resultBox").hidden = true; $("#runBox").hidden = false;
+    $("#setupBox").hidden = true; $("#resultBox").hidden = true; $("#runBox").hidden = false; $("#runBox").scrollIntoView({ behavior: "smooth" });
     $("#rSent").textContent = "0"; $("#rCorners").textContent = "0";
     msg("#runMsg", "Camina por el borde. Marca cada esquina.");
   } catch (e) { msg("#startMsg", e.message, "err"); } finally { b.disabled = false; }
@@ -701,17 +772,64 @@ async function flush() {
 
 $("#btnCorner").onclick = () => {
   if (!run) return;
-  run.queue.push({ seq: run.seq++, t_ms: Date.now(), kind: "corner" });
+  const now = Date.now();
+  if (now - run.lastCorner < 1500) { msg("#runMsg", "Esa esquina ya se marcó. Camina hasta la siguiente."); return; }
+  run.lastCorner = now;
+  run.queue.push({ seq: run.seq++, t_ms: now, kind: "corner" });
+  run.marks.push(run.path[run.path.length - 1]);
   run.corners++; $("#rCorners").textContent = run.corners;
-  if (navigator.vibrate) navigator.vibrate(80);
+  msg("#runMsg", "Esquina " + run.corners + " marcada ✔", "good");
+  if (navigator.vibrate) navigator.vibrate(120);
 };
+
+/* Mapa en vivo: inicio, camino, posición actual y esquinas; distancia para volver al inicio. */
+function drawLive() {
+  if (!run) return;
+  const cv = $("#cvLive"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  if (!w) return;
+  cv.width = w * dpr; cv.height = hh * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const pts = run.path, here = pts[pts.length - 1];
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const span = Math.max(x1 - x0, y1 - y0, 4); // al menos 4 m de ancho para no agrandar el ruido
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const k = Math.min(w, hh) * 0.8 / span;
+  const P = (q) => [w / 2 + (q.x - cx) * k, hh / 2 - (q.y - cy) * k];
+  const css = getComputedStyle(document.documentElement);
+  // cuadrícula (1, 5 o 10 m según el tamaño)
+  ctx.strokeStyle = css.getPropertyValue("--line"); ctx.lineWidth = 1;
+  const step = span > 40 ? 10 : span > 15 ? 5 : 1;
+  for (let gx = Math.floor((cx - w / 2 / k) / step) * step; gx < cx + w / 2 / k; gx += step) { const [sx0] = P({ x: gx, y: 0 }); ctx.beginPath(); ctx.moveTo(sx0, 0); ctx.lineTo(sx0, hh); ctx.stroke(); }
+  for (let gy = Math.floor((cy - hh / 2 / k) / step) * step; gy < cy + hh / 2 / k; gy += step) { const [, sy0] = P({ x: 0, y: gy }); ctx.beginPath(); ctx.moveTo(0, sy0); ctx.lineTo(w, sy0); ctx.stroke(); }
+  // línea punteada de vuelta al inicio
+  const [sx, sy] = P(pts[0]), [hx, hy] = P(here);
+  ctx.setLineDash([4, 5]); ctx.strokeStyle = css.getPropertyValue("--dim"); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(sx, sy); ctx.stroke(); ctx.setLineDash([]);
+  // camino
+  ctx.strokeStyle = css.getPropertyValue("--red"); ctx.lineWidth = 2.6; ctx.lineJoin = "round"; ctx.beginPath();
+  pts.forEach((q, i) => { const [x, y] = P(q); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  // esquinas
+  ctx.fillStyle = css.getPropertyValue("--ink");
+  run.marks.forEach((q) => { const [x, y] = P(q); ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.fill(); });
+  // inicio
+  ctx.fillStyle = css.getPropertyValue("--green"); ctx.beginPath(); ctx.arc(sx, sy, 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = css.getPropertyValue("--bg"); ctx.font = "600 8px " + css.getPropertyValue("--mono"); ctx.textAlign = "center"; ctx.fillText("INI", sx, sy + 3);
+  // tú
+  ctx.strokeStyle = css.getPropertyValue("--ink"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 6, 0, 2 * Math.PI); ctx.stroke();
+  const back = Math.hypot(here.x, here.y);
+  $("#rSteps").textContent = run.method === "gps" ? "—" : run.steps;
+  $("#rDist").textContent = fmt(run.dist, 1) + " m";
+  $("#rBack").textContent = fmt(back, 1) + " m";
+  $("#rBack").style.color = run.dist > 5 && back < 1.5 ? "var(--green)" : "";
+  $("#rDir").textContent = run.method === "gps" ? "GPS" : "giro total " + fmt(run.heading, 0) + "°";
+}
 
 $("#btnFinish").onclick = async () => {
   if (!run) return;
   const b = $("#btnFinish"); b.disabled = true;
   run.stopped = true;
   live.listeners.delete(run.motionFn); live.fixListeners.delete(run.fixFn);
-  clearInterval(run.timer);
+  clearInterval(run.timer); clearInterval(run.draw);
   msg("#runMsg", "Enviando las últimas lecturas…");
   try {
     for (let i = 0; i < 40 && (run.queue.length || run.sending); i++) { await flush(); if (run.queue.length || run.sending) await sleep(500); }
@@ -782,60 +900,130 @@ async function loadHistory() {
 }
 $("#btnHist").onclick = loadHistory;
 
-/* ---------- 4. prueba de error del GPS (SP-06) ---------- */
-let gTrial = null;
-function collectFixes(secs, label) {
-  return new Promise((resolve) => {
-    const out = [];
-    const fn = (f) => out.push(f);
-    live.fixListeners.add(fn);
-    const t0 = Date.now();
-    const iv = setInterval(() => msg("#gMsg", label + ": quieta… " + Math.max(0, Math.ceil(secs - (Date.now() - t0) / 1000)) + " s · lecturas " + out.length), 250);
-    setTimeout(() => { live.fixListeners.delete(fn); clearInterval(iv); resolve(out); }, secs * 1000);
-  });
+/* ---------- 4. prueba de error del GPS (SP-06): guía de 3 pasos ----------
+   1) quieta en el inicio (20 s)  2) caminar hasta el final viendo el mapa  3) quieta en el final (20 s) */
+const STILL_S = 20;
+let gT = null; // prueba en curso
+function gGuide(cls, title, sub, stage) {
+  $("#gGuide").className = "semaforo " + cls; $("#gGuideT").textContent = title; $("#gGuideS").textContent = sub;
+  if (stage) $("#gStage").textContent = stage;
 }
-$("#btnGStart").onclick = async () => {
+function gLocal(f) {
+  const R = 6371008.8, rad = Math.PI / 180, o = gT.startPt;
+  return { x: (f.lon - o.lon) * rad * R * Math.cos(o.lat * rad), y: (f.lat - o.lat) * rad * R };
+}
+function drawGps() {
+  if (!gT || !gT.startPt) return;
+  const cv = $("#cvGps"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  if (!w) return;
+  cv.width = w * dpr; cv.height = hh * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const pts = [{ x: 0, y: 0 }, ...gT.track];
+  const real = Number($("#gReal").value) || 0;
+  const span = Math.max(real * 1.3, ...pts.map((q) => Math.hypot(q.x, q.y) * 2.2), 10);
+  const k = Math.min(w, hh) / span;
+  const P = (q) => [w / 2 + q.x * k, hh / 2 - q.y * k];
+  const css = getComputedStyle(document.documentElement);
+  // círculo con la distancia real: el final debería caer sobre esta línea
+  ctx.setLineDash([4, 5]); ctx.strokeStyle = css.getPropertyValue("--dim"); ctx.beginPath(); ctx.arc(w / 2, hh / 2, real * k, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = css.getPropertyValue("--red"); ctx.lineWidth = 2.4; ctx.beginPath();
+  pts.forEach((q, i) => { const [x, y] = P(q); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  const [sx, sy] = P(pts[0]), [hx, hy] = P(pts[pts.length - 1]);
+  ctx.fillStyle = css.getPropertyValue("--green"); ctx.beginPath(); ctx.arc(sx, sy, 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = css.getPropertyValue("--bg"); ctx.font = "600 8px " + css.getPropertyValue("--mono"); ctx.textAlign = "center"; ctx.fillText("INI", sx, sy + 3);
+  ctx.strokeStyle = css.getPropertyValue("--ink"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 6, 0, 2 * Math.PI); ctx.stroke();
+  ctx.fillStyle = css.getPropertyValue("--dim"); ctx.textAlign = "start"; ctx.fillText("círculo = " + fmt(real, 0) + " m reales", 8, 14);
+}
+async function gStill(label) {
+  const fixes = [];
+  const fn = (f) => fixes.push(f);
+  live.fixListeners.add(fn);
+  const t0 = Date.now();
+  await new Promise((res) => {
+    const iv = setInterval(() => {
+      const left = Math.max(0, Math.ceil(STILL_S - (Date.now() - t0) / 1000));
+      $("#btnGps").textContent = label + " · " + left + " s";
+      if (left <= 0) { clearInterval(iv); res(); }
+    }, 250);
+  });
+  live.fixListeners.delete(fn);
+  return fixes;
+}
+function gReset() {
+  if (gT) { live.listeners.delete(gT.motionFn); live.fixListeners.delete(gT.fixFn); clearInterval(gT.draw); }
+  gT = null;
+  $("#gSetup").hidden = false; $("#cvGps").hidden = true; $("#gLive").hidden = true; $("#gResBox").hidden = true;
+  $("#btnGps").hidden = false; $("#btnGps").disabled = false; $("#btnGps").className = "go"; $("#btnGps").textContent = "Estoy en el inicio";
+  gGuide("", "Párate en el punto de inicio", "Cuando estés ahí, toca el botón. Tendrás que quedarte quieta unos segundos.", "Paso 1 de 3");
+}
+$("#btnGps").onclick = async () => {
+  const b = $("#btnGps");
   try {
-    if (!live.fix) throw new Error("Activa los sensores y espera señal GPS (paso 1).");
-    const secs = Math.max(5, Number($("#gSecs").value) || 20);
-    $("#btnGStart").disabled = true; $("#gResBox").hidden = true;
-    const fixes = await collectFixes(secs, "Inicio");
-    if (fixes.length < 3) throw new Error("Llegaron pocas lecturas GPS. Repite al aire libre.");
-    gTrial = { start: fixes, secs };
-    $("#btnGEnd").disabled = false;
-    msg("#gMsg", "Inicio guardado (" + fixes.length + " lecturas). Camina al final y toca \"Marcar fin\".", "good");
-  } catch (e) { msg("#gMsg", e.message, "err"); $("#btnGStart").disabled = false; }
-};
-$("#btnGEnd").onclick = async () => {
-  try {
-    $("#btnGEnd").disabled = true;
-    const end = await collectFixes(gTrial.secs, "Fin");
+    if (!gT) {
+      // Paso 1: quieta en el inicio
+      if (!live.fix) throw new Error("No hay señal GPS: activa los sensores (pestaña 1) y sal al aire libre.");
+      const real = Number($("#gReal").value);
+      if ($("#gReal").value === "" || !(real >= 0)) throw new Error("Escribe la distancia real.");
+      gT = { start: [], end: [], track: [], startPt: null, count: stepCounter(), steps: 0 };
+      $("#gSetup").hidden = true; b.disabled = true;
+      gGuide("warn", "Quédate quieta en el inicio", "Estoy midiendo dónde estás. No te muevas.", "Paso 1 de 3");
+      gT.start = await gStill("Midiendo el inicio");
+      gT.startPt = stillPoint(gT.start);
+      if (!gT.startPt) throw new Error("Llegaron pocas lecturas del GPS. Sal al aire libre y repite.");
+      // Paso 2: caminar viendo el mapa
+      gT.motionFn = (t, gz, acc) => { const n = gT.count(t, acc); if (n !== gT.steps) { gT.steps = n; $("#gSteps").textContent = n; } };
+      gT.fixFn = (f) => {
+        gT.track.push(gLocal(f));
+        const last = gT.track[gT.track.length - 1];
+        $("#gDist").textContent = fmt(Math.hypot(last.x, last.y), 1) + " m";
+        $("#gAcc").textContent = "± " + fmt(f.accuracy_m, 0) + " m";
+      };
+      live.listeners.add(gT.motionFn); live.fixListeners.add(gT.fixFn);
+      gT.draw = setInterval(drawGps, 500);
+      $("#cvGps").hidden = false; $("#gLive").hidden = false;
+      gGuide("good", "Ahora camina hasta el final", "Camina en línea recta hasta el punto final (" + fmt(real, 0) + " m). Mira tu recorrido en el mapa.", "Paso 2 de 3");
+      b.disabled = false; b.textContent = "Llegué al final";
+      return;
+    }
+    // Paso 3: quieta en el final y resultado
+    live.listeners.delete(gT.motionFn); live.fixListeners.delete(gT.fixFn); clearInterval(gT.draw);
+    b.disabled = true;
+    gGuide("warn", "Quédate quieta en el final", "Estoy midiendo dónde terminaste. No te muevas.", "Paso 3 de 3");
+    gT.end = await gStill("Midiendo el final");
+    if (gT.end.length < 3) throw new Error("Llegaron pocas lecturas del GPS al final. Repite la prueba.");
     const real = Number($("#gReal").value);
-    if ($("#gReal").value === "" || !(real >= 0)) throw new Error("Escribe la distancia real con cinta.");
     const r = await api("/api/gps-trials", {
       device_id: DEVICE, place_name: $("#gPlace").value.trim() || "Prueba GPS", environment: $("#gEnv").value,
-      real_distance_m: real, start_fixes: gTrial.start.slice(0, 600), end_fixes: end.slice(0, 600),
+      real_distance_m: real, start_fixes: gT.start.slice(0, 600), end_fixes: gT.end.slice(0, 600),
     });
-    const names = { single: "Una lectura", mean: "Promedio", filtered: "Promedio filtrado" };
-    $("#gResBody").innerHTML = Object.entries(r.result.methods).map(([k, v]) => `<tr><td>${names[k]}</td><td>${fmt(v.gps_distance_m, 2)} m</td><td>${fmt(v.error_m, 2)} m</td><td>${v.error_pct == null ? "—" : fmt(v.error_pct, 1) + " %"}</td></tr>`).join("");
-    $("#gResBox").hidden = false;
-    msg("#gMsg", "Prueba guardada ✔ (precisión que informa el celular: ± " + fmt(r.result.reported_accuracy_m, 1) + " m)", "good");
-  } catch (e) { msg("#gMsg", e.message, "err"); }
-  finally { gTrial = null; $("#btnGStart").disabled = false; }
+    const m = r.result.methods, best = m.filtered;
+    const names = { single: "Una sola lectura (como una app normal)", mean: "Promedio de lecturas", filtered: "Promedio filtrado (el mejor)" };
+    $("#gResBody").innerHTML = Object.entries(m).map(([k, v]) => `<tr><td>${names[k]}</td><td>${fmt(v.gps_distance_m, 1)} m</td><td>${fmt(v.error_m, 1)} m${v.error_pct == null ? "" : " (" + fmt(v.error_pct, 0) + " %)"}</td></tr>`).join("");
+    const pct = best.error_pct == null ? null : best.error_pct;
+    const cls = pct == null ? "" : pct < 5 ? "good" : pct < 15 ? "warn" : "red";
+    $("#gResSem").className = "semaforo " + cls;
+    $("#gResT").textContent = "Real: " + fmt(real, 1) + " m · GPS: " + fmt(best.gps_distance_m, 1) + " m · Error: " + fmt(best.error_m, 1) + " m";
+    $("#gResS").textContent = "Una sola lectura se equivocó " + fmt(m.single.error_m, 1) + " m; promediando se equivocó " + fmt(best.error_m, 1) + " m. Prueba guardada ✔";
+    $("#gResBox").hidden = false; b.hidden = true; $("#cvGps").hidden = false;
+    gGuide("good", "¡Listo! Prueba guardada", "Haz al menos 3 pruebas en lugares distintos para el informe.", "Terminado");
+    live.listeners.delete(gT.motionFn); gT = { done: true, startPt: gT.startPt, track: gT.track }; drawGps(); gT = null;
+  } catch (e) {
+    msg("#gMsg", e.message, "err");
+    gReset();
+  }
 };
+$("#btnGAgain").onclick = () => { msg("#gMsg", ""); gReset(); };
 $("#btnGSum").onclick = async () => {
   try {
     const s = await api("/api/gps-trials/summary?device_id=" + encodeURIComponent(DEVICE));
     if (!s.trials) { $("#gSum").innerHTML = "<span>Pruebas</span><b>0</b>"; return; }
     const best = s.methods[s.best_method];
-    const names = { single: "una lectura", mean: "promedio", filtered: "promedio filtrado" };
     $("#gSum").innerHTML = `
-      <span>Pruebas</span><b>${s.trials}</b>
-      <span>Error medio con una lectura</span><b>${fmt(s.methods.single.mean_error_m, 1)} m</b>
-      <span>Mejor método</span><b>${names[s.best_method]}</b>
-      <span>Error medio / máximo (mejor)</span><b>${fmt(best.mean_error_m, 1)} / ${fmt(best.max_error_m, 1)} m</b>
-      <span>Mejora frente a una lectura</span><b>${fmt(s.improvement_pct, 0)} %</b>
-      <span>Lado mínimo para usar GPS (error &lt; 10 %)</span><b>${fmt(s.min_side_m, 0)} m</b>`;
+      <span>Pruebas hechas</span><b>${s.trials}</b>
+      <span>Error con una sola lectura</span><b>${fmt(s.methods.single.mean_error_m, 1)} m</b>
+      <span>Error promediando</span><b>${fmt(best.mean_error_m, 1)} m</b>
+      <span>Mejora al promediar</span><b>${fmt(s.improvement_pct, 0)} %</b>
+      <span>El GPS sirve en lugares de lado mayor a</span><b>${fmt(s.min_side_m, 0)} m</b>`;
   } catch (e) { $("#gSum").innerHTML = `<span>${esc(e.message)}</span><b></b>`; }
 };
 

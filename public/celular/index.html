@@ -166,8 +166,10 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <p class="hint" id="stepMsg"></p>
     </section>
     <section class="card">
-      <div class="hd"><h2>C. Velocidad del carro (carro + celular)</h2></div>
-      <p class="hint">El carro no tiene encoders: la distancia se estima con la potencia del motor (PWM). Haz avanzar el carro una distancia medida con cinta y toma el tiempo con un cronómetro. Usa al menos 2 PWM distintos.</p>
+      <div class="hd"><h2>C. Velocidad del carro (carro + celular)</h2><span class="tag">Próximamente</span></div>
+      <p class="hint">Disponible cuando el carro esté listo. El carro no tiene encoders: la distancia se estimará con la potencia del motor (PWM).</p>
+      <!-- CAR_DISABLED: para activarlo, quitar `disabled` del fieldset y de la opción "car" en Medir. -->
+      <fieldset disabled style="border:0;padding:0;margin:0;opacity:.4">
       <div class="tw"><table class="t" id="carTable"><thead><tr><th>PWM (%)</th><th>Distancia (m)</th><th>Tiempo (s)</th></tr></thead><tbody></tbody></table></div>
       <div class="row">
         <input class="inp" id="carPwm" type="number" inputmode="decimal" placeholder="PWM %">
@@ -175,6 +177,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
         <input class="inp" id="carSec" type="number" inputmode="decimal" placeholder="Tiempo s">
       </div>
       <div class="row"><button class="sb" id="btnCarAdd">Agregar prueba</button><button class="sb red wide" id="btnCarSave">Guardar calibración</button></div>
+      </fieldset>
       <p class="hint" id="carMsg"></p>
     </section>
   </div>
@@ -187,7 +190,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <select class="inp" id="method">
         <option value="steps">Celular en la mano · por pasos (aula, patio)</option>
         <option value="gps">Celular en la mano · por GPS (cancha, terreno grande)</option>
-        <option value="car">Carro + celular encima</option>
+        <option value="car" disabled>Carro + celular encima (próximamente)</option>
       </select>
       <div id="carBox" hidden>
         <label class="lbl" for="carRunPwm">PWM con el que avanza el carro (%)</label>

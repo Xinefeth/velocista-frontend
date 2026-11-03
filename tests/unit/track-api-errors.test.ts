@@ -74,9 +74,10 @@ describe("422/404 forma B: {reason, detail}", () => {
     "track_length_invalid",
     "track_start_invalid",
     "track_closed_needs_three_points",
+    "track_metrics_invalid",
   ];
 
-  it("están las 14 razones del contrato", () => {
+  it("están las 15 razones del contrato", () => {
     expect(Object.keys(TRACK_REASONS).sort()).toEqual([...reasons].sort());
   });
 

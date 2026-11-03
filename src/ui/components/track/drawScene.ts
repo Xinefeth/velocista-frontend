@@ -4,7 +4,10 @@
 // `globalAlpha`, nunca con colores literales.
 import { simPose, simStartS } from "@/domain/track/simulation";
 import { splitGaps } from "@/domain/track/svg";
+import type { Selection } from "@/domain/track/selection";
 import type { Analysis, Track, TrackIssue, TrackRules } from "@/domain/track/types";
+import type { Tool } from "@/application/state/trackEditorStore";
+import { drawDims } from "@/ui/components/track/drawDims";
 import { worldToScreen, type Viewport } from "@/ui/components/track/viewport";
 
 export interface Scene {
@@ -13,6 +16,15 @@ export interface Scene {
   rules: TrackRules | null;
   /** Índice de la incidencia elegida en `analysis.issues`, o -1. */
   issueSel: number;
+  /** Selección actual (el editor); en solo lectura no hay. */
+  selection?: Selection;
+  tool?: Tool;
+  /** Mostrar siempre todos los puntos de control. */
+  showNodes?: boolean;
+  /** Dibujar las cotas (largos, radios y ángulos). */
+  dims?: boolean;
+  /** Robot de prueba de la simulación: recorrido `s` en cm y tamaño en cm; `null` si no hay simulación. */
+  sim?: { s: number; w: number; l: number } | null;
 }
 
 type Colors = Record<string, string>;
@@ -164,6 +176,8 @@ export function drawScene(
     }
     ctx.restore();
 
+    if (scene.dims) drawDims(ctx, vp, g, (rules?.lineWidthMm ?? 19) / 10, c);
+
     // Salida: bandera sobre el tramo elegido
     const pose = simPose(g, simStartS(g, track.start));
     if (pose) {
@@ -180,6 +194,34 @@ export function drawScene(
       ctx.fillStyle = c["--bg"];
       ctx.fillRect(sx, sy - 22, 7, 4.5);
       ctx.fillRect(sx + 7, sy - 17.5, 7, 4.5);
+      ctx.restore();
+    }
+  }
+
+  // Robot de prueba de la simulación
+  if (analysis && scene.sim) {
+    const q = simPose(analysis.g, scene.sim.s);
+    if (q) {
+      const [sx, sy] = worldToScreen(vp, q.x, q.y);
+      const hl = (scene.sim.l * vp.z) / 2;
+      const hw = (scene.sim.w * vp.z) / 2;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(-q.h);
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = c["--blue"];
+      ctx.fillRect(-hl, -hw, hl * 2, hw * 2);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = c["--blue"];
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-hl, -hw, hl * 2, hw * 2);
+      // El frente del robot, en amarillo
+      ctx.strokeStyle = c["--yellow"];
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(hl, -hw);
+      ctx.lineTo(hl, hw);
+      ctx.stroke();
       ctx.restore();
     }
   }

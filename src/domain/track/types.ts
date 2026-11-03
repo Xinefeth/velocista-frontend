@@ -34,8 +34,12 @@ export interface Track {
   zones: TrackZone[];
   start: TrackStart;
   profileId: string | null;
-  /** Derivado de la geometría; se envía al guardar. */
+  /** Derivados de la geometría; se calculan en `measures` y se envían al guardar. */
   lengthCm?: number;
+  /** Largo del contorno de una pista cerrada; `null` si es abierta. */
+  perimeterCm?: number | null;
+  /** Área de una pista cerrada y sin cruces; `null` si es abierta o se cruza. */
+  areaCm2?: number | null;
   /** Solo lectura, los pone la API (ISO 8601). */
   createdAt?: string;
   updatedAt?: string;

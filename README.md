@@ -19,6 +19,10 @@ Este repositorio incluye `render.yaml` para publicar como sitio estático. Defin
 
 El frontend obtiene el token mediante `POST /api/auth/login` y lo usa en las solicitudes protegidas y en el WebSocket de consola. Las variables `VITE_*` son públicas y nunca deben contener secretos. El origen publicado debe estar permitido en `CORS_ORIGINS` del backend.
 
+## Trazador de pistas
+
+La vista **Trazador de pistas** (EN-28) permite dibujar y verificar pistas, simular una vuelta, guardarlas en la API y exportarlas (SVG 1:1, SVG con zonas, PNG y JSON) o importar un JSON (de la API o del prototipo v2). Mientras se edita guarda un borrador local por pista. El detalle de capas y pruebas está en `docs/ARCHITECTURE.md`; el spec, en `.kiro/specs/EN-28 — Integrar-creador-de-pista/`.
+
 ## Comprobaciones
 
 ```powershell

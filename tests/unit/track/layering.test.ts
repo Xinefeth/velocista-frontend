@@ -20,7 +20,9 @@ const APPLICATION = [
   "src/application/hooks/useTracks.ts",
   "src/application/hooks/useTrackProfiles.ts",
   "src/application/hooks/useTrackExport.ts",
+  "src/application/hooks/useTrackDraft.ts",
   "src/application/state/TrackEditorProvider.tsx",
+  "src/application/state/trackEditorStore.ts",
 ];
 const INFRASTRUCTURE = [
   "src/infrastructure/http/tracks.ts",
@@ -28,6 +30,7 @@ const INFRASTRUCTURE = [
   "src/infrastructure/http/trackErrors.ts",
   "src/infrastructure/contracts/tracks.ts",
   "src/infrastructure/download/saveBlob.ts",
+  "src/infrastructure/persistence/trackDraft.ts",
 ];
 
 describe("capas del Trazador", () => {

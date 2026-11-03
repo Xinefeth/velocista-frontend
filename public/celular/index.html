@@ -188,34 +188,43 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
   <div data-panel="medir" hidden>
     <section class="card" id="setupBox">
       <div class="hd"><h2>Preparar la medición</h2></div>
-      <label class="lbl" for="method">¿Cómo se mide?</label>
+      <label class="lbl" for="method">¿Qué vas a medir?</label>
       <select class="inp" id="method">
-        <option value="steps">Celular en la mano · por pasos (aula, patio)</option>
-        <option value="gps">Celular en la mano · por GPS (cancha, terreno grande)</option>
+        <option value="steps">Lugar chico: cuarto, aula, patio (por pasos)</option>
+        <option value="gps">Lugar grande: terreno, parque, cancha (por GPS)</option>
         <option value="car" disabled>Carro + celular encima (próximamente)</option>
       </select>
+      <p class="hint" id="methodHint">Se mide caminando el borde: el celular cuenta tus pasos y tus giros.</p>
       <div id="carBox" hidden>
         <label class="lbl" for="carRunPwm">PWM con el que avanza el carro (%)</label>
         <input class="inp" id="carRunPwm" type="number" inputmode="decimal" placeholder="Ej. 40">
       </div>
       <label class="lbl" for="place">Nombre del lugar</label>
-      <input class="inp" id="place" placeholder="Ej. Aula 204">
-      <p class="hint">Opcional: si sabes cuánto mide el lugar, escríbelo y el sistema te dirá cuánto se equivocó tu medición. Si no lo sabes, deja estas casillas vacías.</p>
-      <div class="row">
-        <div><label class="lbl" for="planL">Largo del lugar (m)</label><input class="inp" id="planL" type="number" inputmode="decimal" placeholder="Ej. 8"></div>
-        <div><label class="lbl" for="planW">Ancho del lugar (m)</label><input class="inp" id="planW" type="number" inputmode="decimal" placeholder="Ej. 5"></div>
+      <input class="inp" id="place" placeholder="Ej. Mi cuarto">
+      <label id="hasRefRow" style="display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px;color:var(--mid)">
+        <input type="checkbox" id="hasRef" style="width:22px;height:22px;flex:none">
+        Tengo las medidas reales (solo para comprobar cuánto se equivoca)
+      </label>
+      <div id="refBox" hidden>
+        <div class="row">
+          <div><label class="lbl" for="planL">Largo real (m)</label><input class="inp" id="planL" type="number" inputmode="decimal" placeholder="Ej. 4"></div>
+          <div><label class="lbl" for="planW">Ancho real (m)</label><input class="inp" id="planW" type="number" inputmode="decimal" placeholder="Ej. 4"></div>
+        </div>
+        <label class="lbl" for="tape">Primer lado medido (m, opcional)</label>
+        <input class="inp" id="tape" type="number" inputmode="decimal" placeholder="Del inicio a la primera esquina">
+        <p class="hint">Si escribes el primer lado, el sistema ajusta toda la medición con ese dato.</p>
+        <label class="lbl" for="planN">Escala del plano (déjalo en 1)</label>
+        <input class="inp" id="planN" type="number" inputmode="decimal" value="1">
+        <p class="hint">Solo si copiaste las medidas de un plano dibujado a escala: en un plano 1:100 escribe 100.</p>
       </div>
-      <label class="lbl" for="planN">Escala (déjalo en 1)</label>
-      <input class="inp" id="planN" type="number" inputmode="decimal" value="1">
-      <p class="hint">Solo cambia la escala si copiaste el largo y el ancho de un plano dibujado a escala: por ejemplo, en un plano 1:100 escribe 100.</p>
-      <label class="lbl" for="tape">Primer lado medido (m)</label>
-      <input class="inp" id="tape" type="number" inputmode="decimal" placeholder="Opcional">
-      <p class="hint">Si mediste el primer lado que vas a caminar (desde la esquina donde empiezas hasta la siguiente), escríbelo: el sistema ajusta toda la medición con ese dato. Si no, déjalo vacío.</p>
-      <ol>
-        <li>Empieza en una <b>esquina</b>.</li>
-        <li>En cada esquina toca <b>"Marcar esquina"</b>.</li>
+      <ol id="stepsHow">
+        <li>Empieza en una <b>esquina</b> y camina pegada al borde.</li>
+        <li>En cada esquina <b>gira quieta</b>: la esquina se marca sola.</li>
         <li>Termina en tu <b>marca real del piso</b> (no persigas el punto del mapa) y <b>gira hasta mirar hacia donde empezaste</b>.</li>
-        <li>En cada esquina <b>gira quieta</b> y luego sigue caminando.</li>
+      </ol>
+      <ol id="gpsHow" hidden>
+        <li>Sal al aire libre y espera a que la precisión del GPS sea de <b>±5 m o menos</b> (pestaña 1).</li>
+        <li>Camina por el borde del terreno y termina donde empezaste.</li>
       </ol>
       <div class="row"><button class="go" id="btnStart">Iniciar medición</button></div>
       <p class="hint" id="startMsg"></p>
@@ -734,7 +743,20 @@ $("#btnCarSave").onclick = async () => {
 };
 
 /* ---------- 3. medición ---------- */
-$("#method").onchange = () => ($("#carBox").hidden = $("#method").value !== "car");
+function methodUi() {
+  const m = $("#method").value, gps = m === "gps";
+  $("#carBox").hidden = m !== "car";
+  // en un terreno grande no se piden medidas: justamente no se saben
+  $("#hasRefRow").hidden = gps;
+  $("#refBox").hidden = gps || !$("#hasRef").checked;
+  $("#stepsHow").hidden = gps; $("#gpsHow").hidden = !gps;
+  $("#methodHint").textContent = gps
+    ? "Se mide caminando el borde con el GPS. No necesitas saber cuánto mide."
+    : "Se mide caminando el borde: el celular cuenta tus pasos y tus giros.";
+  $("#place").placeholder = gps ? "Ej. Parque central" : "Ej. Mi cuarto";
+}
+$("#method").onchange = methodUi;
+$("#hasRef").onchange = methodUi;
 let run = null;
 function num(sel) { const v = Number($(sel).value); return $(sel).value !== "" && v > 0 ? v : null; }
 
@@ -748,10 +770,11 @@ $("#btnStart").onclick = async () => {
     if (!place) throw new Error("Escribe el nombre del lugar.");
     const pwm = num("#carRunPwm");
     if (method === "car" && !pwm) throw new Error("Escribe el PWM con el que avanza el carro.");
+    const useRef = method !== "gps" && $("#hasRef").checked;
     const L = num("#planL"), W = num("#planW"), N = num("#planN") || 1;
     const body = { method, source: "phone", mount: method === "car" ? "robot" : "hand", place_name: place, device_id: DEVICE };
-    if (L && W) body.reference = { points: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: W }, { x: 0, y: W }], scale_n: N };
-    if (num("#tape")) body.tape_side_m = num("#tape");
+    if (useRef && L && W) body.reference = { points: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: W }, { x: 0, y: W }], scale_n: N };
+    if (useRef && num("#tape")) body.tape_side_m = num("#tape");
     b.disabled = true;
     const m = await api("/api/measurements", body);
     run = { id: m.id, method, pwm, seq: 0, queue: [], sent: 0, corners: 0, t0: Date.now(), sending: false, stopped: false,

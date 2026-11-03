@@ -132,13 +132,34 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     </section>
     <section class="card">
       <div class="hd"><h2>B. Largo del paso (caminar 3 veces)</h2></div>
-      <ol>
-        <li>Mide con cinta una recta (por ejemplo <b>20 m</b>) y escribe la distancia.</li>
-        <li>Lleva el celular <b>plano frente al pecho</b>, como al medir.</li>
-        <li>Toca "Empezar", camina normal hasta el final y toca "Terminar". Repite 3 veces.</li>
-      </ol>
-      <label class="lbl" for="stepDist">Distancia medida con cinta (m)</label>
-      <input class="inp" id="stepDist" type="number" inputmode="decimal" value="20" min="1" step="0.1">
+      <label class="lbl" for="stepMode">¿Cómo sabes cuánto caminaste?</label>
+      <select class="inp" id="stepMode">
+        <option value="known">Distancia conocida (baldosas, cancha o cinta)</option>
+        <option value="gps">Con GPS (solo al aire libre: calle o parque)</option>
+      </select>
+      <div id="stepKnownBox">
+        <ol>
+          <li>Busca una recta de distancia conocida: <b>baldosas</b> (cuenta baldosas × lo que mide una, p. ej. 25 × 0,60 m = 15 m), líneas de una cancha (vóley 18 m) o cinta.</li>
+          <li>Lleva el celular <b>plano frente al pecho</b>, como al medir.</li>
+          <li>Toca "Empezar", camina normal hasta el final y toca "Terminar". Repite 3 veces.</li>
+        </ol>
+        <label class="lbl" for="stepDist">Distancia de la recta (m)</label>
+        <input class="inp" id="stepDist" type="number" inputmode="decimal" value="15" min="1" step="0.1">
+      </div>
+      <div id="stepGpsBox" hidden>
+        <ol>
+          <li>Sal a la <b>calle o a un parque</b>, lejos de edificios altos. En casa el GPS se equivoca mucho.</li>
+          <li>Toca "Empezar" y quédate <b>quieta 5 s</b>: el sistema marca tu punto de inicio.</li>
+          <li>Camina <b>en línea recta</b>. Verás los metros que llevas; cuando diga <b>"¡Para!"</b>, toca "Terminar" y quédate quieta 5 s.</li>
+          <li>Repite 3 veces (puedes volver caminando al inicio o seguir en la misma dirección).</li>
+        </ol>
+        <label class="lbl" for="stepGoal">Meta en metros (40 recomendado)</label>
+        <input class="inp" id="stepGoal" type="number" inputmode="decimal" value="40" min="20" step="1">
+      </div>
+      <div class="kv" style="margin-top:12px">
+        <span>Pasos contados</span><b id="stepLive">—</b>
+        <span id="stepGpsLbl" hidden>Distancia GPS</span><b id="stepGpsLive" hidden>—</b>
+      </div>
       <div class="row"><button class="sb red wide" id="btnStepWalk">Empezar caminata 1 de 3</button></div>
       <p class="hint" id="stepMsg"></p>
     </section>
@@ -172,14 +193,17 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       </div>
       <label class="lbl" for="place">Nombre del lugar</label>
       <input class="inp" id="place" placeholder="Ej. Aula 204">
+      <p class="hint">Opcional: si sabes cuánto mide el lugar, escríbelo y el sistema te dirá cuánto se equivocó tu medición. Si no lo sabes, deja estas casillas vacías.</p>
       <div class="row">
-        <div><label class="lbl" for="planL">Largo del plano (m, opcional)</label><input class="inp" id="planL" type="number" inputmode="decimal"></div>
-        <div><label class="lbl" for="planW">Ancho del plano (m, opcional)</label><input class="inp" id="planW" type="number" inputmode="decimal"></div>
+        <div><label class="lbl" for="planL">Largo del lugar (m)</label><input class="inp" id="planL" type="number" inputmode="decimal" placeholder="Ej. 8"></div>
+        <div><label class="lbl" for="planW">Ancho del lugar (m)</label><input class="inp" id="planW" type="number" inputmode="decimal" placeholder="Ej. 5"></div>
       </div>
-      <label class="lbl" for="planN">Escala del plano 1:N (1 si el largo y ancho ya son reales)</label>
+      <label class="lbl" for="planN">Escala (déjalo en 1)</label>
       <input class="inp" id="planN" type="number" inputmode="decimal" value="1">
-      <label class="lbl" for="tape">Primer lado medido con cinta (m, opcional)</label>
-      <input class="inp" id="tape" type="number" inputmode="decimal" placeholder="Del inicio a la primera esquina">
+      <p class="hint">Solo cambia la escala si copiaste el largo y el ancho de un plano dibujado a escala: por ejemplo, en un plano 1:100 escribe 100.</p>
+      <label class="lbl" for="tape">Primer lado medido (m)</label>
+      <input class="inp" id="tape" type="number" inputmode="decimal" placeholder="Opcional">
+      <p class="hint">Si mediste el primer lado que vas a caminar (desde la esquina donde empiezas hasta la siguiente), escríbelo: el sistema ajusta toda la medición con ese dato. Si no, déjalo vacío.</p>
       <ol>
         <li>Empieza en una <b>esquina</b>.</li>
         <li>En cada esquina toca <b>"Marcar esquina"</b>.</li>
@@ -447,28 +471,121 @@ $("#btnGyro").onclick = async () => {
   } catch (e) { msg("#gyroMsg", e.message, "err"); } finally { b.disabled = false; }
 };
 
-/* paso: 3 caminatas; el backend cuenta los pasos con el mismo detector que usa al medir */
-let stepTrials = [], stepWalk = null;
+/* paso: 3 caminatas; el backend cuenta los pasos con el mismo detector que usa al medir.
+   Este contador en vivo usa el mismo método (pico de |a| − g, umbral 1,2 y rearme en −0,6). */
+function stepCounter() {
+  const win = [];
+  let armed = true, last = -1e12, count = 0;
+  return (t, acc) => {
+    if (!acc) return count;
+    win.push(Math.hypot(acc[0], acc[1], acc[2]) - 9.80665);
+    if (win.length > 3) win.shift();
+    const s = win.reduce((a, b) => a + b, 0) / win.length;
+    if (armed && s > 1.2 && t - last >= 300) { count++; last = t; armed = false; }
+    else if (s < -0.6) armed = true;
+    return count;
+  };
+}
+/* Punto GPS de una persona quieta: lecturas con precisión ≤ la mediana, ponderadas por 1/precisión². */
+function stillPoint(fixes) {
+  if (fixes.length < 3) return null;
+  const acc = fixes.map((f) => f.accuracy_m).sort((a, b) => a - b);
+  const cut = acc[Math.floor(acc.length / 2)];
+  const used = fixes.filter((f) => f.accuracy_m <= cut);
+  let w = 0, lat = 0, lon = 0;
+  for (const f of used) { const k = 1 / Math.max(f.accuracy_m, 0.5) ** 2; w += k; lat += f.lat * k; lon += f.lon * k; }
+  return { lat: lat / w, lon: lon / w, accuracy_m: cut };
+}
+function metersBetween(a, b) {
+  const R = 6371008.8, rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * R * Math.cos(a.lat * rad), y = (b.lat - a.lat) * rad * R;
+  return Math.hypot(x, y);
+}
+/* Junta lecturas GPS durante `secs` segundos mostrando la cuenta atrás. */
+function collectStill(secs, el, label) {
+  return new Promise((resolve) => {
+    const out = [];
+    const fn = (f) => out.push(f);
+    live.fixListeners.add(fn);
+    const t0 = Date.now();
+    const iv = setInterval(() => msg(el, label + "… " + Math.max(0, Math.ceil(secs - (Date.now() - t0) / 1000)) + " s"), 250);
+    setTimeout(() => { live.fixListeners.delete(fn); clearInterval(iv); resolve(out); }, secs * 1000);
+  });
+}
+$("#stepMode").onchange = () => {
+  const gps = $("#stepMode").value === "gps";
+  $("#stepKnownBox").hidden = gps; $("#stepGpsBox").hidden = !gps;
+  $("#stepGpsLbl").hidden = !gps; $("#stepGpsLive").hidden = !gps;
+};
+
+let stepTrials = [], stepWalk = null, stepBusy = false;
+function resetStepButton() {
+  const b = $("#btnStepWalk");
+  b.disabled = false; b.className = "sb red wide";
+  b.textContent = "Empezar caminata " + (stepTrials.length + 1) + " de 3";
+}
 $("#btnStepWalk").onclick = async () => {
   const b = $("#btnStepWalk");
+  if (stepBusy) return;
   try {
+    const gps = $("#stepMode").value === "gps";
     if (!stepWalk) {
       needSensors();
-      const dist = Number($("#stepDist").value);
-      if (!(dist > 0)) throw new Error("Escribe la distancia medida con cinta.");
-      stepWalk = { dist, readings: [] };
-      stepWalk.fn = (t, gz, acc) => { if (acc) stepWalk.readings.push({ seq: stepWalk.readings.length, t_ms: t, kind: "motion", gyro_z_dps: gz, accel: acc }); };
+      const dist = Number($("#stepDist").value), goal = Number($("#stepGoal").value);
+      if (!gps && !(dist > 0)) throw new Error("Escribe la distancia de la recta.");
+      if (gps && !(goal >= 20)) throw new Error("La meta debe ser de al menos 20 m.");
+      if (gps && !live.fix) throw new Error("No hay señal GPS. Activa los sensores y sal al aire libre.");
+      stepWalk = { gps, dist, goal, readings: [], count: stepCounter(), start: null, warned: false };
+      $("#stepLive").textContent = "0";
+      if (gps) {
+        stepBusy = true; b.disabled = true;
+        const fixes = await collectStill(5, "#stepMsg", "Quédate quieta: marcando el inicio");
+        stepBusy = false; b.disabled = false;
+        stepWalk.start = stillPoint(fixes);
+        if (!stepWalk.start) throw new Error("Llegaron pocas lecturas GPS. Sal al aire libre y repite.");
+        if (stepWalk.start.accuracy_m > 15) throw new Error("El GPS está impreciso (± " + fmt(stepWalk.start.accuracy_m, 0) + " m). Aléjate de edificios y repite.");
+        stepWalk.recent = [];
+        stepWalk.fixFn = (f) => {
+          stepWalk.recent.push(f); if (stepWalk.recent.length > 3) stepWalk.recent.shift();
+          const here = stillPoint(stepWalk.recent.length >= 3 ? stepWalk.recent : [f, f, f]);
+          const d = metersBetween(stepWalk.start, here);
+          $("#stepGpsLive").textContent = fmt(d, 1) + " m de " + fmt(stepWalk.goal, 0) + " m";
+          if (d >= stepWalk.goal && !stepWalk.warned) {
+            stepWalk.warned = true;
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            msg("#stepMsg", "¡Para! Llegaste a " + fmt(stepWalk.goal, 0) + " m. Toca \"Terminar caminata\" y quédate quieta.", "good");
+          }
+        };
+        live.fixListeners.add(stepWalk.fixFn);
+        $("#stepGpsLive").textContent = "0 m de " + fmt(goal, 0) + " m";
+      }
+      stepWalk.fn = (t, gz, acc) => {
+        if (!acc) return;
+        stepWalk.readings.push({ seq: stepWalk.readings.length, t_ms: t, kind: "motion", gyro_z_dps: gz, accel: acc });
+        $("#stepLive").textContent = stepWalk.count(t, acc);
+      };
       live.listeners.add(stepWalk.fn);
       b.textContent = "Terminar caminata " + (stepTrials.length + 1); b.className = "sb wide stop";
-      msg("#stepMsg", "Camina normal hasta el final de la cinta…");
+      msg("#stepMsg", gps ? "Camina en línea recta. Te aviso cuando llegues." : "Camina normal hasta el final de la recta…");
       return;
     }
     live.listeners.delete(stepWalk.fn);
-    stepTrials.push({ distance_m: stepWalk.dist, readings: stepWalk.readings.slice(0, 20000) });
-    stepWalk = null; b.className = "sb red wide";
+    let distance = stepWalk.dist;
+    if (stepWalk.gps) {
+      live.fixListeners.delete(stepWalk.fixFn);
+      stepBusy = true; b.disabled = true;
+      const fixes = await collectStill(5, "#stepMsg", "Quédate quieta: marcando el final");
+      stepBusy = false;
+      const end = stillPoint(fixes);
+      if (!end) throw new Error("Llegaron pocas lecturas GPS al final.");
+      distance = Math.round(metersBetween(stepWalk.start, end) * 10) / 10;
+      if (distance < 15) throw new Error("Según el GPS caminaste solo " + fmt(distance, 1) + " m: camina más (40 m).");
+    }
+    stepTrials.push({ distance_m: distance, readings: stepWalk.readings.slice(0, 20000) });
+    stepWalk = null;
     if (stepTrials.length < 3) {
-      b.textContent = "Empezar caminata " + (stepTrials.length + 1) + " de 3";
-      msg("#stepMsg", "Caminata " + stepTrials.length + " guardada. Vuelve al inicio.", "good");
+      resetStepButton();
+      msg("#stepMsg", "Caminata " + stepTrials.length + " guardada (" + fmt(distance, 1) + " m). Ponte en el inicio de la siguiente.", "good");
       return;
     }
     b.disabled = true; msg("#stepMsg", "Calculando…");
@@ -476,12 +593,13 @@ $("#btnStepWalk").onclick = async () => {
     const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/step", { trials });
     const uneven = (r.params.warnings || []).includes("uneven_pace");
     msg("#stepMsg", "Listo ✔ tu paso mide " + fmt(r.params.step_length_m, 3) + " m (pasos: " + r.params.steps.join(", ") + ")" + (uneven ? ". Ojo: caminaste a ritmos distintos, puedes repetir." : ""), uneven ? "" : "good");
+    resetStepButton();
     refreshCalibration();
   } catch (e) {
-    msg("#stepMsg", e.message + " Vuelve a hacer las 3 caminatas.", "err");
-    stepTrials = []; stepWalk = null; b.className = "sb red wide";
-  } finally {
-    if (!stepWalk && stepTrials.length === 0) { b.disabled = false; b.textContent = "Empezar caminata 1 de 3"; }
+    if (stepWalk) { live.listeners.delete(stepWalk.fn); if (stepWalk.fixFn) live.fixListeners.delete(stepWalk.fixFn); }
+    msg("#stepMsg", e.message + " Vuelve a empezar las 3 caminatas.", "err");
+    stepTrials = []; stepWalk = null; stepBusy = false;
+    resetStepButton();
   }
 };
 

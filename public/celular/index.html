@@ -225,8 +225,10 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <p class="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
       <p class="hint">El mapa es aproximado. <b>Termina en tu marca real del piso</b>, aunque el mapa muestre el inicio en otro lugar: esa diferencia es el error que el sistema mide y corrige.</p>
       <div class="kv" style="margin-top:10px">
+        <span>Lado actual</span><b id="rSide" style="color:var(--red-hi)">0 m</b>
+        <span>Lados terminados</span><b id="rSides">—</b>
         <span>Pasos</span><b id="rSteps">0</b>
-        <span>Distancia caminada</span><b id="rDist">0 m</b>
+        <span>Perímetro hasta ahora</span><b id="rDist">0 m</b>
         <span>Inicio según el mapa (aprox.)</span><b id="rBack">—</b>
         <span>Dirección</span><b id="rDir">—</b>
         <span>Esquinas marcadas</span><b id="rCorners">0</b>
@@ -751,7 +753,7 @@ $("#btnStart").onclick = async () => {
       // recorrido en vivo (aproximado; el resultado final lo calcula el backend con correcciones)
       path: [{ x: 0, y: 0 }], marks: [], heading: 0, lastT: null, steps: 0, dist: 0, count: stepCounter(),
       stepM: (CAL && CAL.step_length_m) || 0.7, bias: (CAL && CAL.gyro_calibrated && CAL.gyro_bias_dps) || 0,
-      gps0: null, lastCorner: 0 };
+      gps0: null, lastCorner: 0, sides: [], sideFrom: 0, sideIdx: [0] };
     run.motionFn = (t, gz, acc) => {
       if (method === "gps") return;
       const r = { seq: run.seq++, t_ms: t, kind: "motion" };
@@ -812,8 +814,10 @@ $("#btnCorner").onclick = () => {
   run.lastCorner = now;
   run.queue.push({ seq: run.seq++, t_ms: now, kind: "corner" });
   run.marks.push(run.path[run.path.length - 1]);
+  const side = run.dist - run.sideFrom;
+  run.sides.push(side); run.sideFrom = run.dist; run.sideIdx.push(run.path.length - 1);
   run.corners++; $("#rCorners").textContent = run.corners;
-  msg("#runMsg", "Esquina " + run.corners + " marcada ✔", "good");
+  msg("#runMsg", "Esquina " + run.corners + " marcada ✔ · lado " + run.sides.length + ": " + fmt(side, 1) + " m", "good");
   if (navigator.vibrate) navigator.vibrate(120);
 };
 
@@ -846,6 +850,20 @@ function drawLive() {
   // esquinas
   ctx.fillStyle = css.getPropertyValue("--ink");
   run.marks.forEach((q) => { const [x, y] = P(q); ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.fill(); });
+  // largo de cada lado, escrito en el medio del lado
+  const cuts = [...run.sideIdx, pts.length - 1];
+  ctx.font = "600 11px " + css.getPropertyValue("--mono"); ctx.textAlign = "center";
+  for (let s = 0; s < cuts.length - 1; s++) {
+    const a = pts[cuts[s]], z = pts[cuts[s + 1]];
+    const len = s < run.sides.length ? run.sides[s] : run.dist - run.sideFrom;
+    if (len < 0.3) continue;
+    const [mx, my] = P({ x: (a.x + z.x) / 2, y: (a.y + z.y) / 2 });
+    const label = fmt(len, 1) + " m";
+    const tw = ctx.measureText(label).width + 8;
+    ctx.fillStyle = css.getPropertyValue("--panel3"); ctx.fillRect(mx - tw / 2, my - 16, tw, 15);
+    ctx.fillStyle = s < run.sides.length ? css.getPropertyValue("--ink") : css.getPropertyValue("--red-hi");
+    ctx.fillText(label, mx, my - 5);
+  }
   // inicio
   ctx.fillStyle = css.getPropertyValue("--green"); ctx.beginPath(); ctx.arc(sx, sy, 8, 0, 2 * Math.PI); ctx.fill();
   ctx.fillStyle = css.getPropertyValue("--bg"); ctx.font = "600 8px " + css.getPropertyValue("--mono"); ctx.textAlign = "center"; ctx.fillText("INI", sx, sy + 3);
@@ -854,6 +872,8 @@ function drawLive() {
   const back = Math.hypot(here.x, here.y);
   $("#rSteps").textContent = run.method === "gps" ? "—" : run.steps;
   $("#rDist").textContent = fmt(run.dist, 1) + " m";
+  $("#rSide").textContent = "lado " + (run.sides.length + 1) + ": " + fmt(run.dist - run.sideFrom, 1) + " m";
+  $("#rSides").textContent = run.sides.length ? run.sides.map((s, i) => (i + 1) + ") " + fmt(s, 1) + " m").join(" · ") : "—";
   $("#rBack").textContent = "a " + fmt(back, 1) + " m";
   $("#rBack").style.color = run.dist > 5 && back < 1.5 ? "var(--green)" : "";
   $("#rDir").textContent = run.method === "gps" ? "GPS" : "giro total " + fmt(run.heading, 0) + "°";

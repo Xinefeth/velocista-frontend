@@ -1,7 +1,7 @@
 // Cliente REST de pistas (EN-28) sobre `request()`: JWT y gestión del 401 ya resueltos allí.
 // Actúa como anti-corruption layer: traduce el contrato (snake_case) al modelo `Track` del dominio.
 // Contrato fijo con el backend: GET/POST /tracks, GET/PUT/DELETE /tracks/{id}, GET /tracks/{id}/export.
-import { lengthCmOf } from "@/domain/track/limits";
+import { measures } from "@/domain/track/measures";
 import type { Track } from "@/domain/track/types";
 import type { TrackApi, TrackBodyApi, TrackPageApi } from "@/infrastructure/contracts/tracks";
 import { request, requestFile } from "@/infrastructure/http/api";
@@ -21,6 +21,8 @@ export function toTrack(r: TrackApi): Track {
     start: { edge: r.start.edge, t: r.start.t },
     profileId: r.profile_id,
     lengthCm: r.length_cm,
+    perimeterCm: r.perimeter_cm ?? null,
+    areaCm2: r.area_cm2 ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -28,6 +30,8 @@ export function toTrack(r: TrackApi): Track {
 
 /** Cuerpo de POST/PUT: calcula `length_cm` con la geometría (redondeado a 0,01) y no envía campos de solo lectura. */
 export function toTrackBody(track: Track): TrackBodyApi {
+  // Largo, perímetro y área se recalculan siempre de la geometría: nunca se envía un valor viejo.
+  const m = measures(track);
   return {
     name: track.name.trim(),
     board: { width_cm: track.board.widthCm, height_cm: track.board.heightCm },
@@ -42,7 +46,9 @@ export function toTrackBody(track: Track): TrackBodyApi {
     })),
     start: { edge: track.start.edge, t: track.start.t },
     profile_id: track.profileId,
-    length_cm: lengthCmOf(track),
+    length_cm: m.lengthCm,
+    perimeter_cm: m.perimeterCm,
+    area_cm2: m.areaCm2,
   };
 }
 

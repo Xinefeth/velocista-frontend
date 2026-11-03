@@ -1,12 +1,13 @@
-// Vista Trazador de pistas (EN-28): lista, plano editable, inspector, verificación y exportación.
-// En esta fase se puede dibujar y editar, pero los cambios todavía NO se guardan en la API.
+// Vista Trazador de pistas (EN-28): lista, plano editable, inspector, verificación, guardado y exportación.
 // Usa solo hooks de application/ (sin imports de infraestructura) y las clases de la consola.
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTrackExport } from "@/application/hooks/useTrackExport";
-import { useTracks } from "@/application/hooks/useTracks";
+import { useTracks, type TracksState } from "@/application/hooks/useTracks";
 import { TrackEditorProvider, useTrackEditor } from "@/application/state/TrackEditorProvider";
 import { EXAMPLES } from "@/domain/track/examples";
 import type { ExportKind } from "@/domain/track/files";
+import { areaUnavailableReason, measures } from "@/domain/track/measures";
+import type { Track } from "@/domain/track/types";
 import { Card } from "@/ui/components/Card";
 import { ExportMenu } from "@/ui/components/track/ExportMenu";
 import { IssuesPanel } from "@/ui/components/track/IssuesPanel";
@@ -15,30 +16,92 @@ import { TrackCanvas } from "@/ui/components/track/TrackCanvas";
 import { TrackInspector } from "@/ui/components/track/TrackInspector";
 import { TrackList } from "@/ui/components/track/TrackList";
 import { TrackToolbar } from "@/ui/components/track/TrackToolbar";
+import { describePath } from "@/ui/components/track/fieldLabels";
 
-function TrackTracerView() {
+function SaveStatus() {
+  const { saveState } = useTrackEditor();
+  if (saveState.status === "idle" || saveState.status === "saving") return null;
+  if (saveState.status === "saved")
+    return (
+      <p className="hint" role="status">
+        {saveState.message}
+      </p>
+    );
+  return (
+    <div className="hint warn" role="alert">
+      <p>{saveState.message}</p>
+      {saveState.fields.length > 0 && (
+        <ul aria-label="Errores al guardar">
+          {saveState.fields.map((f, i) => (
+            <li key={`${f.path}-${i}`}>
+              {describePath(f.path)}: {f.message}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TrackTracerView({ tracks }: { tracks: TracksState }) {
   const editor = useTrackEditor();
-  const tracks = useTracks();
   const exporter = useTrackExport(editor.track, editor.rules);
   const [message, setMessage] = useState("");
+  /** Acción que espera la confirmación de descartar cambios sin guardar. */
+  const [pending, setPending] = useState<(() => void) | null>(null);
 
-  const open = async (id: number) => {
+  // Avisa al cerrar o recargar la página con cambios sin guardar (el navegador pone el texto).
+  useEffect(() => {
+    if (!editor.dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editor.dirty]);
+
+  /** Ejecuta `action` ya, o pide confirmar si reemplazaría una pista con cambios sin guardar. */
+  const guarded = (action: () => void) => () => {
+    if (editor.dirty) setPending(() => action);
+    else action();
+  };
+  const openSaved = async (id: number) => {
     const track = await tracks.open(id);
     if (track) {
       editor.openTrack(track);
       setMessage("");
     }
   };
+  const openExample = (t: Track) => {
+    editor.openTrack(t);
+    setMessage("");
+  };
   const exportAs = async (kind: ExportKind) => setMessage(await exporter.run(kind));
+
+  const m = useMemo(() => (editor.track ? measures(editor.track) : null), [editor.track]);
+  const areaReason = useMemo(
+    () => (editor.track ? areaUnavailableReason(editor.track) : null),
+    [editor.track],
+  );
+
+  const t = editor.track;
+  const stateTag = !t ? null : t.id === null ? (
+    <span className="tag warn">Sin guardar en la API</span>
+  ) : editor.dirty ? (
+    <span className="tag warn">Cambios sin guardar</span>
+  ) : (
+    <span className="tag good">Guardada</span>
+  );
 
   return (
     <section className="view on dv" aria-label="Trazador de pistas">
       <Card className="s8">
         <div className="hd">
           <h2>
-            Plano <small>{editor.track ? editor.track.name : "sin pista abierta"}</small>
+            Plano <small>{t ? t.name : "sin pista abierta"}</small>
           </h2>
-          {editor.track && <span className="tag warn">Sin guardar</span>}
+          {stateTag}
         </div>
         <ProfilePicker
           profiles={editor.profiles.profiles}
@@ -46,18 +109,33 @@ function TrackTracerView() {
           rules={editor.rules}
           loading={editor.profiles.loading}
           error={editor.profiles.error}
+          disabled={!t}
           onSelect={editor.selectProfile}
           onRetry={editor.profiles.reload}
         />
-        <TrackToolbar />
-        <TrackCanvas />
-        {editor.track && (
-          <p className="note">
-            Los cambios todavía no se guardan en la API: si abres otra pista, empiezas una nueva o
-            recargas la página, se pierden.
-          </p>
+        <TrackToolbar onNew={guarded(editor.newTrack)} />
+        {pending && (
+          <div className="trk-confirm" role="alertdialog" aria-label="Cambios sin guardar">
+            <span>Hay cambios sin guardar. ¿Descartarlos?</span>
+            <button
+              type="button"
+              className="sb red"
+              onClick={() => {
+                const action = pending;
+                setPending(null);
+                action();
+              }}
+            >
+              Descartar y continuar
+            </button>
+            <button type="button" className="sb" onClick={() => setPending(null)}>
+              Cancelar
+            </button>
+          </div>
         )}
-        <ExportMenu disabled={!editor.track} message={message} onExport={exportAs} />
+        <SaveStatus />
+        <TrackCanvas />
+        <ExportMenu disabled={!t} message={message} onExport={exportAs} />
       </Card>
       <div className="s4 stack">
         <Card>
@@ -75,6 +153,8 @@ function TrackTracerView() {
             verified={editor.rules !== null}
             issueSel={editor.issueSel}
             onSelect={editor.selectIssue}
+            measures={m}
+            areaReason={areaReason}
           />
         </Card>
         <Card>
@@ -87,16 +167,13 @@ function TrackTracerView() {
             tracks={tracks.tracks}
             loading={tracks.loading}
             error={tracks.error}
-            currentId={editor.track?.id ?? null}
+            currentId={t?.id ?? null}
             examples={EXAMPLES}
             onReload={tracks.reload}
-            onOpen={open}
-            onOpenExample={(t) => {
-              editor.openTrack(t);
-              setMessage("");
-            }}
+            onOpen={(id) => guarded(() => void openSaved(id))()}
+            onOpenExample={(ex) => guarded(() => openExample(ex))()}
             onRemove={async (id) => {
-              if ((await tracks.remove(id)) && editor.track?.id === id) editor.closeTrack();
+              if ((await tracks.remove(id)) && t?.id === id) editor.closeTrack();
             }}
           />
         </Card>
@@ -106,9 +183,11 @@ function TrackTracerView() {
 }
 
 export function TrackTracer() {
+  // La lista vive arriba para que guardar desde cualquier lugar (botón o Ctrl+S) la recargue.
+  const tracks = useTracks();
   return (
-    <TrackEditorProvider>
-      <TrackTracerView />
+    <TrackEditorProvider onSaved={tracks.reload}>
+      <TrackTracerView tracks={tracks} />
     </TrackEditorProvider>
   );
 }

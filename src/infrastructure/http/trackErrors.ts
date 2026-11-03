@@ -99,6 +99,11 @@ export const TRACK_REASONS: Record<string, { message: string; path: string | nul
   track_not_finite: { message: "Hay un número no finito en la pista", path: null },
   track_length_invalid: { message: "El largo de la pista no es válido", path: "length_cm" },
   track_start_invalid: { message: "La salida no es válida", path: "start" },
+  track_metrics_invalid: {
+    message:
+      "El perímetro o el área no son válidos para esta pista (una pista abierta no los tiene)",
+    path: null,
+  },
   track_closed_needs_three_points: {
     message: "Un circuito cerrado necesita al menos 3 puntos",
     path: "closed",

@@ -126,7 +126,7 @@ describe("Trazador de pistas: perfil y verificación", () => {
     openExample("Técnica 3 × 2,5");
     fireEvent.change(screen.getByLabelText("Perfil de reglamento"), { target: { value: "lgr2026" } });
     expect(screen.getByText("Cumple")).toBeTruthy();
-    expect(screen.getByText("8,3 m")).toBeTruthy();
+    expect(screen.getAllByText("8,3 m")).toHaveLength(2); // largo y perímetro
     expect(screen.queryByRole("list", { name: "Incidencias" })).toBeNull();
   });
 
@@ -157,7 +157,7 @@ describe("Trazador de pistas: perfil y verificación", () => {
     expect(screen.getByText("Sin reglas de pista")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Incidencias" })).toBeNull();
     // La geometría sigue disponible.
-    expect(screen.getByText("7,2 m")).toBeTruthy();
+    expect(screen.getAllByText("7,2 m")).toHaveLength(2); // largo y perímetro
   });
 
   it("sin perfil elegido indica que hay que elegir uno", async () => {

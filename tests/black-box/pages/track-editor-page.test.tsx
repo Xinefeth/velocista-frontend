@@ -78,13 +78,13 @@ describe("Trazador de pistas: herramientas e inspector", () => {
     );
   });
 
-  it("no promete lo que aún no existe: sin Guardar ni Deshacer, y avisa de que no se guarda", async () => {
+  it("una pista nueva se marca como sin guardar y ofrece Guardar; Deshacer y Rehacer empiezan apagados", async () => {
     render(<TrackTracer />);
     await newTrack();
-    expect(screen.queryByRole("button", { name: /guardar|actualizar/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /deshacer|rehacer/i })).toBeNull();
-    expect(screen.getByText("Sin guardar")).toBeTruthy();
-    expect(screen.getByText(/Los cambios todavía no se guardan en la API/)).toBeTruthy();
+    expect(screen.getByText("Sin guardar en la API")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Guardar" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Deshacer" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Rehacer" }).hasAttribute("disabled")).toBe(true);
   });
 
   it("alterna la herramienta con los botones y con las teclas V y P", async () => {
@@ -193,9 +193,10 @@ describe("Trazador de pistas: herramientas e inspector", () => {
   it("el nombre se edita y aparece en el encabezado del plano", async () => {
     render(<TrackTracer />);
     await newTrack();
-    fireEvent.change(screen.getByRole("textbox", { name: "Nombre de la pista" }), {
-      target: { value: "Mi pista" },
-    });
+    const name = screen.getByRole("textbox", { name: "Nombre de la pista" });
+    act(() => (name as HTMLInputElement).focus());
+    fireEvent.change(name, { target: { value: "Mi pista" } });
+    fireEvent.keyDown(name, { key: "Enter" }); // se aplica al confirmar, no por cada tecla
     expect(screen.getByText("Mi pista")).toBeTruthy();
     expect(canvas().getAttribute("aria-label")).toBe("Plano de la pista Mi pista");
   });

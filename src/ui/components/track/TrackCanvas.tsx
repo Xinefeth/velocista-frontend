@@ -42,6 +42,10 @@ export function TrackCanvas() {
       getRadius: () => editorRef.current.store.getState().options.radius,
       preview: (t) => editorRef.current.store.preview(t),
       apply: (t, sel) => editorRef.current.store.apply(t, sel),
+      commit: (before) => editorRef.current.store.commit(before),
+      undo: () => editorRef.current.store.undo(),
+      redo: () => editorRef.current.store.redo(),
+      save: () => void editorRef.current.save(),
       setSelection: (s) => editorRef.current.store.setSelection(s),
       setTool: (t) => editorRef.current.store.setTool(t),
       toggleNodes: () =>

@@ -44,8 +44,14 @@ export interface TrackCanvasHost {
   getRadius(): number;
   /** Cambio durante un arrastre: React se entera una vez por cuadro. */
   preview(track: Track): void;
-  /** Cambio terminado, con la selección que debe quedar. */
+  /** Cambio terminado (un paso de historial), con la selección que debe quedar. */
   apply(track: Track, selection?: Selection): void;
+  /** Cierra un arrastre: `before` es la pista al empezar el gesto; todo el gesto es un solo paso de historial. */
+  commit(before: Track): void;
+  undo(): void;
+  redo(): void;
+  /** Guardar en la API (Ctrl+S); opcional. */
+  save?(): void;
   setSelection(selection: Selection): void;
   setTool(tool: Tool): void;
   toggleNodes(): void;
@@ -58,7 +64,16 @@ export interface TrackCanvasHost {
 type Drag =
   | { type: "pan"; sx: number; sy: number; vx: number; vy: number }
   | { type: "box"; add: boolean; base: number[]; sx0: number; sy0: number }
-  | { type: "move"; before: Track; idxs: number[]; wx0: number; wy0: number }
+  | {
+      type: "move";
+      before: Track;
+      idxs: number[];
+      wx0: number;
+      wy0: number;
+      base?: Track;
+      /** Ya hubo un movimiento: desde entonces cada cuadro cuenta, incluso volver al origen. */
+      moved?: boolean;
+    }
   | { type: "start"; before: Track };
 
 /** Redondeo a un decimal (0,1 cm), como el prototipo sin ajuste. */
@@ -193,8 +208,17 @@ export class TrackCanvasController {
       if (hit.type === "e") {
         const r = insertPointAt(track, hit.i, p.x, p.y, radius);
         if (!r) return;
-        this.host.apply(r.track, pointSelection(r.index));
-        this.drag = { type: "move", before: r.track, idxs: [r.index], wx0: p.x, wy0: p.y };
+        // Insertar y arrastrar el punto nuevo es un solo gesto: un único paso de historial al soltar.
+        this.host.preview(r.track);
+        this.host.setSelection(pointSelection(r.index));
+        this.drag = {
+          type: "move",
+          before: track,
+          idxs: [r.index],
+          wx0: p.x,
+          wy0: p.y,
+          base: r.track,
+        };
       } else if (hit.type === "v") {
         this.host.setSelection(pointSelection(hit.i));
         this.drag = { type: "move", before: track, idxs: [hit.i], wx0: p.x, wy0: p.y };
@@ -314,8 +338,9 @@ export class TrackCanvasController {
     } else if (d.type === "move") {
       const dx = p.x - d.wx0;
       const dy = p.y - d.wy0;
-      if (Math.hypot(dx, dy) < 1e-9) return;
-      this.host.preview(move(d.before, { v: d.idxs, z: [] }, dx, dy));
+      if (!d.moved && Math.hypot(dx, dy) < 1e-9) return;
+      d.moved = true;
+      this.host.preview(move(d.base ?? d.before, { v: d.idxs, z: [] }, dx, dy));
       this.host.coords?.(`Δ ${fmt(dx)}, ${fmt(dy)} cm`);
       this.schedule();
     } else if (d.type === "start") {
@@ -329,6 +354,7 @@ export class TrackCanvasController {
     this.drag = null;
     if (this.cv?.hasPointerCapture?.(e.pointerId)) this.cv.releasePointerCapture(e.pointerId);
     if (!d) return;
+    if (d.type === "move" || d.type === "start") this.host.commit(d.before);
     if (d.type === "box" && this.vp) {
       const scene = this.host.getScene();
       const box = this.overlay.box;
@@ -404,6 +430,22 @@ export class TrackCanvasController {
     if (mod && k === "a") {
       e.preventDefault();
       this.host.setSelection(selectAll(scene.track));
+      return;
+    }
+    if (mod && k === "z") {
+      e.preventDefault();
+      if (e.shiftKey) this.host.redo();
+      else this.host.undo();
+      return;
+    }
+    if (mod && k === "y") {
+      e.preventDefault();
+      this.host.redo();
+      return;
+    }
+    if (mod && k === "s") {
+      e.preventDefault();
+      this.host.save?.();
       return;
     }
     if (mod || e.altKey) return;

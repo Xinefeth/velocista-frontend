@@ -1,6 +1,6 @@
 // Límites de una pista y su validación antes de enviar a la API (EN-28, Requirement 10).
 // Los valores los propone el backend y están pendientes del PO: viven solo aquí para poder cambiarlos.
-import { build } from "@/domain/track/geometry";
+import { measures } from "@/domain/track/measures";
 import type { Track } from "@/domain/track/types";
 
 export const TRACK_LIMITS = {
@@ -17,6 +17,10 @@ export const TRACK_LIMITS = {
   startT: [0, 1],
   /** `length_cm` mayor que 0 y hasta este valor. */
   lengthCmMax: 100000,
+  /** `perimeter_cm` entre 0 y este valor (nulo si la pista es abierta). */
+  perimeterCmMax: 400000,
+  /** `area_cm2` entre 0 y este múltiplo del área del tablero (nula si abierta o con cruces). */
+  areaBoardFactor: 4,
 } as const;
 
 /** Error de validación con la misma ruta que devolvería el servidor (p. ej. `points[3].radius`). */
@@ -29,7 +33,7 @@ const finite = (v: unknown): v is number => typeof v === "number" && Number.isFi
 
 /** Largo total de la línea en cm, redondeado a 0,01 (lo que se envía como `length_cm`). */
 export function lengthCmOf(track: Track): number {
-  return Math.round(build(track).L * 100) / 100;
+  return measures(track).lengthCm;
 }
 
 /** Valida todos los límites; devuelve la lista de errores (vacía si la pista se puede guardar). */
@@ -101,9 +105,17 @@ export function validateTrack(track: Track): LimitError[] {
   if (
     !errs.some((e) => e.path.startsWith("points[") || e.path === "points" || e.path === "closed")
   ) {
-    const len = lengthCmOf(track);
-    if (!(len > 0) || len > L.lengthCmMax)
+    const m = measures(track);
+    if (!(m.lengthCm > 0) || m.lengthCm > L.lengthCmMax)
       add("length_cm", `El largo debe ser mayor que 0 y como máximo ${L.lengthCmMax} cm`);
+    if (m.perimeterCm !== null && (m.perimeterCm < 0 || m.perimeterCm > L.perimeterCmMax))
+      add("perimeter_cm", `El perímetro debe estar entre 0 y ${L.perimeterCmMax} cm`);
+    const maxArea = L.areaBoardFactor * track.board.widthCm * track.board.heightCm;
+    if (m.areaCm2 !== null && (m.areaCm2 < 0 || m.areaCm2 > maxArea))
+      add(
+        "area_cm2",
+        `El área debe estar entre 0 y ${L.areaBoardFactor} veces el área del tablero (${maxArea} cm²)`,
+      );
   }
   return errs;
 }

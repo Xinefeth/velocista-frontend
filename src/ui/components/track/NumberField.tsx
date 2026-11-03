@@ -9,6 +9,7 @@ export function NumberField({
   unit,
   min,
   max,
+  error,
   onCommit,
 }: {
   label: string;
@@ -17,6 +18,8 @@ export function NumberField({
   unit?: string;
   min?: number;
   max?: number;
+  /** Error de guardado asociado a este campo (local o del servidor). */
+  error?: string;
   onCommit: (value: number) => void;
 }) {
   const id = useId();
@@ -65,8 +68,8 @@ export function NumberField({
         autoComplete="off"
         value={text}
         placeholder={value === null ? "varios" : undefined}
-        aria-invalid={invalid ? "true" : undefined}
-        aria-describedby={invalid ? `${id}-err` : undefined}
+        aria-invalid={invalid || error ? "true" : undefined}
+        aria-describedby={invalid || error ? `${id}-err` : undefined}
         onFocus={() => {
           focused.current = true;
         }}
@@ -89,9 +92,9 @@ export function NumberField({
           }
         }}
       />
-      {invalid && (
+      {(invalid || error) && (
         <span id={`${id}-err`} className="note" role="alert">
-          Valor no válido{range}.
+          {invalid ? `Valor no válido${range}.` : error}
         </span>
       )}
     </div>

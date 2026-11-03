@@ -2,13 +2,14 @@
 // borra UNA pista de prueba y limpia al terminar. Por defecto se salta, así `npm test` sigue en verde sin red.
 // Uso (API local sin login):  RUN_LIVE_QA=1 QA_API_URL=http://127.0.0.1:8000 npx vitest run tests/integration/qa-live-tracks.test.ts
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { EXAMPLE_TECHNIQUE } from "@/domain/track/examples";
+import { EXAMPLE_EIGHT, EXAMPLE_TECHNIQUE } from "@/domain/track/examples";
 import { lengthCmOf } from "@/domain/track/limits";
+import { measures } from "@/domain/track/measures";
 import { analyze } from "@/domain/track/rules";
 import type { Track } from "@/domain/track/types";
 import { ErrorApi } from "@/infrastructure/http/api";
 import { profilesApi } from "@/infrastructure/http/profiles";
-import { tracksApi } from "@/infrastructure/http/tracks";
+import { toTrackBody, tracksApi } from "@/infrastructure/http/tracks";
 import { LGR_2026 } from "../unit/track/fixtures";
 
 const enabled = process.env.RUN_LIVE_QA === "1";
@@ -60,6 +61,11 @@ describe.skipIf(!enabled)("API de pistas real", () => {
     created.push(made.id!);
     expect(Number.isInteger(made.id)).toBe(true);
     expect(made.lengthCm).toBe(lengthCmOf(EXAMPLE_TECHNIQUE));
+    // Perímetro y área (EN-28, supuesto pendiente del PO): el servidor guarda lo que calcula el frontend.
+    const m = measures(EXAMPLE_TECHNIQUE);
+    expect(made.perimeterCm).toBe(m.perimeterCm);
+    expect(made.areaCm2).toBe(m.areaCm2);
+    expect(made.areaCm2).toBeGreaterThan(0);
     expect(made.points).toEqual(EXAMPLE_TECHNIQUE.points);
     expect(made.zones).toEqual(EXAMPLE_TECHNIQUE.zones);
     expect(made.profileId).toBe("lgr2026");
@@ -133,5 +139,33 @@ describe.skipIf(!enabled)("API de pistas real", () => {
     const err = await failure(tracksApi.create(sample({ start: { edge: 99, t: 0.5 } })));
     expect(err.status).toBe(422);
     expect(err.reason).toBe("track_start_invalid");
+  });
+
+  it("perímetro y área: una pista con cruce guarda área null; una abierta guarda ambos null", async () => {
+    const eight = await tracksApi.create(
+      sample({ ...EXAMPLE_EIGHT, name: stamp + " ocho", id: null }),
+    );
+    created.push(eight.id!);
+    expect(eight.perimeterCm).toBe(measures(EXAMPLE_EIGHT).perimeterCm);
+    expect(eight.areaCm2).toBeNull();
+
+    const open = await tracksApi.create(sample({ closed: false, name: stamp + " abierta" }));
+    created.push(open.id!);
+    expect(open.perimeterCm).toBeNull();
+    expect(open.areaCm2).toBeNull();
+    expect((await tracksApi.get(open.id!)).areaCm2).toBeNull();
+  });
+
+  it("track_metrics_invalid: una pista abierta con perímetro no nulo da 422 de forma B", async () => {
+    const body = { ...toTrackBody(sample({ closed: false })), perimeter_cm: 100 };
+    const res = await nativeFetch(new URL("/api/tracks", base), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(Array.isArray(json.detail)).toBe(false);
+    expect(json.detail.reason).toBe("track_metrics_invalid");
   });
 });

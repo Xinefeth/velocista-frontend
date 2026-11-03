@@ -17,6 +17,7 @@ export function ProfilePicker({
   rules,
   loading,
   error,
+  disabled = false,
   onSelect,
   onRetry,
 }: {
@@ -25,6 +26,8 @@ export function ProfilePicker({
   rules: TrackRules | null;
   loading: boolean;
   error: string | null;
+  /** Sin pista abierta no hay a qué asociar el perfil. */
+  disabled?: boolean;
   onSelect: (id: string | null) => void;
   onRetry: () => void;
 }) {
@@ -39,7 +42,7 @@ export function ProfilePicker({
         id="trk-profile"
         className="inp"
         value={profileId ?? ""}
-        disabled={loading}
+        disabled={loading || disabled}
         onChange={(e) => onSelect(e.target.value || null)}
       >
         <option value="">{loading ? "Cargando perfiles…" : "Sin perfil"}</option>

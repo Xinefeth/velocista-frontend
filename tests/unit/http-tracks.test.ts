@@ -4,8 +4,9 @@ import { ErrorApi } from "@/infrastructure/http/api";
 import { profilesApi, parseTrackRules, toTrackProfile } from "@/infrastructure/http/profiles";
 import { toTrack, toTrackBody, tracksApi } from "@/infrastructure/http/tracks";
 import type { ProfileApi, TrackApi } from "@/infrastructure/contracts/tracks";
-import { EXAMPLE_TECHNIQUE } from "@/domain/track/examples";
+import { EXAMPLE_EIGHT, EXAMPLE_TECHNIQUE } from "@/domain/track/examples";
 import { lengthCmOf } from "@/domain/track/limits";
+import { measures } from "@/domain/track/measures";
 import { LGR_2026 } from "./track/fixtures";
 
 const wire: TrackApi = {
@@ -22,6 +23,8 @@ const wire: TrackApi = {
   start: { edge: 1, t: 0.35 },
   profile_id: "lgr2026",
   length_cm: 612.34,
+  perimeter_cm: 612.34,
+  area_cm2: 21000.5,
   created_at: "2026-10-28T10:00:00Z",
   updated_at: "2026-10-28T11:00:00Z",
 };
@@ -57,20 +60,36 @@ describe("traducción contrato ↔ dominio", () => {
       start: { edge: 1, t: 0.35 },
       profileId: "lgr2026",
       lengthCm: 612.34,
+      perimeterCm: 612.34,
+      areaCm2: 21000.5,
       createdAt: "2026-10-28T10:00:00Z",
       updatedAt: "2026-10-28T11:00:00Z",
     });
   });
 
-  it("toTrackBody envía length_cm calculado y ningún campo de solo lectura", () => {
+  it("toTrackBody envía largo, perímetro y área calculados y ningún campo de solo lectura", () => {
     const body = toTrackBody({ ...EXAMPLE_TECHNIQUE, name: "  Mi pista  " });
     expect(body.name).toBe("Mi pista");
     expect(body.length_cm).toBe(lengthCmOf(EXAMPLE_TECHNIQUE));
     expect(body.length_cm).toBe(833.45);
+    expect(body.perimeter_cm).toBe(833.45);
+    expect(body.area_cm2).toBeGreaterThan(0);
+    expect(body.area_cm2).toBe(measures(EXAMPLE_TECHNIQUE).areaCm2);
     expect(body.board).toEqual({ width_cm: 300, height_cm: 250 });
     expect(body.profile_id).toBe("lgr2026");
     expect(Object.keys(body).sort()).toEqual(
-      ["board", "closed", "length_cm", "name", "points", "profile_id", "start", "zones"].sort(),
+      [
+        "area_cm2",
+        "board",
+        "closed",
+        "length_cm",
+        "name",
+        "perimeter_cm",
+        "points",
+        "profile_id",
+        "start",
+        "zones",
+      ].sort(),
     );
     expect(body).not.toHaveProperty("id");
     expect(body).not.toHaveProperty("created_at");
@@ -237,5 +256,56 @@ describe("perfiles de la API", () => {
 
   it("usa el id como nombre si no hay label", () => {
     expect(toTrackProfile({ ...club, label: "" }).name).toBe("club");
+  });
+});
+
+describe("perímetro y área en el contrato", () => {
+  it("una pista abierta envía null (no 0) en perímetro y área", () => {
+    const open = { ...EXAMPLE_TECHNIQUE, closed: false };
+    const body = toTrackBody(open);
+    expect(body.perimeter_cm).toBeNull();
+    expect(body.area_cm2).toBeNull();
+    expect(body.length_cm).toBeGreaterThan(0);
+  });
+
+  it("una pista cerrada con cruce envía perímetro pero área null", () => {
+    const body = toTrackBody(EXAMPLE_EIGHT);
+    expect(body.perimeter_cm).toBe(715.62);
+    expect(body.area_cm2).toBeNull();
+  });
+
+  it("nunca envía valores viejos: se recalculan de la geometría", () => {
+    const stale = { ...EXAMPLE_TECHNIQUE, lengthCm: 1, perimeterCm: 2, areaCm2: 3 };
+    const body = toTrackBody(stale);
+    expect(body.length_cm).toBe(833.45);
+    expect(body.perimeter_cm).toBe(833.45);
+    expect(body.area_cm2).toBe(measures(EXAMPLE_TECHNIQUE).areaCm2);
+  });
+
+  it("una API anterior sin los campos nuevos se lee como null", () => {
+    const { perimeter_cm: _p, area_cm2: _a, ...old } = wire;
+    void _p;
+    void _a;
+    const track = toTrack(old as TrackApi);
+    expect(track.perimeterCm).toBeNull();
+    expect(track.areaCm2).toBeNull();
+  });
+
+  it("crea con perímetro y área en el cuerpo de la solicitud", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(json(wire)));
+    await tracksApi.create({ ...EXAMPLE_TECHNIQUE, id: null });
+    const sent = JSON.parse(call(0).init.body as string);
+    expect(sent.perimeter_cm).toBe(833.45);
+    expect(sent.area_cm2).toBe(measures(EXAMPLE_TECHNIQUE).areaCm2);
+  });
+
+  it("track_metrics_invalid llega con su mensaje en español", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(json({ detail: { reason: "track_metrics_invalid", detail: "x" } }, 422)),
+    );
+    const err = (await tracksApi.create(EXAMPLE_TECHNIQUE).catch((e) => e)) as ErrorApi;
+    expect(err.status).toBe(422);
+    expect(err.reason).toBe("track_metrics_invalid");
+    expect(err.message).toMatch(/perímetro o el área/);
   });
 });

@@ -325,6 +325,28 @@ Consequences: every console accent passes 4.5:1 as text on all four panels; `--d
 
 **Visual acceptance checklist for the PO** (Requirement 20.15): side-by-side with Catálogo and Armador; contrast 4.5:1 text / 3:1 graphics; `:focus-visible` outline 2 px `--red` offset 2 px on controls and on the focusable canvas (`tabindex="0"`); hover/pressed/disabled equal to `.sb`, `.seg button`, `.chips button`, `.tabs button`; no horizontal scroll at 360 px; screenshots attached to the PR.
 
+### 3.12 Measures: length, perimeter and area (Requirement 21)
+
+`domain/track/measures.ts` returns `{ lengthCm, perimeterCm | null, areaCm2 | null }` from the same geometry (`build`) that draws the line and verifies it, so the three numbers cannot disagree with what the pilot sees:
+
+```
+g = build(track)
+lengthCm    = round2(g.L)
+closed?     = g.closed && g.pts.length ≥ 3          (closed with < 3 points counts as open)
+perimeterCm = closed ? lengthCm : null
+areaCm2     = closed && crossings(g.pts) = 0 ? round2(|Σ (xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ)| / 2) : null
+```
+
+| Case | Perimeter | Area |
+|---|---|---|
+| closed, no crossings | = length | Gauss over the sampled contour (0.5 cm chords; error < 0.01 % on a circle) |
+| closed, crossing (figure-eight) | = length | **null** (net area misleads) |
+| open, or closed with < 3 points | **null** | **null** |
+
+Known-size test figures: square 200 → 800 cm / 40 000 cm²; rectangle 200 × 100 → 600 / 20 000; circle (square 200 with radius 100) → 2πr / πr² within 0.5 %; L-shape → 800 / 30 000; U-shape → area 300×200 − 100×100; «Ocho libre» → length 715.62, area null.
+
+Wire: `perimeter_cm` and `area_cm2` are nullable (backend supposition). The ACL maps them to `Track.perimeterCm` / `Track.areaCm2`; `toTrackBody` always recomputes all three from the geometry, so a stale value can never be sent. The panel shows metres and square metres (÷100 and ÷10 000) and «—» with `areaUnavailableReason` when null.
+
 ### 3.9 Not adding to the layer debt
 
 | Rule | How |

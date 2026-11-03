@@ -74,6 +74,14 @@ describe("límites antes de enviar", () => {
     expect(paths(two)).toContain("closed");
   });
 
+  it("perímetro y área dentro de los límites de la API", () => {
+    expect(paths(ok)).not.toContain("perimeter_cm");
+    expect(paths(ok)).not.toContain("area_cm2");
+    // Un tablero mínimo de 50 × 50 cm permite hasta 4 × 2500 = 10 000 cm²; la pista «Técnica» encierra más.
+    expect(paths({ ...ok, board: { widthCm: 50, heightCm: 50 } })).toContain("area_cm2");
+    expect(paths({ ...ok, closed: false })).not.toContain("area_cm2");
+  });
+
   it("largo mayor que 0 y hasta 100000 cm", () => {
     const same: Track = { ...ok, closed: false, points: [ok.points[0], { ...ok.points[0] }] };
     expect(paths(same)).toContain("length_cm");

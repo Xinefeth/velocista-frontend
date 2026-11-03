@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TrackEditorStore } from "@/application/state/trackEditorStore";
+import { TrackEditorStore, canRedo, canUndo } from "@/application/state/trackEditorStore";
 import {
   blankTrack,
   moveStartTo,
@@ -206,5 +206,160 @@ describe("almacén del editor", () => {
     store.setOptions({ radius: 33 });
     store.close();
     expect(store.getState().options.radius).toBe(33);
+  });
+});
+
+describe("almacén del editor: historial y cambios pendientes", () => {
+  const edited = (n: number) => ({ ...EXAMPLE_EIGHT, name: "v" + n });
+
+  it("una pista recién abierta no tiene cambios ni historial", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    const s = store.getState();
+    expect(s.dirty).toBe(false);
+    expect(canUndo(s)).toBe(false);
+    expect(canRedo(s)).toBe(false);
+  });
+
+  it("cada cambio es un paso; deshacer y rehacer los recorren", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1));
+    store.apply(edited(2));
+    expect(store.getState().dirty).toBe(true);
+    expect(canUndo(store.getState())).toBe(true);
+    store.undo();
+    expect(store.getState().track!.name).toBe("v1");
+    expect(canRedo(store.getState())).toBe(true);
+    store.undo();
+    expect(store.getState().track!.name).toBe("Ocho libre");
+    expect(store.getState().dirty).toBe(false); // de vuelta a la pista limpia
+    store.redo();
+    store.redo();
+    expect(store.getState().track!.name).toBe("v2");
+    store.redo(); // sin más pasos: no pasa nada
+    expect(store.getState().track!.name).toBe("v2");
+  });
+
+  it("un cambio nuevo después de deshacer borra el rehacer", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1));
+    store.undo();
+    store.apply(edited(9));
+    expect(canRedo(store.getState())).toBe(false);
+  });
+
+  it("el historial guarda como máximo 200 pasos", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    for (let i = 1; i <= 250; i++) store.apply(edited(i));
+    expect(store.getState().history.past).toHaveLength(200);
+    for (let i = 0; i < 300; i++) store.undo();
+    expect(store.getState().track!.name).toBe("v50");
+  });
+
+  it("deshacer y rehacer limpian la selección y la incidencia elegida", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1), pointSelection(1));
+    store.selectIssue(2);
+    store.undo();
+    expect(store.getState().selection).toEqual(EMPTY_SELECTION);
+    expect(store.getState().issueSel).toBe(-1);
+  });
+
+  it("`preview` no toca el historial y `commit` registra el gesto como un solo paso", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    const before = store.getState().track!;
+    store.preview(edited(1));
+    store.preview(edited(2));
+    store.preview(edited(3));
+    expect(store.getState().history.past).toHaveLength(0);
+    expect(store.getState().dirty).toBe(true);
+    store.commit(before);
+    expect(store.getState().history.past).toEqual([before]);
+    store.undo();
+    expect(store.getState().track).toEqual(before);
+  });
+
+  it("`commit` de un gesto que volvió al origen no registra nada", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    const before = store.getState().track!;
+    store.preview(edited(1));
+    store.preview(before);
+    store.commit(before);
+    expect(store.getState().history.past).toHaveLength(0);
+    expect(store.getState().dirty).toBe(false);
+  });
+
+  it("al guardar, la pista guardada reemplaza a la actual y ya no hay cambios", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1));
+    const sent = store.getState().track!;
+    const saved = {
+      ...sent,
+      id: 7,
+      createdAt: "a",
+      updatedAt: "b",
+      lengthCm: 1,
+      perimeterCm: 1,
+      areaCm2: null,
+    };
+    store.markSaved(saved, sent);
+    expect(store.getState().track).toBe(saved);
+    expect(store.getState().dirty).toBe(false);
+  });
+
+  it("si se siguió editando mientras se guardaba, se conservan los cambios con el id nuevo", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1));
+    const sent = store.getState().track!;
+    store.apply(edited(2)); // el piloto sigue escribiendo
+    const saved = { ...sent, id: 7, createdAt: "a", updatedAt: "b" };
+    store.markSaved(saved, sent);
+    expect(store.getState().track).toMatchObject({ id: 7, name: "v2", updatedAt: "b" });
+    expect(store.getState().dirty).toBe(true);
+  });
+
+  it("deshacer después de guardar no «desguarda»: la pista conserva su id y fechas", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1));
+    const sent = store.getState().track!;
+    store.markSaved({ ...sent, id: 7, createdAt: "a", updatedAt: "b" }, sent);
+    store.apply({ ...store.getState().track!, name: "v2" });
+    store.undo();
+    expect(store.getState().track).toMatchObject({ id: 7, createdAt: "a", name: "v1" });
+    expect(store.getState().dirty).toBe(false);
+    store.undo(); // vuelve al estado anterior al primer guardado, pero con el mismo id
+    expect(store.getState().track).toMatchObject({ id: 7, name: "Ocho libre" });
+    expect(store.getState().dirty).toBe(true);
+  });
+
+  it("una pista nueva y una abierta nueva vacían el historial", () => {
+    const store = new TrackEditorStore();
+    store.open(EXAMPLE_EIGHT);
+    store.apply(edited(1));
+    store.newTrack();
+    expect(canUndo(store.getState())).toBe(false);
+    expect(store.getState().dirty).toBe(false);
+    store.apply({ ...store.getState().track!, name: "x" });
+    store.open(EXAMPLE_EIGHT);
+    expect(canUndo(store.getState())).toBe(false);
+    expect(store.getState().dirty).toBe(false);
+  });
+
+  it("sin pista, deshacer, rehacer, guardar y confirmar no hacen nada", () => {
+    const store = new TrackEditorStore();
+    store.undo();
+    store.redo();
+    store.commit(EXAMPLE_EIGHT);
+    store.markSaved(EXAMPLE_EIGHT);
+    expect(store.getState().track).toBeNull();
   });
 });

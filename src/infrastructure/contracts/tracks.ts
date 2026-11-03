@@ -27,6 +27,10 @@ export interface TrackApi {
   start: { edge: number; t: number };
   profile_id: string | null;
   length_cm: number;
+  /** Perímetro en cm; nulo si la pista es abierta (supuesto pendiente del PO). */
+  perimeter_cm: number | null;
+  /** Área en cm²; nula si la pista es abierta o la línea se cruza (supuesto pendiente del PO). */
+  area_cm2: number | null;
   created_at: string;
   updated_at: string;
 }

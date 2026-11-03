@@ -16,7 +16,9 @@ import { TRACK_LIMITS } from "@/domain/track/limits";
 import { fmt } from "@/domain/track/rules";
 import { EMPTY_SELECTION, edgeSelection } from "@/domain/track/selection";
 import type { Track } from "@/domain/track/types";
+import { messageFor } from "@/ui/components/track/fieldLabels";
 import { NumberField } from "@/ui/components/track/NumberField";
+import { NameField } from "@/ui/components/track/NameField";
 
 const COORD = TRACK_LIMITS.coordAbsCm;
 
@@ -83,21 +85,17 @@ export function TrackInspector() {
 
   return (
     <div className="trk-inspector">
-      <div className="fld">
-        <label htmlFor="trk-name">Nombre de la pista</label>
-        <input
-          id="trk-name"
-          className="inp"
-          maxLength={TRACK_LIMITS.nameLength[1]}
-          value={track.name}
-          onChange={(e) => editor.applyTrack(setName(track, e.target.value))}
-        />
-      </div>
+      <NameField
+        value={track.name}
+        error={messageFor(editor.saveState.fields, "name")}
+        onCommit={(name) => editor.applyTrack(setName(track, name))}
+      />
       <div className="trk-row">
         <NumberField
           label="Ancho del tablero"
           unit="cm"
           value={track.board.widthCm}
+          error={messageFor(editor.saveState.fields, "board.width_cm", "board")}
           min={TRACK_LIMITS.boardCm[0]}
           max={TRACK_LIMITS.boardCm[1]}
           onCommit={(w) => editor.applyTrack(setBoard(track, w, track.board.heightCm))}
@@ -106,6 +104,7 @@ export function TrackInspector() {
           label="Alto del tablero"
           unit="cm"
           value={track.board.heightCm}
+          error={messageFor(editor.saveState.fields, "board.height_cm")}
           min={TRACK_LIMITS.boardCm[0]}
           max={TRACK_LIMITS.boardCm[1]}
           onCommit={(h) => editor.applyTrack(setBoard(track, track.board.widthCm, h))}

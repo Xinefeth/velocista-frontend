@@ -1,10 +1,12 @@
-// Barra de herramientas del plano: herramienta activa, mostrar puntos y pista nueva.
+// Barra de herramientas del plano: herramienta activa, mostrar puntos, deshacer/rehacer, guardar y pista nueva.
 // Usa los controles de la consola: `.seg` (segmentado), `.chips` (interruptor) y `.sb` (botón).
 import { useTrackEditor } from "@/application/state/TrackEditorProvider";
 
-export function TrackToolbar() {
+export function TrackToolbar({ onNew }: { onNew: () => void }) {
   const editor = useTrackEditor();
   const has = editor.track !== null;
+  const saving = editor.saveState.status === "saving";
+  const isNew = editor.track?.id === null;
   return (
     <div className="trk-bar">
       <div className="seg" role="group" aria-label="Herramienta">
@@ -38,13 +40,37 @@ export function TrackToolbar() {
           Puntos
         </button>
       </div>
+      <div className="trk-menu" role="group" aria-label="Historial">
+        <button
+          type="button"
+          className="sb"
+          disabled={!editor.canUndo}
+          title="Deshacer (Ctrl+Z)"
+          onClick={editor.undo}
+        >
+          Deshacer
+        </button>
+        <button
+          type="button"
+          className="sb"
+          disabled={!editor.canRedo}
+          title="Rehacer (Ctrl+Mayús+Z o Ctrl+Y)"
+          onClick={editor.redo}
+        >
+          Rehacer
+        </button>
+      </div>
+      <button type="button" className="sb" onClick={onNew} title="Empezar una pista en blanco">
+        Nueva pista
+      </button>
       <button
         type="button"
-        className="sb"
-        onClick={editor.newTrack}
-        title="Empezar una pista en blanco"
+        className="sb red"
+        disabled={!has || saving || (!isNew && !editor.dirty)}
+        title={isNew ? "Guardar en la API (Ctrl+S)" : "Actualizar en la API (Ctrl+S)"}
+        onClick={() => void editor.save()}
       >
-        Nueva pista
+        {saving ? "Guardando…" : isNew ? "Guardar" : "Actualizar"}
       </button>
     </div>
   );

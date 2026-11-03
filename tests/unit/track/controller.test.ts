@@ -30,6 +30,8 @@ interface Harness {
   cv: HTMLCanvasElement;
   notes: string[];
   coords: string[];
+  /** Cuántas veces se pidió guardar (Ctrl+S). */
+  saves: number[];
   frames: FrameRequestCallback[];
   /** Ejecuta los cuadros pendientes. */
   flush: () => void;
@@ -53,6 +55,7 @@ function harness(track: Track | null, opts: { nodes?: boolean; tool?: Tool } = {
   if (opts.tool) store.setTool(opts.tool);
   const notes: string[] = [];
   const coords: string[] = [];
+  const saves: number[] = [];
   const host: TrackCanvasHost = {
     getScene: (): Scene | null => {
       const s = store.getState();
@@ -70,6 +73,10 @@ function harness(track: Track | null, opts: { nodes?: boolean; tool?: Tool } = {
     getRadius: () => store.getState().options.radius,
     preview: (t) => store.preview(t),
     apply: (t, sel) => store.apply(t, sel),
+    commit: (before) => store.commit(before),
+    undo: () => store.undo(),
+    redo: () => store.redo(),
+    save: () => saves.push(1),
     setSelection: (s) => store.setSelection(s),
     setTool: (t) => store.setTool(t),
     toggleNodes: () => store.setOptions({ nodes: !store.getState().options.nodes }),
@@ -113,6 +120,7 @@ function harness(track: Track | null, opts: { nodes?: boolean; tool?: Tool } = {
     cv,
     notes,
     coords,
+    saves,
     frames,
     flush: () => {
       while (frames.length) frames.shift()!(0);
@@ -415,7 +423,7 @@ describe("atajos de teclado", () => {
   it("las teclas sin función no se consumen", () => {
     const h = harness(square);
     expect(h.key("q").defaultPrevented).toBe(false);
-    expect(h.key("z", { ctrlKey: true }).defaultPrevented).toBe(false);
+    expect(h.key("q", { ctrlKey: true }).defaultPrevented).toBe(false);
   });
 });
 
@@ -458,5 +466,111 @@ describe("vista", () => {
     h.store.open({ ...EXAMPLE_TECHNIQUE, id: 9, board: { widthCm: 600, heightCm: 500 } });
     h.controller.render(h.cv);
     expect(h.controller.viewport!.z).toBeLessThan(z);
+  });
+});
+
+describe("historial y guardado desde el teclado", () => {
+  const steps = (h: Harness) => h.store.getState().history.past.length;
+
+  it("arrastrar un punto es UN paso de historial, aunque haya muchos movimientos", () => {
+    const h = harness(square, { nodes: true });
+    h.down(50, 50);
+    h.move(60, 60);
+    h.move(70, 80);
+    h.move(80, 100);
+    h.up(80, 100);
+    expect(steps(h)).toBe(1);
+    expect(h.store.getState().dirty).toBe(true);
+    h.key("z", { ctrlKey: true });
+    expect(pts(h)).toEqual(square.points);
+    expect(h.store.getState().dirty).toBe(false);
+    h.key("y", { ctrlKey: true });
+    expect(pts(h)[0].x).toBeCloseTo(80, 0);
+  });
+
+  it("Ctrl+Mayús+Z también rehace", () => {
+    const h = harness(square, { nodes: true });
+    h.down(50, 50);
+    h.move(90, 90);
+    h.up(90, 90);
+    h.key("z", { ctrlKey: true });
+    h.key("z", { ctrlKey: true, shiftKey: true });
+    expect(pts(h)[0].x).toBeGreaterThan(80);
+  });
+
+  it("un clic sin mover no deja pasos ni cambios pendientes", () => {
+    const h = harness(square, { nodes: true });
+    h.click(50, 50);
+    expect(steps(h)).toBe(0);
+    expect(h.store.getState().dirty).toBe(false);
+  });
+
+  it("arrastrar y volver al mismo sitio no deja cambios pendientes", () => {
+    const h = harness(square, { nodes: true });
+    h.down(50, 50);
+    h.move(90, 90);
+    h.move(50, 50);
+    h.up(50, 50);
+    expect(steps(h)).toBe(0);
+    expect(h.store.getState().dirty).toBe(false);
+  });
+
+  it("insertar un punto sobre un tramo y arrastrarlo es un solo paso", () => {
+    const h = harness(square, { tool: "draw" });
+    h.down(150, 50);
+    h.move(150, 90);
+    h.up(150, 90);
+    expect(pts(h)).toHaveLength(5);
+    expect(steps(h)).toBe(1);
+    h.key("z", { ctrlKey: true });
+    expect(pts(h)).toHaveLength(4);
+  });
+
+  it("cada punto dibujado es un paso y deshacer quita el último", () => {
+    const h = harness(blankTrack(), { tool: "draw" });
+    h.click(60, 60);
+    h.click(200, 60);
+    h.click(200, 160);
+    expect(steps(h)).toBe(3);
+    h.key("z", { ctrlKey: true });
+    expect(pts(h)).toHaveLength(2);
+    h.key("z", { ctrlKey: true });
+    h.key("z", { ctrlKey: true });
+    h.key("z", { ctrlKey: true }); // sin más pasos: no pasa nada
+    expect(pts(h)).toHaveLength(0);
+  });
+
+  it("mover la bandera y borrar puntos son pasos que se deshacen", () => {
+    const h = harness(square, { nodes: true });
+    h.down(150, 50);
+    h.move(150, 200);
+    h.up(150, 200);
+    expect(steps(h)).toBe(1);
+    h.click(50, 50);
+    h.key("Delete");
+    expect(steps(h)).toBe(2);
+    h.key("z", { ctrlKey: true });
+    h.key("z", { ctrlKey: true });
+    expect(h.store.getState().track).toEqual(square);
+  });
+
+  it("Ctrl+S pide guardar y no deja que el navegador guarde la página", () => {
+    const h = harness(square);
+    const e = h.key("s", { ctrlKey: true });
+    expect(e.defaultPrevented).toBe(true);
+    expect(h.saves).toHaveLength(1);
+  });
+
+  it("Ctrl+Z, Ctrl+Y y Ctrl+S dentro de un campo de texto no se tocan", () => {
+    const h = harness(square, { nodes: true });
+    h.down(50, 50);
+    h.move(90, 90);
+    h.up(90, 90);
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    expect(h.key("z", { ctrlKey: true }, input).defaultPrevented).toBe(false);
+    expect(h.key("s", { ctrlKey: true }, input).defaultPrevented).toBe(false);
+    expect(steps(h)).toBe(1);
+    expect(h.saves).toHaveLength(0);
   });
 });

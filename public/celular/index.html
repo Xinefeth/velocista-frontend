@@ -212,7 +212,8 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <ol>
         <li>Empieza en una <b>esquina</b>.</li>
         <li>En cada esquina toca <b>"Marcar esquina"</b>.</li>
-        <li>Termina en el mismo punto y <b>vuelve a mirar hacia donde empezaste</b>.</li>
+        <li>Termina en tu <b>marca real del piso</b> (no persigas el punto del mapa) y <b>gira hasta mirar hacia donde empezaste</b>.</li>
+        <li>En cada esquina <b>gira quieta</b> y luego sigue caminando.</li>
       </ol>
       <div class="row"><button class="go" id="btnStart">Iniciar medición</button></div>
       <p class="hint" id="startMsg"></p>
@@ -221,10 +222,11 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <div class="hd"><h2>Midiendo…</h2><span class="tag red"><span class="dot"></span>En vivo</span></div>
       <canvas id="cvLive"></canvas>
       <p class="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
+      <p class="hint">El mapa es aproximado. <b>Termina en tu marca real del piso</b>, aunque el mapa muestre el inicio en otro lugar: esa diferencia es el error que el sistema mide y corrige.</p>
       <div class="kv" style="margin-top:10px">
         <span>Pasos</span><b id="rSteps">0</b>
         <span>Distancia caminada</span><b id="rDist">0 m</b>
-        <span>Para volver al inicio</span><b id="rBack">—</b>
+        <span>Inicio según el mapa (aprox.)</span><b id="rBack">—</b>
         <span>Dirección</span><b id="rDir">—</b>
         <span>Esquinas marcadas</span><b id="rCorners">0</b>
         <span>Tiempo</span><b id="rTime">0 s</b>
@@ -819,7 +821,7 @@ function drawLive() {
   const back = Math.hypot(here.x, here.y);
   $("#rSteps").textContent = run.method === "gps" ? "—" : run.steps;
   $("#rDist").textContent = fmt(run.dist, 1) + " m";
-  $("#rBack").textContent = fmt(back, 1) + " m";
+  $("#rBack").textContent = "a " + fmt(back, 1) + " m";
   $("#rBack").style.color = run.dist > 5 && back < 1.5 ? "var(--green)" : "";
   $("#rDir").textContent = run.method === "gps" ? "GPS" : "giro total " + fmt(run.heading, 0) + "°";
 }

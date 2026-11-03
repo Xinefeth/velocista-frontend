@@ -565,7 +565,8 @@ $("#btnGyro").onclick = async () => {
 
 /* paso: 3 caminatas; el backend cuenta los pasos con el mismo detector que usa al medir.
    Este contador en vivo usa el mismo método (pico de |a| − g, umbral 1,2 y rearme en −0,6). */
-function stepCounter() {
+function stepCounter(th = (CAL && CAL.step_threshold_ms2) || 1.2) {
+  // misma regla que el backend: la aprendida al calibrar el paso, o 1,2 si aún no se aprendió
   const win = [];
   let armed = true, last = -1e12, count = 0;
   return (t, acc) => {
@@ -573,8 +574,8 @@ function stepCounter() {
     win.push(Math.hypot(acc[0], acc[1], acc[2]) - 9.80665);
     if (win.length > 3) win.shift();
     const s = win.reduce((a, b) => a + b, 0) / win.length;
-    if (armed && s > 1.2 && t - last >= 300) { count++; last = t; armed = false; }
-    else if (s < -0.6) armed = true;
+    if (armed && s > th && t - last >= 300) { count++; last = t; armed = false; }
+    else if (s < -th / 2) armed = true;
     return count;
   };
 }
@@ -699,7 +700,8 @@ $("#btnStepWalk").onclick = async () => {
     const trials = stepTrials; stepTrials = [];
     const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/step", { trials });
     const uneven = (r.params.warnings || []).includes("uneven_pace");
-    msg("#stepMsg", "Listo ✔ tu paso mide " + fmt(r.params.step_length_m, 3) + " m (pasos: " + r.params.steps.join(", ") + ")" + (uneven ? ". Ojo: caminaste a ritmos distintos, puedes repetir." : ""), uneven ? "" : "good");
+    const tuned = r.params.step_threshold_ms2 ? " · contador ajustado a tu forma de pisar" : "";
+    msg("#stepMsg", "Listo ✔ tu paso mide " + fmt(r.params.step_length_m, 3) + " m (pasos: " + r.params.steps.join(", ") + ")" + tuned + (uneven ? ". Ojo: caminaste a ritmos distintos, puedes repetir." : ""), uneven ? "" : "good");
     resetStepButton();
     refreshCalibration();
   } catch (e) {

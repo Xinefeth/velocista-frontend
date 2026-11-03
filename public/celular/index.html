@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>APAEC Lab · Medir con el celular</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#17202b;--mute:#5d6875;--line:#dde2e8;--acc:#1f4e8c;--ok:#1b7f4b;--warn:#a86400;--bad:#b3261e;--okb:#e2f4ea;--warnb:#fff1d6;--badb:#fde7e5}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--card:#171d24;--ink:#e8edf2;--mute:#9aa6b2;--line:#2a333d;--acc:#5b9be0;--ok:#4cc38a;--warn:#e0a84a;--bad:#f07167;--okb:#13301f;--warnb:#33270e;--badb:#3a1714}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
+h1{font-size:1.3rem;margin:4px 0}
+h2{font-size:1.05rem;margin:0 0 8px}
+p{margin:6px 0}
+.sub{color:var(--mute);font-size:.9rem}
+nav{display:flex;gap:6px;overflow-x:auto;margin:12px 0}
+nav button{flex:1 0 auto;min-height:44px}
+nav button[aria-current="true"]{background:var(--acc);border-color:var(--acc);color:#fff}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:.85rem;color:var(--mute);margin:10px 0 4px}
+input,select{width:100%;min-height:46px;font:inherit;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+button{font:inherit;min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 14px;cursor:pointer}
+button.main{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600;width:100%}
+button.stop{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600;width:100%}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.row>*{flex:1 1 140px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:4px 12px;font-size:.95rem}
+.kv b{font-variant-numeric:tabular-nums;text-align:right}
+.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.82rem;font-weight:600}
+.ok{background:var(--okb);color:var(--ok)}.warn{background:var(--warnb);color:var(--warn)}.bad{background:var(--badb);color:var(--bad)}
+.msg{font-size:.92rem;margin-top:8px;min-height:1.3em}
+.msg.err{color:var(--bad)}.msg.good{color:var(--ok)}
+canvas{width:100%;height:260px;border:1px solid var(--line);border-radius:10px;margin-top:10px;background:var(--bg)}
+table{width:100%;border-collapse:collapse;font-size:.86rem;font-variant-numeric:tabular-nums}
+th,td{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mute);font-weight:600}
+.tw{overflow-x:auto}
+ol{padding-left:20px;margin:6px 0}
+li{margin:3px 0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Medir con el celular</h1>
+  <p class="sub">APAEC Lab · los datos son reales: salen de los sensores de este celular y se guardan en el sistema.</p>
+
+  <nav id="tabs">
+    <button data-tab="conexion" aria-current="true">1. Conexión</button>
+    <button data-tab="calibrar">2. Calibrar</button>
+    <button data-tab="medir">3. Medir</button>
+    <button data-tab="gps">4. Error GPS</button>
+  </nav>
+
+  <!-- ===================== 1. CONEXIÓN ===================== -->
+  <div data-panel="conexion">
+    <section>
+      <h2>Conectar con el sistema</h2>
+      <label for="apiUrl">Dirección del backend</label>
+      <input id="apiUrl" placeholder="https://velocista-backend.onrender.com" inputmode="url" autocomplete="off">
+      <div id="loginBox" hidden>
+        <label for="user">Usuario</label>
+        <input id="user" autocomplete="username">
+        <label for="pass">Contraseña</label>
+        <input id="pass" type="password" autocomplete="current-password">
+      </div>
+      <div class="row"><button class="main" id="btnConnect">Conectar</button></div>
+      <p class="msg" id="connMsg"></p>
+    </section>
+    <section>
+      <h2>Sensores del celular</h2>
+      <p class="sub">Necesita HTTPS. En iPhone hay que aceptar el permiso de movimiento.</p>
+      <div class="row"><button class="main" id="btnSensors">Activar sensores</button></div>
+      <div class="kv" style="margin-top:10px">
+        <span>Giroscopio</span><b id="sGyro">—</b>
+        <span>Acelerómetro</span><b id="sAcc">—</b>
+        <span>GPS (precisión)</span><b id="sGps">—</b>
+        <span>Pantalla siempre encendida</span><b id="sWake">—</b>
+        <span>Código de este celular</span><b id="sDevice" style="font-size:.8rem">—</b>
+      </div>
+      <p class="msg" id="sensMsg"></p>
+    </section>
+  </div>
+
+  <!-- ===================== 2. CALIBRAR ===================== -->
+  <div data-panel="calibrar" hidden>
+    <section>
+      <h2>Estado de la calibración</h2>
+      <div class="kv">
+        <span>Giroscopio</span><b id="cGyro">—</b>
+        <span>Largo del paso</span><b id="cStep">—</b>
+        <span>Velocidad del carro</span><b id="cCar">—</b>
+      </div>
+      <div class="row"><button id="btnCalRefresh">Actualizar</button></div>
+    </section>
+    <section>
+      <h2>A. Giroscopio (5 segundos)</h2>
+      <ol><li>Pon el celular <b>quieto sobre una mesa</b>.</li><li>Toca el botón y no lo toques hasta que termine.</li></ol>
+      <div class="row"><button class="main" id="btnGyro">Calibrar giroscopio</button></div>
+      <p class="msg" id="gyroMsg"></p>
+    </section>
+    <section>
+      <h2>B. Largo del paso (caminar 3 veces)</h2>
+      <ol>
+        <li>Mide con cinta una recta (por ejemplo <b>20 m</b>) y escribe la distancia.</li>
+        <li>Lleva el celular <b>plano frente al pecho</b>, como al medir.</li>
+        <li>Toca "Empezar", camina normal hasta el final y toca "Terminar". Repite 3 veces.</li>
+      </ol>
+      <label for="stepDist">Distancia medida con cinta (m)</label>
+      <input id="stepDist" type="number" inputmode="decimal" value="20" min="1" step="0.1">
+      <div class="row"><button class="main" id="btnStepWalk">Empezar caminata 1 de 3</button></div>
+      <p class="msg" id="stepMsg"></p>
+    </section>
+    <section>
+      <h2>C. Velocidad del carro (carro + celular)</h2>
+      <p class="sub">El carro no tiene encoders: la distancia se estima con la potencia del motor (PWM). Haz avanzar el carro una distancia medida con cinta y toma el tiempo con un cronómetro. Usa al menos 2 PWM distintos.</p>
+      <div class="tw"><table id="carTable"><thead><tr><th>PWM (%)</th><th>Distancia (m)</th><th>Tiempo (s)</th></tr></thead><tbody></tbody></table></div>
+      <div class="row">
+        <input id="carPwm" type="number" inputmode="decimal" placeholder="PWM %">
+        <input id="carDist" type="number" inputmode="decimal" placeholder="Distancia m">
+        <input id="carSec" type="number" inputmode="decimal" placeholder="Tiempo s">
+      </div>
+      <div class="row"><button id="btnCarAdd">Agregar prueba</button><button class="main" id="btnCarSave">Guardar calibración</button></div>
+      <p class="msg" id="carMsg"></p>
+    </section>
+  </div>
+
+  <!-- ===================== 3. MEDIR ===================== -->
+  <div data-panel="medir" hidden>
+    <section id="setupBox">
+      <h2>Preparar la medición</h2>
+      <label for="method">¿Cómo se mide?</label>
+      <select id="method">
+        <option value="steps">Celular en la mano · por pasos (aula, patio)</option>
+        <option value="gps">Celular en la mano · por GPS (cancha, terreno grande)</option>
+        <option value="car">Carro + celular encima</option>
+      </select>
+      <div id="carBox" hidden>
+        <label for="carRunPwm">PWM con el que avanza el carro (%)</label>
+        <input id="carRunPwm" type="number" inputmode="decimal" placeholder="Ej. 40">
+      </div>
+      <label for="place">Nombre del lugar</label>
+      <input id="place" placeholder="Ej. Aula 204">
+      <div class="row">
+        <div><label for="planL">Largo del plano (m, opcional)</label><input id="planL" type="number" inputmode="decimal"></div>
+        <div><label for="planW">Ancho del plano (m, opcional)</label><input id="planW" type="number" inputmode="decimal"></div>
+      </div>
+      <label for="planN">Escala del plano 1:N (1 si el largo y ancho ya son reales)</label>
+      <input id="planN" type="number" inputmode="decimal" value="1">
+      <label for="tape">Primer lado medido con cinta (m, opcional)</label>
+      <input id="tape" type="number" inputmode="decimal" placeholder="Del inicio a la primera esquina">
+      <ol class="sub">
+        <li>Empieza en una <b>esquina</b>.</li>
+        <li>En cada esquina toca <b>"Marcar esquina"</b>.</li>
+        <li>Termina en el mismo punto y <b>vuelve a mirar hacia donde empezaste</b>.</li>
+      </ol>
+      <div class="row"><button class="main" id="btnStart">Iniciar medición</button></div>
+      <p class="msg" id="startMsg"></p>
+    </section>
+    <section id="runBox" hidden>
+      <h2>Midiendo…</h2>
+      <div class="kv">
+        <span>Lecturas enviadas</span><b id="rSent">0</b>
+        <span>Pendientes de enviar</span><b id="rPend">0</b>
+        <span>Esquinas marcadas</span><b id="rCorners">0</b>
+        <span>Tiempo</span><b id="rTime">0 s</b>
+      </div>
+      <div class="row"><button id="btnCorner" style="min-height:72px;font-size:1.1rem">Marcar esquina</button></div>
+      <div class="row"><button class="stop" id="btnFinish">Terminar y calcular</button></div>
+      <p class="msg" id="runMsg"></p>
+    </section>
+    <section id="resultBox" hidden>
+      <h2>Resultado <span class="tag" id="resTag"></span></h2>
+      <p id="resLabel"></p>
+      <div class="kv">
+        <span>Perímetro</span><b id="resP">—</b>
+        <span>Área</span><b id="resA">—</b>
+        <span>Error de cierre</span><b id="resC">—</b>
+        <span>Recorrido</span><b id="resD">—</b>
+        <span id="resNL">Pasos</span><b id="resN">—</b>
+        <span>Frente al plano (perímetro / área)</span><b id="resRef">—</b>
+      </div>
+      <ul id="resWarn" class="sub"></ul>
+      <canvas id="cv"></canvas>
+      <p class="sub">Gris: recorrido medido · Azul: recorrido corregido · Puntos: esquinas usadas.</p>
+      <div class="row"><button class="main" id="btnAgain">Nueva medición</button></div>
+    </section>
+    <section>
+      <h2>Mis mediciones</h2>
+      <div class="tw"><table><thead><tr><th>Lugar</th><th>Método</th><th>Perímetro</th><th>Área</th><th>Cierre</th></tr></thead><tbody id="histBody"></tbody></table></div>
+      <div class="row"><button id="btnHist">Actualizar</button></div>
+    </section>
+  </div>
+
+  <!-- ===================== 4. ERROR GPS (SP-06) ===================== -->
+  <div data-panel="gps" hidden>
+    <section>
+      <h2>Prueba de error del GPS</h2>
+      <ol>
+        <li>Mide con cinta una distancia <b>mayor a 15 m</b> (30, 50 o 100 m). Escribe 0 si vuelves al mismo punto.</li>
+        <li>Párate en el inicio, toca "Marcar inicio" y quédate quieta hasta que termine.</li>
+        <li>Camina al final, toca "Marcar fin" y quédate quieta otra vez.</li>
+      </ol>
+      <label for="gPlace">Lugar</label>
+      <input id="gPlace" placeholder="Ej. Cancha de fútbol">
+      <label for="gEnv">Entorno</label>
+      <select id="gEnv">
+        <option value="open">Al aire libre</option>
+        <option value="buildings">Cerca de edificios</option>
+        <option value="trees">Bajo árboles</option>
+        <option value="indoor">Bajo techo</option>
+      </select>
+      <label for="gReal">Distancia real con cinta (m)</label>
+      <input id="gReal" type="number" inputmode="decimal" value="30">
+      <label for="gSecs">Segundos quieta en cada punto</label>
+      <input id="gSecs" type="number" inputmode="numeric" value="20" min="5">
+      <div class="row"><button class="main" id="btnGStart">Marcar inicio</button><button class="main" id="btnGEnd" disabled>Marcar fin</button></div>
+      <p class="msg" id="gMsg"></p>
+      <div class="tw" id="gResBox" hidden><table><thead><tr><th>Método</th><th>Distancia GPS</th><th>Error</th><th>Error %</th></tr></thead><tbody id="gResBody"></tbody></table></div>
+    </section>
+    <section>
+      <h2>Resumen de mis pruebas</h2>
+      <div class="kv" id="gSum"><span>Pruebas</span><b>—</b></div>
+      <div class="row"><button id="btnGSum">Ver resumen</button></div>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ---------- utilidades ---------- */
+const $ = (s) => document.querySelector(s);
+const fmt = (v, d = 1) => (v == null || Number.isNaN(v) ? "—" : Number(v).toLocaleString("es-PE", { minimumFractionDigits: d, maximumFractionDigits: d }));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem("apaec.celular." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("apaec.celular." + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
+};
+function msg(el, text, kind = "") { const m = $(el); m.textContent = text; m.className = "msg" + (kind ? " " + kind : ""); }
+
+/* Textos en español para los códigos del backend (el backend responde en inglés) */
+const REASONS = {
+  measurement_not_calibrated: "Falta calibrar: ve al paso 2 (Calibrar).",
+  measurement_too_short: "La medición es muy corta: camina todo el borde (o espera mejor GPS) y vuelve a intentar.",
+  measurement_finished: "Esta medición ya terminó. Empieza una nueva.",
+  measurement_not_found: "La medición no existe.",
+  calibration_phone_moved: "El celular se movió. Déjalo quieto sobre la mesa y repite.",
+  calibration_too_short: "Calibración muy corta. Repite y espera 5 segundos.",
+  calibration_few_samples: "No llegaron lecturas del giroscopio. ¿Activaste los sensores?",
+  calibration_few_trials: "Faltan intentos.",
+  calibration_step_out_of_range: "El largo del paso salió raro. Revisa la distancia y vuelve a caminar.",
+  calibration_invalid_trial: "Un intento tiene datos inválidos.",
+  gps_trial_few_fixes: "Llegaron pocas lecturas GPS. Quédate más tiempo quieta al aire libre.",
+  unauthorized: "Debes iniciar sesión: escribe usuario y contraseña y toca Conectar.",
+  invalid_credentials: "Usuario o contraseña incorrectos.",
+};
+const WARNINGS = {
+  end_heading_unknown: "Al terminar no volviste a mirar hacia donde empezaste: no se pudo corregir el giroscopio.",
+  scale_needs_corner: "Para usar el lado medido con cinta, marca al menos una esquina.",
+  gps_space_too_small: "El lugar es chico para el GPS: usa la medición por pasos.",
+  gps_low_accuracy_dropped: "Se descartaron lecturas GPS con mala precisión.",
+};
+const QUALITY = {
+  green: ["ok", "Medición confiable", "Error de cierre menor a 3 %."],
+  yellow: ["warn", "Medición con error moderado", "Error de cierre entre 3 % y 6 %. Puedes repetir."],
+  red: ["bad", "Medición con mucho error", "Error de cierre mayor a 6 %. Repite la medición."],
+};
+const METHOD_ES = { steps: "Pasos", gps: "GPS", car: "Carro + celular" };
+
+/* ---------- conexión con el backend ---------- */
+const params = new URLSearchParams(location.search);
+let API = (params.get("api") || store.get("api", "")).replace(/\/+$/, "");
+let TOKEN = store.get("token", null);
+let DEVICE = store.get("device", null);
+if (!DEVICE) { DEVICE = "cel-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); store.set("device", DEVICE); }
+$("#apiUrl").value = API;
+$("#sDevice").textContent = DEVICE;
+
+async function api(path, body) {
+  if (!API) throw new Error("Primero escribe la dirección del backend (paso 1).");
+  const headers = { "Content-Type": "application/json" };
+  if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+  let res;
+  try {
+    res = await fetch(API + path, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch {
+    throw new Error("No hay conexión con el backend. Revisa internet y la dirección.");
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const d = data && data.detail;
+    if (res.status === 401) $("#loginBox").hidden = false;
+    if (d && d.reason) throw new Error(REASONS[d.reason] || d.detail || d.reason);
+    if (Array.isArray(d)) throw new Error("Datos inválidos: revisa los campos (" + (d[0] && d[0].loc ? d[0].loc.slice(-1)[0] : "") + ").");
+    throw new Error("Error " + res.status + " del backend.");
+  }
+  return data;
+}
+
+$("#btnConnect").onclick = async () => {
+  API = $("#apiUrl").value.trim().replace(/\/+$/, "");
+  store.set("api", API);
+  msg("#connMsg", "Conectando…");
+  try {
+    const user = $("#user").value.trim(), pass = $("#pass").value;
+    if (user && pass) {
+      const r = await api("/api/auth/login", { username: user, password: pass });
+      TOKEN = r.access_token; store.set("token", TOKEN);
+    }
+    const h = await api("/api/health");
+    if (h.database !== "ok") throw new Error("El backend responde pero la base de datos no.");
+    await api("/api/calibrations/" + encodeURIComponent(DEVICE));
+    msg("#connMsg", "Conectado ✔ (base de datos lista)", "good");
+    refreshCalibration();
+  } catch (e) {
+    const notReady = /404/.test(e.message) ? " ¿Ya se subió y desplegó el backend de mediciones?" : "";
+    msg("#connMsg", e.message + notReady, "err");
+  }
+};
+
+/* ---------- sensores ---------- */
+const live = { gyro: null, acc: null, gyroAt: 0, accAt: 0, fix: null, listeners: new Set(), fixListeners: new Set() };
+let wakeLock = null;
+function onMotion(e) {
+  const t = Date.now();
+  const gz = e.rotationRate && e.rotationRate.alpha != null ? e.rotationRate.alpha : null;
+  const g = e.accelerationIncludingGravity;
+  const acc = g && g.x != null ? [g.x, g.y, g.z] : null;
+  if (gz == null && acc == null) return; // algunos navegadores mandan eventos vacíos: se ignoran
+  if (gz != null) { live.gyro = gz; live.gyroAt = t; }
+  if (acc != null) { live.acc = acc; live.accAt = t; }
+  for (const fn of live.listeners) fn(t, gz, acc);
+}
+function onFix(p) {
+  const f = { t_ms: Date.now(), lat: p.coords.latitude, lon: p.coords.longitude, accuracy_m: p.coords.accuracy };
+  live.fix = f;
+  $("#sGps").textContent = "± " + fmt(f.accuracy_m, 1) + " m";
+  for (const fn of live.fixListeners) fn(f);
+}
+async function keepAwake() {
+  try {
+    if ("wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); $("#sWake").textContent = "Sí"; }
+    else $("#sWake").textContent = "No disponible (no bloquees el celular)";
+  } catch { $("#sWake").textContent = "No (no bloquees el celular)"; }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && wakeLock) keepAwake(); });
+
+$("#btnSensors").onclick = async () => {
+  if (!window.isSecureContext) { msg("#sensMsg", "Esta página debe abrirse con https:// para usar los sensores.", "err"); return; }
+  try {
+    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      const ok = await DeviceMotionEvent.requestPermission();
+      if (ok !== "granted") throw new Error("No diste permiso de movimiento.");
+    }
+    window.addEventListener("devicemotion", onMotion);
+    if (!navigator.geolocation) throw new Error("Este navegador no tiene GPS.");
+    navigator.geolocation.watchPosition(onFix, (err) => { $("#sGps").textContent = "Sin permiso o sin señal"; msg("#sensMsg", "GPS: " + err.message, "err"); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    await keepAwake();
+    msg("#sensMsg", "Sensores activados. Mueve el celular para verlos.", "good");
+    setTimeout(() => {
+      if (!live.accAt) msg("#sensMsg", "No llegan datos de movimiento. Recarga la página y acepta los permisos.", "err");
+      else if (!live.gyroAt) msg("#sensMsg", "Este celular no tiene giroscopio: solo podrás medir por GPS.", "err");
+    }, 3000);
+  } catch (e) { msg("#sensMsg", e.message, "err"); }
+};
+setInterval(() => {
+  $("#sGyro").textContent = live.gyro == null ? "—" : fmt(live.gyro, 1) + " °/s";
+  $("#sAcc").textContent = live.acc == null ? "—" : fmt(Math.hypot(...live.acc), 2) + " m/s²";
+}, 300);
+function needSensors() {
+  const now = Date.now();
+  if (now - live.accAt > 2000) throw new Error("Activa los sensores en el paso 1.");
+  if (now - live.gyroAt > 2000) throw new Error("No llegan datos del giroscopio: este celular no sirve para medir por pasos.");
+}
+
+/* ---------- pestañas ---------- */
+document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-current", x === b));
+  document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== b.dataset.tab));
+  if (b.dataset.tab === "calibrar") refreshCalibration();
+  if (b.dataset.tab === "medir") loadHistory();
+}));
+
+/* ---------- 2. calibración ---------- */
+async function refreshCalibration() {
+  try {
+    const s = await api("/api/calibrations/" + encodeURIComponent(DEVICE));
+    const c = s.calibration;
+    $("#cGyro").textContent = c.gyro_calibrated ? "✔ sesgo " + fmt(c.gyro_bias_dps, 2) + " °/s" : "Falta";
+    $("#cStep").textContent = c.step_length_m ? "✔ " + fmt(c.step_length_m, 3) + " m" : "Falta";
+    $("#cCar").textContent = c.speed_k != null ? "✔ v = " + fmt(c.speed_k, 4) + "·PWM + " + fmt(c.speed_c, 3) : "Falta (solo carro)";
+  } catch { /* sin conexión todavía */ }
+}
+$("#btnCalRefresh").onclick = refreshCalibration;
+
+function collectMotion(ms, onTick) {
+  return new Promise((resolve) => {
+    const out = [];
+    const fn = (t, gz, acc) => out.push({ t, gz, acc });
+    live.listeners.add(fn);
+    const t0 = Date.now();
+    const iv = setInterval(() => onTick && onTick(Math.ceil((ms - (Date.now() - t0)) / 1000)), 250);
+    setTimeout(() => { live.listeners.delete(fn); clearInterval(iv); resolve(out); }, ms);
+  });
+}
+$("#btnGyro").onclick = async () => {
+  const b = $("#btnGyro");
+  try {
+    needSensors(); b.disabled = true;
+    const s = await collectMotion(5500, (left) => msg("#gyroMsg", "No muevas el celular… " + Math.max(left, 0) + " s"));
+    const samples = s.filter((x) => x.gz != null).map((x) => ({ t_ms: x.t, gyro_z_dps: x.gz }));
+    const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/gyro", { samples: samples.slice(0, 5000) });
+    msg("#gyroMsg", "Listo ✔ sesgo del giroscopio: " + fmt(r.params.bias_dps, 3) + " °/s", "good");
+    refreshCalibration();
+  } catch (e) { msg("#gyroMsg", e.message, "err"); } finally { b.disabled = false; }
+};
+
+/* paso: 3 caminatas; el backend cuenta los pasos con el mismo detector que usa al medir */
+let stepTrials = [], stepWalk = null;
+$("#btnStepWalk").onclick = async () => {
+  const b = $("#btnStepWalk");
+  try {
+    if (!stepWalk) {
+      needSensors();
+      const dist = Number($("#stepDist").value);
+      if (!(dist > 0)) throw new Error("Escribe la distancia medida con cinta.");
+      stepWalk = { dist, readings: [] };
+      stepWalk.fn = (t, gz, acc) => { if (acc) stepWalk.readings.push({ seq: stepWalk.readings.length, t_ms: t, kind: "motion", gyro_z_dps: gz, accel: acc }); };
+      live.listeners.add(stepWalk.fn);
+      b.textContent = "Terminar caminata " + (stepTrials.length + 1); b.className = "stop";
+      msg("#stepMsg", "Camina normal hasta el final de la cinta…");
+      return;
+    }
+    live.listeners.delete(stepWalk.fn);
+    stepTrials.push({ distance_m: stepWalk.dist, readings: stepWalk.readings.slice(0, 20000) });
+    stepWalk = null; b.className = "main";
+    if (stepTrials.length < 3) {
+      b.textContent = "Empezar caminata " + (stepTrials.length + 1) + " de 3";
+      msg("#stepMsg", "Caminata " + stepTrials.length + " guardada. Vuelve al inicio.", "good");
+      return;
+    }
+    b.disabled = true; msg("#stepMsg", "Calculando…");
+    const trials = stepTrials; stepTrials = [];
+    const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/step", { trials });
+    const uneven = (r.params.warnings || []).includes("uneven_pace");
+    msg("#stepMsg", "Listo ✔ tu paso mide " + fmt(r.params.step_length_m, 3) + " m (pasos: " + r.params.steps.join(", ") + ")" + (uneven ? ". Ojo: caminaste a ritmos distintos, puedes repetir." : ""), uneven ? "" : "good");
+    refreshCalibration();
+  } catch (e) {
+    msg("#stepMsg", e.message + " Vuelve a hacer las 3 caminatas.", "err");
+    stepTrials = []; stepWalk = null; b.className = "main";
+  } finally {
+    if (!stepWalk && stepTrials.length === 0) { b.disabled = false; b.textContent = "Empezar caminata 1 de 3"; }
+  }
+};
+
+/* carro */
+let carTrials = [];
+function drawCar() { $("#carTable tbody").innerHTML = carTrials.map((t) => `<tr><td>${fmt(t.pwm, 0)}</td><td>${fmt(t.distance_m, 2)}</td><td>${fmt(t.seconds, 2)}</td></tr>`).join(""); }
+$("#btnCarAdd").onclick = () => {
+  const t = { pwm: Number($("#carPwm").value), distance_m: Number($("#carDist").value), seconds: Number($("#carSec").value) };
+  if (!(t.pwm > 0 && t.pwm <= 100 && t.distance_m > 0 && t.seconds > 0)) { msg("#carMsg", "Completa PWM (1-100), distancia y tiempo.", "err"); return; }
+  carTrials.push(t); drawCar(); msg("#carMsg", "");
+  ["#carDist", "#carSec"].forEach((s) => ($(s).value = ""));
+};
+$("#btnCarSave").onclick = async () => {
+  try {
+    if (carTrials.length < 2) throw new Error("Agrega al menos 2 pruebas.");
+    const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/car", { trials: carTrials });
+    msg("#carMsg", "Listo ✔ v = " + fmt(r.params.k, 4) + "·PWM + " + fmt(r.params.c, 3) + " m/s", "good");
+    carTrials = []; drawCar(); refreshCalibration();
+  } catch (e) { msg("#carMsg", e.message, "err"); }
+};
+
+/* ---------- 3. medición ---------- */
+$("#method").onchange = () => ($("#carBox").hidden = $("#method").value !== "car");
+let run = null;
+function num(sel) { const v = Number($(sel).value); return $(sel).value !== "" && v > 0 ? v : null; }
+
+$("#btnStart").onclick = async () => {
+  const b = $("#btnStart");
+  try {
+    const method = $("#method").value;
+    if (method !== "gps") needSensors();
+    if (method === "gps" && !live.fix) throw new Error("Espera a que el GPS tenga señal (paso 1).");
+    const place = $("#place").value.trim();
+    if (!place) throw new Error("Escribe el nombre del lugar.");
+    const pwm = num("#carRunPwm");
+    if (method === "car" && !pwm) throw new Error("Escribe el PWM con el que avanza el carro.");
+    const L = num("#planL"), W = num("#planW"), N = num("#planN") || 1;
+    const body = { method, source: "phone", mount: method === "car" ? "robot" : "hand", place_name: place, device_id: DEVICE };
+    if (L && W) body.reference = { points: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: W }, { x: 0, y: W }], scale_n: N };
+    if (num("#tape")) body.tape_side_m = num("#tape");
+    b.disabled = true;
+    const m = await api("/api/measurements", body);
+    run = { id: m.id, method, pwm, seq: 0, queue: [], sent: 0, corners: 0, t0: Date.now(), sending: false, stopped: false };
+    run.motionFn = (t, gz, acc) => {
+      if (method === "gps") return;
+      const r = { seq: run.seq++, t_ms: t, kind: "motion" };
+      if (gz != null) r.gyro_z_dps = gz;
+      if (acc) r.accel = acc;
+      if (method === "car") r.pwm = pwm;
+      run.queue.push(r);
+    };
+    run.fixFn = (f) => run.queue.push({ seq: run.seq++, t_ms: f.t_ms, kind: "gps", lat: f.lat, lon: f.lon, accuracy_m: f.accuracy_m });
+    live.listeners.add(run.motionFn);
+    live.fixListeners.add(run.fixFn);
+    run.timer = setInterval(flush, 500);
+    run.clock = setInterval(() => { $("#rTime").textContent = Math.round((Date.now() - run.t0) / 1000) + " s"; $("#rPend").textContent = run.queue.length; }, 500);
+    $("#setupBox").hidden = true; $("#resultBox").hidden = true; $("#runBox").hidden = false;
+    $("#rSent").textContent = "0"; $("#rCorners").textContent = "0";
+    msg("#runMsg", "Camina por el borde. Marca cada esquina.");
+  } catch (e) { msg("#startMsg", e.message, "err"); } finally { b.disabled = false; }
+};
+
+async function flush() {
+  if (!run || run.sending || run.queue.length === 0) return;
+  run.sending = true;
+  const batch = run.queue.slice(0, 1000);
+  try {
+    const r = await api("/api/measurements/" + run.id + "/readings", { readings: batch });
+    run.queue.splice(0, batch.length);
+    run.sent = r.total_readings;
+    $("#rSent").textContent = run.sent;
+    if (!run.stopped) msg("#runMsg", "Enviando ✔");
+  } catch (e) {
+    msg("#runMsg", "Sin conexión, se reintentará: " + e.message, "err"); // las lecturas siguen en la cola
+  } finally { run.sending = false; }
+}
+
+$("#btnCorner").onclick = () => {
+  if (!run) return;
+  run.queue.push({ seq: run.seq++, t_ms: Date.now(), kind: "corner" });
+  run.corners++; $("#rCorners").textContent = run.corners;
+  if (navigator.vibrate) navigator.vibrate(80);
+};
+
+$("#btnFinish").onclick = async () => {
+  if (!run) return;
+  const b = $("#btnFinish"); b.disabled = true;
+  run.stopped = true;
+  live.listeners.delete(run.motionFn); live.fixListeners.delete(run.fixFn);
+  clearInterval(run.timer);
+  msg("#runMsg", "Enviando las últimas lecturas…");
+  try {
+    for (let i = 0; i < 40 && (run.queue.length || run.sending); i++) { await flush(); if (run.queue.length || run.sending) await sleep(500); }
+    if (run.queue.length) throw new Error("No se pudieron enviar todas las lecturas. Revisa la conexión y toca de nuevo.");
+    msg("#runMsg", "Calculando…");
+    const m = await api("/api/measurements/" + run.id + "/finish", {});
+    clearInterval(run.clock);
+    run = null;
+    showResult(m);
+  } catch (e) {
+    msg("#runMsg", e.message, "err");
+    if (run && /corta|calibrar/.test(e.message)) {
+      clearInterval(run.clock); run = null;
+      $("#runBox").hidden = true; $("#setupBox").hidden = false;
+      msg("#startMsg", e.message, "err");
+    }
+  } finally { b.disabled = false; }
+};
+
+function showResult(m) {
+  const r = m.result;
+  const [cls, label, desc] = QUALITY[r.quality];
+  $("#resTag").className = "tag " + cls; $("#resTag").textContent = label;
+  $("#resLabel").textContent = desc;
+  $("#resP").textContent = fmt(r.perimeter_m, 2) + " m";
+  $("#resA").textContent = fmt(r.area_m2, 2) + " m²";
+  $("#resC").textContent = fmt(r.closure_error_m, 2) + " m (" + fmt(r.closure_error_pct, 1) + " %)";
+  $("#resD").textContent = fmt(r.distance_m, 2) + " m";
+  $("#resNL").textContent = m.method === "steps" ? "Pasos" : "Lecturas";
+  $("#resN").textContent = m.method === "steps" ? r.step_count : r.reading_count;
+  $("#resRef").textContent = r.perimeter_error_pct == null ? "Sin plano" : (r.perimeter_error_pct > 0 ? "+" : "") + fmt(r.perimeter_error_pct, 1) + " % / " + (r.area_error_pct > 0 ? "+" : "") + fmt(r.area_error_pct, 1) + " %";
+  $("#resWarn").innerHTML = (r.warnings || []).map((w) => `<li>${esc(WARNINGS[w] || w)}</li>`).join("");
+  $("#runBox").hidden = true; $("#resultBox").hidden = false;
+  draw(r);
+  loadHistory();
+}
+
+function draw(r) {
+  const cv = $("#cv"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  const all = [...r.raw_path, ...r.corrected_path, ...r.polygon];
+  if (!all.length) return;
+  const xs = all.map((p) => p.x), ys = all.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const k = Math.min((w - 24) / (x1 - x0 || 1), (h - 24) / (y1 - y0 || 1));
+  const P = (p) => [12 + (p.x - x0) * k, h - 12 - (p.y - y0) * k];
+  const css = getComputedStyle(document.documentElement);
+  const line = (pts, color, width) => { ctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); };
+  line(r.raw_path, css.getPropertyValue("--mute"), 1.2);
+  line(r.corrected_path, css.getPropertyValue("--acc"), 2.4);
+  ctx.fillStyle = css.getPropertyValue("--ink");
+  r.polygon.forEach((p) => { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); });
+}
+
+$("#btnAgain").onclick = () => { $("#resultBox").hidden = true; $("#setupBox").hidden = false; msg("#startMsg", ""); };
+
+async function loadHistory() {
+  try {
+    const page = await api("/api/measurements?limit=20&device_id=" + encodeURIComponent(DEVICE));
+    $("#histBody").innerHTML = page.items.map((m) => {
+      const r = m.result;
+      const q = r ? QUALITY[r.quality] : null;
+      return `<tr><td>${esc(m.place_name)}</td><td>${METHOD_ES[m.method]}</td><td>${r ? fmt(r.perimeter_m, 1) + " m" : "—"}</td><td>${r ? fmt(r.area_m2, 1) + " m²" : "—"}</td><td>${r ? `<span class="tag ${q[0]}">${fmt(r.closure_error_pct, 1)} %</span>` : "sin terminar"}</td></tr>`;
+    }).join("") || `<tr><td colspan="5">Aún no hay mediciones.</td></tr>`;
+  } catch { /* sin conexión */ }
+}
+$("#btnHist").onclick = loadHistory;
+
+/* ---------- 4. prueba de error del GPS (SP-06) ---------- */
+let gTrial = null;
+function collectFixes(secs, label) {
+  return new Promise((resolve) => {
+    const out = [];
+    const fn = (f) => out.push(f);
+    live.fixListeners.add(fn);
+    const t0 = Date.now();
+    const iv = setInterval(() => msg("#gMsg", label + ": quieta… " + Math.max(0, Math.ceil(secs - (Date.now() - t0) / 1000)) + " s · lecturas " + out.length), 250);
+    setTimeout(() => { live.fixListeners.delete(fn); clearInterval(iv); resolve(out); }, secs * 1000);
+  });
+}
+$("#btnGStart").onclick = async () => {
+  try {
+    if (!live.fix) throw new Error("Activa los sensores y espera señal GPS (paso 1).");
+    const secs = Math.max(5, Number($("#gSecs").value) || 20);
+    $("#btnGStart").disabled = true; $("#gResBox").hidden = true;
+    const fixes = await collectFixes(secs, "Inicio");
+    if (fixes.length < 3) throw new Error("Llegaron pocas lecturas GPS. Repite al aire libre.");
+    gTrial = { start: fixes, secs };
+    $("#btnGEnd").disabled = false;
+    msg("#gMsg", "Inicio guardado (" + fixes.length + " lecturas). Camina al final y toca \"Marcar fin\".", "good");
+  } catch (e) { msg("#gMsg", e.message, "err"); $("#btnGStart").disabled = false; }
+};
+$("#btnGEnd").onclick = async () => {
+  try {
+    $("#btnGEnd").disabled = true;
+    const end = await collectFixes(gTrial.secs, "Fin");
+    const real = Number($("#gReal").value);
+    if ($("#gReal").value === "" || !(real >= 0)) throw new Error("Escribe la distancia real con cinta.");
+    const r = await api("/api/gps-trials", {
+      device_id: DEVICE, place_name: $("#gPlace").value.trim() || "Prueba GPS", environment: $("#gEnv").value,
+      real_distance_m: real, start_fixes: gTrial.start.slice(0, 600), end_fixes: end.slice(0, 600),
+    });
+    const names = { single: "Una lectura", mean: "Promedio", filtered: "Promedio filtrado" };
+    $("#gResBody").innerHTML = Object.entries(r.result.methods).map(([k, v]) => `<tr><td>${names[k]}</td><td>${fmt(v.gps_distance_m, 2)} m</td><td>${fmt(v.error_m, 2)} m</td><td>${v.error_pct == null ? "—" : fmt(v.error_pct, 1) + " %"}</td></tr>`).join("");
+    $("#gResBox").hidden = false;
+    msg("#gMsg", "Prueba guardada ✔ (precisión que informa el celular: ± " + fmt(r.result.reported_accuracy_m, 1) + " m)", "good");
+  } catch (e) { msg("#gMsg", e.message, "err"); }
+  finally { gTrial = null; $("#btnGStart").disabled = false; }
+};
+$("#btnGSum").onclick = async () => {
+  try {
+    const s = await api("/api/gps-trials/summary?device_id=" + encodeURIComponent(DEVICE));
+    if (!s.trials) { $("#gSum").innerHTML = "<span>Pruebas</span><b>0</b>"; return; }
+    const best = s.methods[s.best_method];
+    const names = { single: "una lectura", mean: "promedio", filtered: "promedio filtrado" };
+    $("#gSum").innerHTML = `
+      <span>Pruebas</span><b>${s.trials}</b>
+      <span>Error medio con una lectura</span><b>${fmt(s.methods.single.mean_error_m, 1)} m</b>
+      <span>Mejor método</span><b>${names[s.best_method]}</b>
+      <span>Error medio / máximo (mejor)</span><b>${fmt(best.mean_error_m, 1)} / ${fmt(best.max_error_m, 1)} m</b>
+      <span>Mejora frente a una lectura</span><b>${fmt(s.improvement_pct, 0)} %</b>
+      <span>Lado mínimo para usar GPS (error &lt; 10 %)</span><b>${fmt(s.min_side_m, 0)} m</b>`;
+  } catch (e) { $("#gSum").innerHTML = `<span>${esc(e.message)}</span><b></b>`; }
+};
+
+if (API) refreshCalibration();
+</script>
+</body>
+</html>

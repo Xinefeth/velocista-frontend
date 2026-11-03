@@ -1,0 +1,146 @@
+// Capa de edición sobre la escena: puntos de control, tramo seleccionado, vista previa del próximo
+// punto y rectángulo de selección por arrastre. Solo usa tokens de la consola (`themeColors()`);
+// la transparencia se hace con `globalAlpha`.
+import type { Geometry } from "@/domain/track/types";
+import type { Scene } from "@/ui/components/track/drawScene";
+import { visibleNodes, type Hit } from "@/ui/components/track/hitTest";
+import { worldToScreen, type Viewport } from "@/ui/components/track/viewport";
+
+type Colors = Record<string, string>;
+
+/** Rectángulo en pantalla (píxeles). */
+export interface ScreenBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** Estado transitorio del puntero que solo existe mientras se interactúa. */
+export interface Overlay {
+  hover: Hit | null;
+  /** Dónde caería el próximo punto al dibujar, en el tablero. */
+  ghost: { x: number; y: number } | null;
+  /** Rectángulo de selección por arrastre, en pantalla. */
+  box: ScreenBox | null;
+}
+
+export const EMPTY_OVERLAY: Overlay = { hover: null, ghost: null, box: null };
+
+function drawNode(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  selected: boolean,
+  hovered: boolean,
+  c: Colors,
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, selected ? 6 : 4.5, 0, Math.PI * 2);
+  ctx.fillStyle = selected ? c["--red"] : c["--bg"];
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = c["--ink"];
+  ctx.stroke();
+  if (hovered) {
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = c["--mid"];
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Dibuja la capa de edición de `scene` (si no hay selección, no dibuja nada). */
+export function drawOverlay(
+  ctx: CanvasRenderingContext2D,
+  vp: Viewport,
+  g: Geometry | null,
+  scene: Scene,
+  overlay: Overlay,
+  c: Colors,
+): void {
+  const { track } = scene;
+  const selection = scene.selection;
+  const tool = scene.tool ?? "select";
+  if (!selection) return;
+
+  // Tramo elegido
+  if (selection.edge !== null && g) {
+    const st = g.straights.find((s) => s.e === selection.edge);
+    if (st) {
+      const [ax, ay] = worldToScreen(vp, st.a.x, st.a.y);
+      const [bx, by] = worldToScreen(vp, st.b.x, st.b.y);
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = c["--yellow"];
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Puntos de control
+  const issueRef = scene.analysis?.issues[scene.issueSel]?.ref;
+  const shown = visibleNodes({
+    track,
+    selection,
+    tool,
+    showNodes: !!scene.showNodes,
+    hover: overlay.hover,
+    issueVertex: issueRef && issueRef.v !== undefined ? issueRef.v : null,
+  });
+  const hoveredIndex = overlay.hover && overlay.hover.type === "v" ? overlay.hover.i : -1;
+  track.points.forEach((p, i) => {
+    if (!shown.has(i)) return;
+    const [x, y] = worldToScreen(vp, p.x, p.y);
+    drawNode(ctx, x, y, selection.points.includes(i), i === hoveredIndex, c);
+  });
+
+  // Vista previa del próximo punto al dibujar
+  if (tool === "draw" && overlay.ghost) {
+    const [gx, gy] = worldToScreen(vp, overlay.ghost.x, overlay.ghost.y);
+    ctx.save();
+    const last = track.points[track.points.length - 1];
+    if (last && !track.closed) {
+      const [lx, ly] = worldToScreen(vp, last.x, last.y);
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = c["--mid"];
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly);
+      ctx.lineTo(gx, gy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = c["--red-hi"];
+    ctx.beginPath();
+    ctx.arc(gx, gy, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Rectángulo de selección por arrastre
+  if (overlay.box) {
+    const b = overlay.box;
+    const x = Math.min(b.x0, b.x1);
+    const y = Math.min(b.y0, b.y1);
+    const w = Math.abs(b.x1 - b.x0);
+    const h = Math.abs(b.y1 - b.y0);
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = c["--blue"];
+    ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = c["--blue"];
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+  }
+}

@@ -62,18 +62,23 @@ published; S0 can start now. No new dependencies, no code changes outside the fi
   - _Requirements: 1.4, 1.5, 6.2, 6.3, 6.4, 6.5, 6.6, 9.5, 12.1, 12.2, 12.5, 12.6, 12.7, 12.8, 15.1, 15.2, 16.3, 17.5, 17.6, 18.1, 18.2, 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.9, 20.11, 20.12, 20.13, 20.14_
 
 - [ ] 5. S3 — Core editing, history and saving
-  - [ ] 5.1 Draw tool (append, close on first point, insert on segment, grid snap, angle snap) — `src/ui/components/track/TrackCanvasController.ts`
-  - [ ] 5.2 Select tool (point/segment/zone, multi-select, drag box, move single and group, drag start flag) — `src/ui/components/track/TrackCanvasController.ts`
-  - [ ] 5.3 Hit testing and snapping helpers — `src/ui/components/track/hitTest.ts`
-  - [ ] 5.4 Inspector (name, board, point radius, segment length, gap, start) with numeric inputs — `src/ui/components/track/TrackInspector.tsx`
-  - [ ] 5.5 Undo/redo wiring (200 steps, one step per gesture, selection cleared) and keyboard shortcuts scoped to the mounted view — `src/application/hooks/useTrackEditor.ts`, `src/ui/components/track/useTrackShortcuts.ts`
+  - [x] 5.1 Draw tool (append, close on first point, insert on segment) — `src/ui/components/track/TrackCanvasController.ts` (verified: `tests/unit/track/controller.test.ts`; grid and angle snap move to 6.7)
+  - [x] 5.2 Select tool (points and segments, Shift multi-select, drag box, move single and several points, drag the start flag, double click inserts a point) — `src/ui/components/track/TrackCanvasController.ts` (verified: `tests/unit/track/controller.test.ts`; zones and group transformations stay in 6.1 and 6.3)
+  - [x] 5.3 Hit testing helpers and visible control points — `src/ui/components/track/hitTest.ts` (verified: `tests/unit/track/hit-test.test.ts`)
+  - [x] 5.4 Inspector (name, board, new-point radius, close/open circuit, reverse, point X/Y/radius/gap, segment length/gap, group radius, delete) with numeric fields — `src/ui/components/track/TrackInspector.tsx`, `src/ui/components/track/NumberField.tsx` (verified: `tests/black-box/pages/track-editor-page.test.tsx`)
+  - [x] 5.4b Editor store (document, selection, tool, options; one notification per frame while dragging) — `src/application/state/trackEditorStore.ts`, `src/application/state/TrackEditorProvider.tsx` (verified: `tests/unit/track/editor-store.test.ts`)
+  - [x] 5.4c Selection model and edit commands (`blankTrack`, `moveStartTo`, `setName`, `setBoard`, `setClosed`, `setProfile`) — `src/domain/track/selection.ts`, `src/domain/track/commands.ts` (verified: `tests/unit/track/editor-store.test.ts`)
+  - [x] 5.4d Toolbar (tool, show points, new track) and editing overlay (points, selected segment, next-point preview, selection box) with console tokens only — `src/ui/components/track/TrackToolbar.tsx`, `src/ui/components/track/drawOverlay.ts` (verified: palette guard `tests/unit/track/palette-guard.test.ts`)
+  - [x] 5.4e Shortcuts limited to the mounted view and ignored inside text fields (V, P/D, Enter, Esc, Supr/Backspace, Ctrl+A, N, 0, +/−, arrows move the selection or pan) — `src/ui/components/track/TrackCanvasController.ts` (verified: `tests/unit/track/controller.test.ts`)
+  - [x] 5.4f The UI does not promise what does not exist yet: no Save/Undo buttons; «Sin guardar» tag and a note that changes are lost on reload — `src/ui/pages/TrackTracer.tsx` (verified: `tests/black-box/pages/track-editor-page.test.tsx`)
+  - [ ] 5.5 Undo/redo wiring (200 steps, one step per gesture, selection cleared) — Point 2 (the shortcuts scoped to the mounted view are already done, see 5.4e) — `src/application/state/trackEditorStore.ts`
   - [ ] 5.6 Save/update, dirty indicator, warning before replacing or leaving — `src/application/hooks/useTracks.ts`, `src/ui/pages/TrackTracer.tsx`
   - [ ] 5.7 Pre-send validation with per-field messages and the same `FieldError` paths as the server; block a closed track with < 3 points; normalise `start` — `src/ui/components/track/TrackInspector.tsx`, `src/domain/track/limits.ts`
   - [ ] 5.7b Show server `fields` next to inputs, an error summary for unmapped paths, `track_not_found` handling (keep unsaved copy), profile error on the picker — `src/ui/components/track/TrackInspector.tsx`, `src/ui/components/track/ProfilePicker.tsx`
   - [ ] 5.8 Local draft (debounced, key per track id or "new" so two tabs do not share it, restore/discard prompt, cleared on save) — `src/infrastructure/persistence/trackDraft.ts`, `src/application/hooks/useTrackDraft.ts`
   - [ ] 5.8b Document last-write-wins in the UI help (no conflict detection) — `src/ui/pages/TrackTracer.tsx`
   - [ ] 5.9 Radius-fit warning and one-click fix — `src/ui/components/track/IssuesPanel.tsx`
-  - [ ] 5.10 Controller tests with a fake host (draw, close, drag commits once, Esc, shortcuts inactive when unmounted) — `tests/unit/track/controller.test.ts`
+  - [x] 5.10 Controller tests with the real editor store (draw, close, drag, box select, shortcuts, input fields ignored, detach) — `tests/unit/track/controller.test.ts` (30 tests)
   - [ ] 5.11 Hook tests (history cap and no-op commands, dirty state, save/update/delete, 401 keeps draft, draft restore) — `tests/integration/track-editor.test.tsx`
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 5.1, 5.2, 5.3, 5.4, 9.3, 9.6, 9.7, 9.8, 9.9, 9.11, 10.1, 10.2, 10.4, 10.5, 10.6, 11.1, 11.2, 11.3, 11.4, 11.5, 17.4, 18.1, 18.3, 19.6, 19.7_
 
@@ -84,6 +89,7 @@ published; S0 can start now. No new dependencies, no code changes outside the fi
   - [ ] 6.4 Context menu (point, segment, zone, empty) — `src/ui/components/track/ContextMenu.tsx`
   - [ ] 6.5 Reverse track, edge length, gap toggle commands wired to UI — `src/ui/components/track/TrackInspector.tsx`
   - [ ] 6.6 Tests: transformations on selection and on the whole track, templates, limits guards — `tests/unit/track/`, `tests/integration/track-tracer.test.tsx`
+  - [ ] 6.7 Grid and angle snap (`snapPoint`, `angleSnap`) wired to drawing, moving and the toolbar — `src/domain/track/snap.ts`, `src/ui/components/track/TrackCanvasController.ts` (Point 3; a full version was set aside while splitting the work)
   - _Requirements: 3.3, 4.1, 4.3, 8.1, 8.2, 8.3, 17.2, 17.6_
 
 - [ ] 7. S5 — Dimensions, simulation, PNG, import

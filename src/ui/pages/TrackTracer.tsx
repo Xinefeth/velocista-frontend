@@ -1,6 +1,7 @@
-// Vista Trazador de pistas (EN-28, solo lectura en esta fase): lista, plano, verificación y exportación.
+// Vista Trazador de pistas (EN-28): lista, plano editable, inspector, verificación y exportación.
+// En esta fase se puede dibujar y editar, pero los cambios todavía NO se guardan en la API.
 // Usa solo hooks de application/ (sin imports de infraestructura) y las clases de la consola.
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTrackExport } from "@/application/hooks/useTrackExport";
 import { useTracks } from "@/application/hooks/useTracks";
 import { TrackEditorProvider, useTrackEditor } from "@/application/state/TrackEditorProvider";
@@ -11,27 +12,15 @@ import { ExportMenu } from "@/ui/components/track/ExportMenu";
 import { IssuesPanel } from "@/ui/components/track/IssuesPanel";
 import { ProfilePicker } from "@/ui/components/track/ProfilePicker";
 import { TrackCanvas } from "@/ui/components/track/TrackCanvas";
+import { TrackInspector } from "@/ui/components/track/TrackInspector";
 import { TrackList } from "@/ui/components/track/TrackList";
-import type { Scene } from "@/ui/components/track/drawScene";
+import { TrackToolbar } from "@/ui/components/track/TrackToolbar";
 
 function TrackTracerView() {
   const editor = useTrackEditor();
   const tracks = useTracks();
   const exporter = useTrackExport(editor.track, editor.rules);
   const [message, setMessage] = useState("");
-
-  const scene = useMemo<Scene | null>(
-    () =>
-      editor.track
-        ? {
-            track: editor.track,
-            analysis: editor.analysis,
-            rules: editor.rules,
-            issueSel: editor.issueSel,
-          }
-        : null,
-    [editor.track, editor.analysis, editor.rules, editor.issueSel],
-  );
 
   const open = async (id: number) => {
     const track = await tracks.open(id);
@@ -49,7 +38,7 @@ function TrackTracerView() {
           <h2>
             Plano <small>{editor.track ? editor.track.name : "sin pista abierta"}</small>
           </h2>
-          <span className="tag">Solo lectura</span>
+          {editor.track && <span className="tag warn">Sin guardar</span>}
         </div>
         <ProfilePicker
           profiles={editor.profiles.profiles}
@@ -60,10 +49,34 @@ function TrackTracerView() {
           onSelect={editor.selectProfile}
           onRetry={editor.profiles.reload}
         />
-        <TrackCanvas scene={scene} />
+        <TrackToolbar />
+        <TrackCanvas />
+        {editor.track && (
+          <p className="note">
+            Los cambios todavía no se guardan en la API: si abres otra pista, empiezas una nueva o
+            recargas la página, se pierden.
+          </p>
+        )}
         <ExportMenu disabled={!editor.track} message={message} onExport={exportAs} />
       </Card>
       <div className="s4 stack">
+        <Card>
+          <div className="hd">
+            <h2>Inspector</h2>
+          </div>
+          <TrackInspector />
+        </Card>
+        <Card>
+          <div className="hd">
+            <h2>Verificación</h2>
+          </div>
+          <IssuesPanel
+            analysis={editor.analysis}
+            verified={editor.rules !== null}
+            issueSel={editor.issueSel}
+            onSelect={editor.selectIssue}
+          />
+        </Card>
         <Card>
           <div className="hd">
             <h2>
@@ -85,17 +98,6 @@ function TrackTracerView() {
             onRemove={async (id) => {
               if ((await tracks.remove(id)) && editor.track?.id === id) editor.closeTrack();
             }}
-          />
-        </Card>
-        <Card>
-          <div className="hd">
-            <h2>Verificación</h2>
-          </div>
-          <IssuesPanel
-            analysis={editor.analysis}
-            verified={editor.rules !== null}
-            issueSel={editor.issueSel}
-            onSelect={editor.selectIssue}
           />
         </Card>
       </div>

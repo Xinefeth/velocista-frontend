@@ -4,7 +4,9 @@
 // `globalAlpha`, nunca con colores literales.
 import { simPose, simStartS } from "@/domain/track/simulation";
 import { splitGaps } from "@/domain/track/svg";
+import type { Selection } from "@/domain/track/selection";
 import type { Analysis, Track, TrackIssue, TrackRules } from "@/domain/track/types";
+import type { Tool } from "@/application/state/trackEditorStore";
 import { worldToScreen, type Viewport } from "@/ui/components/track/viewport";
 
 export interface Scene {
@@ -13,6 +15,11 @@ export interface Scene {
   rules: TrackRules | null;
   /** Índice de la incidencia elegida en `analysis.issues`, o -1. */
   issueSel: number;
+  /** Selección actual (el editor); en solo lectura no hay. */
+  selection?: Selection;
+  tool?: Tool;
+  /** Mostrar siempre todos los puntos de control. */
+  showNodes?: boolean;
 }
 
 type Colors = Record<string, string>;

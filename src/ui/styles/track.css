@@ -21,6 +21,12 @@
   flex: 1 1 160px;
   min-width: 0;
 }
+.trk-coords {
+  min-width: 12ch;
+  text-align: right;
+  font-size: 11px;
+  color: var(--mid);
+}
 .trk-stage {
   position: relative;
   height: clamp(320px, 58vh, 580px);
@@ -146,6 +152,28 @@
 .trk-stats .lbl {
   font-size: 11px;
   color: var(--mid);
+}
+.trk-inspector {
+  display: grid;
+  gap: 10px;
+}
+.trk-inspector .trk-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.trk-inspector h3 {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mid);
+}
+.trk-inspector .fld label {
+  font-size: 11px;
+  color: var(--mid);
+}
+.trk-inspector .inp[aria-invalid="true"] {
+  border-color: var(--red);
 }
 .trk-menu {
   display: flex;

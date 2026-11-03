@@ -21,6 +21,7 @@ const APPLICATION = [
   "src/application/hooks/useTrackProfiles.ts",
   "src/application/hooks/useTrackExport.ts",
   "src/application/state/TrackEditorProvider.tsx",
+  "src/application/state/trackEditorStore.ts",
 ];
 const INFRASTRUCTURE = [
   "src/infrastructure/http/tracks.ts",

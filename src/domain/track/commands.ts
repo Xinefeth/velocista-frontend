@@ -141,3 +141,54 @@ export function deleteZones(track: Track, idxs: number[]): Track {
   const set = new Set(idxs);
   return { ...track, zones: track.zones.filter((_, i) => !set.has(i)).map((z) => ({ ...z })) };
 }
+
+/** Pista vacía para empezar a dibujar (igual que `blankDoc` del prototipo). */
+export function blankTrack(): Track {
+  return {
+    id: null,
+    name: "Pista nueva",
+    board: { widthCm: 300, heightCm: 250 },
+    closed: false,
+    points: [],
+    zones: [],
+    start: { edge: 0, t: 0.5 },
+    profileId: null,
+  };
+}
+
+/** Mueve la bandera de salida al punto de un tramo recto más cercano a (wx, wy). */
+export function moveStartTo(track: Track, wx: number, wy: number): Track {
+  let best: { d: number; edge: number; t: number } | null = null;
+  for (const st of build(track).straights) {
+    const dx = st.b.x - st.a.x;
+    const dy = st.b.y - st.a.y;
+    const L2 = dx * dx + dy * dy;
+    if (L2 < 1) continue;
+    const t = Math.max(0, Math.min(1, ((wx - st.a.x) * dx + (wy - st.a.y) * dy) / L2));
+    const d = Math.hypot(wx - (st.a.x + dx * t), wy - (st.a.y + dy * t));
+    if (!best || d < best.d) best = { d, edge: st.e, t };
+  }
+  if (!best) return track;
+  return { ...track, start: { edge: best.edge, t: Math.round(best.t * 1000) / 1000 } };
+}
+
+/** Cambia el nombre de la pista. */
+export const setName = (track: Track, name: string): Track => ({ ...track, name });
+
+/** Cambia el tamaño del tablero. */
+export const setBoard = (track: Track, widthCm: number, heightCm: number): Track => ({
+  ...track,
+  board: { widthCm, heightCm },
+});
+
+/** Cambia el perfil asociado a la pista. */
+export const setProfile = (track: Track, profileId: string | null): Track => ({
+  ...track,
+  profileId,
+});
+
+/** Abre o cierra el circuito (cerrar necesita al menos 3 puntos). */
+export function setClosed(track: Track, closed: boolean): Track | null {
+  if (closed && track.points.length < 3) return null;
+  return track.closed === closed ? track : { ...track, closed };
+}

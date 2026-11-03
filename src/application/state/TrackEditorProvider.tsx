@@ -1,16 +1,42 @@
-// Estado del Trazador de pistas: pista abierta, perfil elegido, incidencia elegida y verificación.
+// Estado del Trazador de pistas: pista abierta y su edición (almacén), perfil elegido y verificación.
 // Es un proveedor propio (no vive en ConsoleContext) y solo se monta dentro de la página del Trazador.
-// En S2 el documento es de solo lectura; la edición, el historial y el guardado llegan en S3.
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+// El almacén (`TrackEditorStore`) es TypeScript puro; aquí se conecta a React con useSyncExternalStore.
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useTrackProfiles, type TrackProfilesState } from "@/application/hooks/useTrackProfiles";
+import {
+  TrackEditorStore,
+  type EditorOptions,
+  type Tool,
+} from "@/application/state/trackEditorStore";
 import { GEOMETRY_ONLY_RULES, analyze } from "@/domain/track/rules";
+import type { Selection } from "@/domain/track/selection";
 import type { Analysis, Track, TrackProfile, TrackRules } from "@/domain/track/types";
 
 interface TrackEditor {
+  /** Almacén del editor (lo usa el controlador del lienzo para leer y escribir sin pasar por React). */
+  store: TrackEditorStore;
   /** Pista abierta, o `null`. */
   track: Track | null;
   openTrack: (track: Track) => void;
+  /** Empieza una pista en blanco. */
+  newTrack: () => void;
   closeTrack: () => void;
+  /** Reemplaza la pista (un cambio del inspector, por ejemplo). */
+  applyTrack: (track: Track, selection?: Selection) => void;
+  selection: Selection;
+  setSelection: (selection: Selection) => void;
+  tool: Tool;
+  setTool: (tool: Tool) => void;
+  options: EditorOptions;
+  setOptions: (patch: Partial<EditorOptions>) => void;
   profiles: TrackProfilesState;
   profileId: string | null;
   /** Perfil elegido (puede no tener reglas de pista). */
@@ -28,24 +54,32 @@ const Context = createContext<TrackEditor | null>(null);
 
 export function TrackEditorProvider({ children }: { children: ReactNode }) {
   const profiles = useTrackProfiles();
-  const [track, setTrack] = useState<Track | null>(null);
+  const store = useMemo(() => new TrackEditorStore(), []);
+  const state = useSyncExternalStore(store.subscribe, store.getState);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [issueSel, setIssueSel] = useState(-1);
 
-  const openTrack = useCallback((next: Track) => {
-    setTrack(next);
-    setProfileId(next.profileId);
-    setIssueSel(-1);
-  }, []);
-  const closeTrack = useCallback(() => {
-    setTrack(null);
+  const openTrack = useCallback(
+    (next: Track) => {
+      store.open(next);
+      setProfileId(next.profileId);
+    },
+    [store],
+  );
+  const newTrack = useCallback(() => {
+    store.newTrack();
     setProfileId(null);
-    setIssueSel(-1);
-  }, []);
-  const selectProfile = useCallback((id: string | null) => {
-    setProfileId(id);
-    setIssueSel(-1);
-  }, []);
+  }, [store]);
+  const closeTrack = useCallback(() => {
+    store.close();
+    setProfileId(null);
+  }, [store]);
+  const selectProfile = useCallback(
+    (id: string | null) => {
+      setProfileId(id);
+      store.selectIssue(-1);
+    },
+    [store],
+  );
 
   const profile = useMemo(
     () => profiles.profiles.find((p) => p.id === profileId) ?? null,
@@ -53,29 +87,40 @@ export function TrackEditorProvider({ children }: { children: ReactNode }) {
   );
   const rules = profile?.rules ?? null;
   const analysis = useMemo<Analysis | null>(() => {
-    if (!track) return null;
-    const result = analyze(track, rules ?? GEOMETRY_ONLY_RULES);
+    if (!state.track) return null;
+    const result = analyze(state.track, rules ?? GEOMETRY_ONLY_RULES);
     // Sin reglas de pista no se verifica: se conservan la geometría y las estadísticas, no las incidencias.
     return rules ? result : { ...result, issues: [] };
-  }, [track, rules]);
+  }, [state.track, rules]);
 
   const value = useMemo<TrackEditor>(
     () => ({
-      track,
+      store,
+      track: state.track,
       openTrack,
+      newTrack,
       closeTrack,
+      applyTrack: (track, selection) => store.apply(track, selection),
+      selection: state.selection,
+      setSelection: (s) => store.setSelection(s),
+      tool: state.tool,
+      setTool: (t) => store.setTool(t),
+      options: state.options,
+      setOptions: (patch) => store.setOptions(patch),
       profiles,
       profileId,
       profile,
       rules,
       selectProfile,
       analysis,
-      issueSel,
-      selectIssue: setIssueSel,
+      issueSel: state.issueSel,
+      selectIssue: (i) => store.selectIssue(i),
     }),
     [
-      track,
+      store,
+      state,
       openTrack,
+      newTrack,
       closeTrack,
       profiles,
       profileId,
@@ -83,7 +128,6 @@ export function TrackEditorProvider({ children }: { children: ReactNode }) {
       rules,
       selectProfile,
       analysis,
-      issueSel,
     ],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;

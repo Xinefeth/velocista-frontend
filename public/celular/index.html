@@ -1,0 +1,1452 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>APAEC Lab · Medir con el celular</title>
+<style>
+/* Mismo sistema visual de la consola APAEC (prototipo APAEC_Lab_consola_con_medicion.html). */
+:root{--bg:#050609;--panel:#0b0d12;--panel2:#11141b;--panel3:#171b24;--panel4:#1e2330;
+--line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.11);--line3:rgba(255,255,255,.18);
+--ink:#eceef4;--mid:#a2a7b8;--dim:#5e6374;--red:#ff2d55;--red-hi:#ff5a78;--red-soft:rgba(255,45,85,.13);
+--purple:#b48cff;--green:#3ddc97;--green-soft:rgba(61,220,151,.12);--yellow:#ffcb57;--yellow-soft:rgba(255,203,87,.12);--blue:#6cb6ff;
+--sans:"Geist Sans","Geist",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+--mono:"Geist Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;--r:16px;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
+.brand{display:flex;align-items:center;gap:10px;margin:4px 0 2px}
+.brand svg{width:26px;height:26px;color:var(--red);flex:none}
+h1{font-size:18px;font-weight:500;margin:0}
+.sub{color:var(--dim);font-size:12px;margin:2px 0 12px}
+p{margin:6px 0}
+.lbl{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:12px 0 5px}
+nav#tabs{display:flex;padding:3px;border-radius:11px;background:var(--panel);border:1px solid var(--line);gap:2px;margin-bottom:12px;overflow-x:auto}
+nav#tabs button{flex:1 0 auto;height:38px;padding:0 10px;border-radius:8px;border:0;background:transparent;color:var(--dim);font-size:12.5px;white-space:nowrap}
+nav#tabs button[aria-current="true"]{background:var(--panel3);color:var(--ink)}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel) 38%);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;position:relative;overflow:hidden}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;min-height:26px}
+.hd h2{margin:0;font-weight:500;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.inp{height:44px;border-radius:9px;border:1px solid var(--line2);background:var(--bg);padding:0 12px;width:100%;min-width:0;font-size:15px}
+select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mid) 50%),linear-gradient(135deg,var(--mid) 50%,transparent 50%);background-position:calc(100% - 15px) 19px,calc(100% - 10px) 19px;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
+.inp:focus{outline:none;border-color:rgba(255,45,85,.6)}
+.sb{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--line2);background:var(--panel3);font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.sb:disabled,.go:disabled{opacity:.4;cursor:not-allowed}
+.sb.red{background:var(--red);border-color:var(--red);color:#fff;font-weight:500}
+.sb.wide{width:100%}
+.sb.stop{background:var(--panel3);border-color:var(--red);color:var(--red-hi)}
+.sb.ico{min-height:36px;width:36px;padding:0;color:var(--mid)}.sb.ico:active{color:var(--red-hi);border-color:var(--red)}
+.toast{position:fixed;left:50%;bottom:24px;z-index:60;transform:translate(-50%,20px);max-width:calc(100% - 32px);padding:12px 16px;border-radius:12px;border:1px solid rgba(61,220,151,.45);background:var(--panel3);color:var(--ink);font-size:13px;text-align:center;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none}.toast.on{opacity:1;transform:translate(-50%,0)}
+.ask{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,6,9,.78)}
+.ask[hidden]{display:none}.ask .card{width:100%;max-width:360px;margin:0;border-color:rgba(255,45,85,.45)}
+.ask .row .sb{flex:1}
+.sb.ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.go{width:100%;height:62px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--mono);font-size:16px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 10px 30px -8px rgba(255,45,85,.6)}
+.go.stop{background:var(--panel3);color:var(--ink);box-shadow:0 0 0 1px var(--red) inset}
+.bigside{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,45,85,.4);border-radius:12px;background:var(--red-soft)}.bigside span{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--red-hi)}.bigside b{font-family:var(--mono);font-size:40px;font-weight:500;font-variant-numeric:tabular-nums}
+
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.row>*{flex:1 1 140px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px;color:var(--mid)}
+.kv b{font-family:var(--mono);font-weight:400;color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--mid);white-space:nowrap;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px}
+.tag.red{border-color:rgba(255,45,85,.4);color:var(--red-hi);background:var(--red-soft)}
+.tag.good{border-color:rgba(61,220,151,.35);color:var(--green)}
+.tag.warn{border-color:rgba(255,203,87,.35);color:var(--yellow)}
+.semaforo{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);background:var(--bg);margin-bottom:10px}
+.semaforo .dotl{width:14px;height:14px;border-radius:50%;background:var(--dim);flex:none}
+.semaforo.good{border-color:rgba(61,220,151,.4)}.semaforo.good .dotl{background:var(--green)}
+.semaforo.warn{border-color:rgba(255,203,87,.4)}.semaforo.warn .dotl{background:var(--yellow)}
+.semaforo.red{border-color:rgba(255,45,85,.45)}.semaforo.red .dotl{background:var(--red)}
+.semaforo b{font-weight:500}.semaforo small{display:block;color:var(--dim);font-size:11.5px}
+.hint{margin:8px 0 0;font-size:12.5px;color:var(--dim);min-height:1.2em}
+.hint.err{color:var(--red-hi)}.hint.good{color:var(--green)}
+ol{padding-left:20px;margin:6px 0;color:var(--mid);font-size:13px}
+li{margin:3px 0}
+ol b{color:var(--ink);font-weight:500}
+ul.warns{padding-left:18px;margin:8px 0 0;color:var(--yellow);font-size:12.5px}
+canvas{width:100%;height:260px;border:1px solid var(--line);border-radius:12px;margin-top:10px;background:var(--bg)}
+table.t{width:100%;border-collapse:collapse}
+table.t th{font-family:var(--mono);font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--dim);text-align:right;padding:8px;border-bottom:1px solid var(--line);text-transform:uppercase;white-space:nowrap}
+table.t td{font-family:var(--mono);font-size:12.5px;text-align:right;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--sans)}
+#histBody tr[data-open]{cursor:pointer}#histBody tr[data-open]:active td,#histBody tr.sel td{background:var(--red-soft)}
+.tw{overflow-x:auto}
+.legend{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:8px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><circle cx="20" cy="8" r="1.5" fill="currentColor"/></svg><h1>Medición · Celular</h1></div>
+  <p class="hint">APAEC Lab · datos reales de los sensores de este celular</p>
+
+  <nav id="tabs">
+    <button data-tab="conexion" aria-current="true">1. Conexión</button>
+    <button data-tab="calibrar">2. Calibrar</button>
+    <button data-tab="medir">3. Medir</button>
+    <button data-tab="gps">4. Error GPS</button>
+    <button data-tab="modelo">5. Modelo</button>
+  </nav>
+
+  <!-- ===================== 1. CONEXIÓN ===================== -->
+  <div data-panel="conexion">
+    <section class="card">
+      <div class="hd"><h2>Conectar con el sistema</h2></div>
+      <label class="lbl" for="apiUrl">Dirección del backend</label>
+      <input class="inp" id="apiUrl" placeholder="https://velocista-backend.onrender.com" inputmode="url" autocomplete="off">
+      <div id="loginBox" hidden>
+        <label class="lbl" for="user">Usuario</label>
+        <input class="inp" id="user" autocomplete="username">
+        <label class="lbl" for="pass">Contraseña</label>
+        <input class="inp" id="pass" type="password" autocomplete="current-password">
+      </div>
+      <div class="row"><button class="sb red wide" id="btnConnect">Conectar</button></div>
+      <p class="hint" id="connMsg"></p>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>Sensores del celular</h2></div>
+      <p class="hint">Necesita HTTPS. En iPhone hay que aceptar el permiso de movimiento.</p>
+      <div class="row"><button class="sb red wide" id="btnSensors">Activar sensores</button></div>
+      <div class="kv" style="margin-top:10px">
+        <span>Giroscopio</span><b id="sGyro">—</b>
+        <span>Acelerómetro</span><b id="sAcc">—</b>
+        <span>GPS (precisión)</span><b id="sGps">—</b>
+        <span>Pantalla siempre encendida</span><b id="sWake">—</b>
+        <span>Código de este celular</span><b id="sDevice" style="font-size:1.05rem;color:var(--green)">—</b>
+      </div>
+      <p class="hint" id="sensMsg"></p>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>¿No ves tus mediciones anteriores?</h2></div>
+      <p class="hint">Cada enlace nuevo crea un código nuevo. Anota tu código (arriba, en verde) y, si cambias de enlace, escríbelo aquí para recuperar tus mediciones y calibraciones.</p>
+      <div class="row">
+        <input class="inp" id="devOld" placeholder="Tu código, ej. 621b8d99" autocomplete="off" style="flex:2 1 160px">
+        <button class="sb red" id="btnDevOld">Recuperar</button>
+      </div>
+      <p class="hint" id="devMsg"></p>
+    </section>
+  </div>
+
+  <!-- ===================== 2. CALIBRAR ===================== -->
+  <div data-panel="calibrar" hidden>
+    <section class="card">
+      <div class="hd"><h2>Estado de la calibración</h2></div>
+      <div class="kv">
+        <span>Giroscopio</span><b id="cGyro">—</b>
+        <span>Largo del paso</span><b id="cStep">—</b>
+        <span>Velocidad del carro</span><b id="cCar">—</b>
+      </div>
+      <div class="row"><button class="sb" id="btnCalRefresh">Actualizar</button></div>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>A. Giroscopio (5 segundos)</h2></div>
+      <ol><li>Pon el celular <b>quieto sobre una mesa</b>.</li><li>Toca el botón y no lo toques hasta que termine.</li></ol>
+      <div class="row"><button class="sb red wide" id="btnGyro">Calibrar giroscopio</button></div>
+      <p class="hint" id="gyroMsg"></p>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>B. Largo del paso (caminar 3 veces)</h2></div>
+      <label class="lbl" for="stepMode">¿Cómo sabes cuánto caminaste?</label>
+      <select class="inp" id="stepMode">
+        <option value="known">Distancia conocida (baldosas, cancha o cinta)</option>
+        <option value="gps">Con GPS (solo al aire libre: calle o parque)</option>
+      </select>
+      <div id="stepKnownBox">
+        <ol>
+          <li>Busca una recta de distancia conocida: <b>baldosas</b> (cuenta baldosas × lo que mide una, p. ej. 25 × 0,60 m = 15 m), líneas de una cancha (vóley 18 m) o cinta.</li>
+          <li>Lleva el celular <b>plano frente al pecho</b>, como al medir.</li>
+          <li>Toca "Empezar", camina normal hasta el final y toca "Terminar". Repite 3 veces.</li>
+        </ol>
+        <label class="lbl" for="stepDist">Distancia de la recta (m)</label>
+        <input class="inp" id="stepDist" type="number" inputmode="decimal" value="15" min="1" step="0.1">
+      </div>
+      <div id="stepGpsBox" hidden>
+        <ol>
+          <li>Sal a la <b>calle o a un parque</b>, lejos de edificios altos. En casa el GPS se equivoca mucho.</li>
+          <li>Toca "Empezar" y quédate <b>quieta 5 s</b>: el sistema marca tu punto de inicio.</li>
+          <li>Camina <b>en línea recta</b>. Verás los metros que llevas; cuando diga <b>"¡Para!"</b>, toca "Terminar" y quédate quieta 5 s.</li>
+          <li>Repite 3 veces (puedes volver caminando al inicio o seguir en la misma dirección).</li>
+        </ol>
+        <label class="lbl" for="stepGoal">Meta en metros (40 recomendado)</label>
+        <input class="inp" id="stepGoal" type="number" inputmode="decimal" value="40" min="20" step="1">
+      </div>
+      <div class="kv" style="margin-top:12px">
+        <span>Pasos contados</span><b id="stepLive">—</b>
+        <span>Distancia aprox.</span><b id="stepDistLive">—</b>
+        <span>Dirección</span><b id="stepDirLive">—</b>
+        <span id="stepGpsLbl" hidden>Distancia GPS</span><b id="stepGpsLive" hidden>—</b>
+      </div>
+      <div class="row"><button class="sb red wide" id="btnStepWalk">Empezar caminata 1 de 3</button></div>
+      <p class="hint" id="stepMsg"></p>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>C. Velocidad del carro (carro + celular)</h2><span class="tag">Próximamente</span></div>
+      <p class="hint">Disponible cuando el carro esté listo. El carro no tiene encoders: la distancia se estimará con la potencia del motor (PWM).</p>
+      <!-- CAR_DISABLED: para activarlo, quitar `disabled` del fieldset y de la opción "car" en Medir. -->
+      <fieldset disabled style="border:0;padding:0;margin:0;opacity:.4">
+      <div class="tw"><table class="t" id="carTable"><thead><tr><th>PWM (%)</th><th>Distancia (m)</th><th>Tiempo (s)</th></tr></thead><tbody></tbody></table></div>
+      <div class="row">
+        <input class="inp" id="carPwm" type="number" inputmode="decimal" placeholder="PWM %">
+        <input class="inp" id="carDist" type="number" inputmode="decimal" placeholder="Distancia m">
+        <input class="inp" id="carSec" type="number" inputmode="decimal" placeholder="Tiempo s">
+      </div>
+      <div class="row"><button class="sb" id="btnCarAdd">Agregar prueba</button><button class="sb red wide" id="btnCarSave">Guardar calibración</button></div>
+      </fieldset>
+      <p class="hint" id="carMsg"></p>
+    </section>
+  </div>
+
+  <!-- ===================== 3. MEDIR ===================== -->
+  <div data-panel="medir" hidden>
+    <section class="card" id="setupBox">
+      <div class="hd"><h2>Preparar la medición</h2></div>
+      <label class="lbl" for="method">¿Qué vas a medir?</label>
+      <select class="inp" id="method">
+        <option value="steps">Lugar chico: cuarto, aula, patio (por pasos)</option>
+        <option value="gps">Lugar grande: terreno, parque, cancha (por GPS)</option>
+        <option value="car" disabled>Carro + celular encima (próximamente)</option>
+      </select>
+      <p class="hint" id="methodHint">Se mide caminando el borde: el celular cuenta tus pasos y tus giros.</p>
+      <div id="carBox" hidden>
+        <label class="lbl" for="carRunPwm">PWM con el que avanza el carro (%)</label>
+        <input class="inp" id="carRunPwm" type="number" inputmode="decimal" placeholder="Ej. 40">
+      </div>
+      <label class="lbl" for="place">Nombre del lugar</label>
+      <input class="inp" id="place" placeholder="Ej. Mi cuarto">
+      <label id="hasRefRow" style="display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px;color:var(--mid)">
+        <input type="checkbox" id="hasRef" style="width:22px;height:22px;flex:none">
+        Tengo las medidas reales (solo para comprobar cuánto se equivoca)
+      </label>
+      <div id="refBox" hidden>
+        <div class="row">
+          <div><label class="lbl" for="planL">Largo real (m)</label><input class="inp" id="planL" type="number" inputmode="decimal" placeholder="Ej. 4"></div>
+          <div><label class="lbl" for="planW">Ancho real (m)</label><input class="inp" id="planW" type="number" inputmode="decimal" placeholder="Ej. 4"></div>
+        </div>
+        <label class="lbl" for="tape">Primer lado medido (m, opcional)</label>
+        <input class="inp" id="tape" type="number" inputmode="decimal" placeholder="Del inicio a la primera esquina">
+        <p class="hint">Si escribes el primer lado, el sistema ajusta toda la medición con ese dato.</p>
+        <label class="lbl" for="planN">Escala del plano (déjalo en 1)</label>
+        <input class="inp" id="planN" type="number" inputmode="decimal" value="1">
+        <p class="hint">Solo si copiaste las medidas de un plano dibujado a escala: en un plano 1:100 escribe 100.</p>
+      </div>
+      <ol id="stepsHow">
+        <li>Empieza en una <b>esquina</b> y camina pegada al borde.</li>
+        <li>En cada esquina <b>gira quieta</b>: la esquina se marca sola.</li>
+        <li>Termina en tu <b>marca real del piso</b> (no persigas el punto del mapa) y <b>gira hasta mirar hacia donde empezaste</b>.</li>
+      </ol>
+      <ol id="gpsHow" hidden>
+        <li>Sal al aire libre y espera a que la precisión del GPS sea de <b>±5 m o menos</b> (pestaña 1).</li>
+        <li>Camina por el borde del terreno y termina donde empezaste.</li>
+      </ol>
+      <div class="row"><button class="go" id="btnStart">Iniciar medición</button></div>
+      <p class="hint" id="startMsg"></p>
+    </section>
+    <section class="card" id="runBox" hidden>
+      <div class="hd"><h2>Midiendo…</h2><span class="tag red"><span class="dot"></span>En vivo</span></div>
+      <div class="bigside"><span id="bigSideLbl">Lado 1</span><b id="bigSide">0,0 m</b></div>
+      <canvas id="cvLive"></canvas>
+      <p class="hint">Al girar en una esquina, el lado se marca solo y la cuenta vuelve a 0.</p>
+      <p class="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
+      <p class="hint">El mapa es aproximado. <b>Termina en tu marca real del piso</b>, aunque el mapa muestre el inicio en otro lugar: esa diferencia es el error que el sistema mide y corrige.</p>
+      <div class="kv" style="margin-top:10px">
+        <span>Lado actual</span><b id="rSide" style="color:var(--red-hi)">0 m</b>
+        <span>Lados terminados</span><b id="rSides">—</b>
+        <span>Pasos</span><b id="rSteps">0</b>
+        <span>Perímetro hasta ahora</span><b id="rDist">0 m</b>
+        <span>Inicio según el mapa (aprox.)</span><b id="rBack">—</b>
+        <span>Dirección</span><b id="rDir">—</b>
+        <span>Esquinas marcadas</span><b id="rCorners">0</b>
+        <span>Tiempo</span><b id="rTime">0 s</b>
+        <span>Lecturas enviadas</span><b id="rSent">0</b>
+        <span>Pendientes de enviar</span><b id="rPend">0</b>
+      </div>
+      <div class="row" id="cornerRow"><button class="sb wide" id="btnCorner">¿No se marcó sola? Marcar esquina</button></div>
+      <div class="row"><button class="go stop" id="btnFinish">Terminar y calcular</button></div>
+      <div class="row"><button class="sb wide" id="btnCancel">Cancelar y borrar (me equivoqué)</button></div>
+      <p class="hint" id="runMsg"></p>
+    </section>
+    <section class="card" id="resultBox" hidden>
+      <div class="hd"><h2>Resultado <span class="tag" id="resTag"></span></h2></div>
+      <p class="hint" id="resWho" style="margin-top:-4px"></p>
+      <div class="semaforo" id="sem"><span class="dotl"></span><div><b id="resLabel">—</b><small id="resDesc"></small></div></div>
+      <div class="kv">
+        <span>Perímetro</span><b id="resP">—</b>
+        <span>Área</span><b id="resA">—</b>
+        <span>Error de cierre</span><b id="resC">—</b>
+        <span>Recorrido</span><b id="resD">—</b>
+        <span id="resNL">Pasos</span><b id="resN">—</b>
+        <span>Frente al plano (perímetro / área)</span><b id="resRef">—</b>
+      </div>
+      <ul id="resWarn" class="warns"></ul>
+      <canvas id="cv"></canvas>
+      <p class="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
+      <div class="row"><button class="sb red wide" id="btnAgain">Nueva medición</button></div>
+      <div class="row"><button class="sb wide" id="btnHideRes">Borrar esta medición</button></div>
+      <p class="hint" id="resMsg"></p>
+    </section>
+    <section class="card">
+      <div class="hd"><h2 id="histTitle">Mis mediciones</h2></div>
+      <div class="tw"><table class="t"><thead><tr><th>Lugar</th><th>Método</th><th>Perímetro</th><th>Área</th><th>Cierre</th><th></th></tr></thead><tbody id="histBody"></tbody></table></div>
+      <p class="hint">Toca una medición para ver sus detalles y su mapa. 🗑 borra una medición equivocada. Siempre te pregunta antes, y lo borrado no se puede recuperar.</p>
+      <div class="row"><button class="sb" id="btnHist">Actualizar</button></div>
+      <p class="hint" id="histMsg"></p>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="ask" id="ask" hidden role="dialog" aria-modal="true" aria-labelledby="askT">
+    <section class="card">
+      <div class="hd"><h2 id="askT">¿Estás segura?</h2></div>
+      <p class="hint" id="askX"></p>
+      <input class="inp" id="askIn" maxlength="80" autocomplete="off" hidden>
+      <div class="row"><button class="sb" id="askNo">No</button><button class="sb red" id="askYes">Sí, borrar</button></div>
+    </section>
+  </div>
+
+  <!-- ===================== 4. ERROR GPS (SP-06) ===================== -->
+  <div data-panel="gps" hidden>
+    <section class="card">
+      <div class="hd"><h2>¿Cuánto se equivoca el GPS?</h2><span class="tag" id="gStage">Paso 1 de 3</span></div>
+      <p class="hint">Necesitas una distancia que ya conozcas (cinta, líneas de una cancha o baldosas) <b>al aire libre</b>. El sistema compara lo que dice el GPS con la distancia real.</p>
+      <div id="gSetup">
+        <label class="lbl" for="gPlace">Lugar</label>
+        <input class="inp" id="gPlace" placeholder="Ej. Cancha de fútbol">
+        <label class="lbl" for="gEnv">¿Cómo es el lugar?</label>
+        <select class="inp" id="gEnv">
+          <option value="open">Al aire libre, sin edificios cerca</option>
+          <option value="buildings">Cerca de edificios</option>
+          <option value="trees">Bajo árboles</option>
+          <option value="indoor">Bajo techo</option>
+        </select>
+        <label class="lbl" for="gRef">¿Cómo sabes la distancia real?</label>
+        <select class="inp" id="gRef">
+          <option value="known">La sé: cinta, líneas de cancha o Google Maps</option>
+          <option value="steps">Caminando: contar mis pasos</option>
+          <option value="loop">Ida y vuelta: termino donde empecé (sirve en carro)</option>
+        </select>
+        <div id="gRealBox">
+          <label class="lbl" for="gReal">Distancia real entre el inicio y el final (m)</label>
+          <input class="inp" id="gReal" type="number" inputmode="decimal" value="30">
+          <p class="hint">Usa más de 15 m (30 o 50 m es mejor): el GPS suele equivocarse varios metros.</p>
+        </div>
+        <p class="hint" id="gStepHint" hidden><b>Solo caminando, no en carro</b> (el carro mueve el celular y cuenta pasos falsos). Camina <b>en línea recta</b> de 20 a 50 m y <b>no regreses</b>: el final es otro lugar. La distancia real será tus pasos × tu paso calibrado.</p>
+        <p class="hint" id="gLoopHint" hidden>Sirve <b>a pie o en carro</b>. Quieta en un punto que reconozcas (tu puerta, un poste), recorre lo que quieras y <b>vuelve exactamente a ese mismo punto</b>. La distancia real es 0 m: todo lo que el GPS diga de diferencia es su error.</p>
+      </div>
+      <div class="semaforo" id="gGuide" style="margin-top:12px"><span class="dotl"></span><div><b id="gGuideT">Párate en el punto de inicio</b><small id="gGuideS">Cuando estés ahí, toca el botón. Tendrás que quedarte quieta unos segundos.</small></div></div>
+      <canvas id="cvGps" hidden></canvas>
+      <div class="kv" id="gLive" hidden>
+        <span>Pasos caminados</span><b id="gSteps">0</b>
+        <span>Distancia según el GPS</span><b id="gDist">—</b>
+        <span>Precisión del GPS ahora</span><b id="gAcc">—</b>
+      </div>
+      <div class="row"><button class="go" id="btnGps">Estoy en el inicio</button></div>
+      <div class="row"><button class="sb wide" id="btnGCancel" hidden>Cancelar prueba (me equivoqué)</button></div>
+      <p class="hint" id="gMsg"></p>
+      <div id="gResBox" hidden>
+        <div class="semaforo" id="gResSem"><span class="dotl"></span><div><b id="gResT"></b><small id="gResS"></small></div></div>
+        <div class="tw"><table class="t"><thead><tr><th>Cómo se calculó</th><th>GPS dijo</th><th>Error</th></tr></thead><tbody id="gResBody"></tbody></table></div>
+        <div class="row"><button class="sb wide" id="btnGAgain">Hacer otra prueba</button></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="hd"><h2>Resumen de mis pruebas</h2></div>
+      <div class="kv" id="gSum"><span>Pruebas</span><b>—</b></div>
+      <div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>Prueba</th><th>Real</th><th>GPS</th><th>Error</th><th></th></tr></thead><tbody id="gList"></tbody></table></div>
+      <p class="hint">El resumen promedia todas estas pruebas. ✏️ cambia el nombre de una prueba y 🗑 la borra (siempre te pregunta antes).</p>
+      <div class="row"><button class="sb" id="btnGSum">Actualizar</button></div>
+    </section>
+  </div>
+  <!-- ===================== 5. MODELO DE PRECISIÓN (SP-07) ===================== -->
+  <div data-panel="modelo" hidden>
+    <section class="card">
+      <div class="hd"><h2>Modelo que baja el error</h2><span class="tag" id="mTag">SP-07</span></div>
+      <p class="hint">Mide el <b>mismo lugar</b> varias veces (5 es ideal) escribiendo su largo y ancho reales. El modelo prueba ajustar tu paso y tu giro, intento tras intento, y se queda con lo que baja el error. La última medición elegida se usa para comprobar que el ajuste sirve.</p>
+      <div class="row"><button class="sb wide" id="btnMLoad">Ver mis mediciones</button></div>
+      <div class="tw" id="mListBox" hidden><table class="t"><thead><tr><th>Usar</th><th>Lugar</th><th>Cierre</th><th>Vs. real</th></tr></thead><tbody id="mList"></tbody></table></div>
+      <div class="row"><button class="go" id="btnMRun" disabled>Correr modelo</button></div>
+      <p class="hint" id="mMsg"></p>
+    </section>
+    <section class="card" id="mResBox" hidden>
+      <div class="hd"><h2>Resultado del modelo</h2></div>
+      <div class="semaforo" id="mSem"><span class="dotl"></span><div><b id="mSemT"></b><small id="mSemS"></small></div></div>
+      <canvas id="cvModel"></canvas>
+      <p class="legend">Rojo: error con el modelo, por intento · Amarillo: sin modelo · Verde: meta 3 %</p>
+      <div class="kv" style="margin-top:10px">
+        <span>Error sin modelo</span><b id="mBase">—</b>
+        <span>Error con modelo</span><b id="mFinal">—</b>
+        <span>Largo del paso</span><b id="mStep">—</b>
+        <span>Ajuste del giro</span><b id="mBias">—</b>
+        <span>¿Sirve en una medición nueva?</span><b id="mGen">—</b>
+      </div>
+      <div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>Medición</th><th>Error vs real antes</th><th>Después</th></tr></thead><tbody id="mTable"></tbody></table></div>
+      <div class="row"><button class="sb red wide" id="btnMApply">Usar estos ajustes como mi calibración</button></div>
+      <p class="hint" id="mApplyMsg"></p>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ---------- utilidades ---------- */
+const $ = (s) => document.querySelector(s);
+const fmt = (v, d = 1) => (v == null || Number.isNaN(v) ? "—" : Number(v).toLocaleString("es-PE", { minimumFractionDigits: d, maximumFractionDigits: d }));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const store = {
+  get(k, d = null) { try { const v = localStorage.getItem("apaec.celular." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("apaec.celular." + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } },
+};
+function msg(el, text, kind = "") { const m = $(el); m.textContent = text; m.className = "hint" + (kind ? " " + kind : ""); }
+
+/* Textos en español para los códigos del backend (el backend responde en inglés) */
+const REASONS = {
+  measurement_not_calibrated: "Falta calibrar: ve al paso 2 (Calibrar).",
+  measurement_too_short: "La medición es muy corta: camina todo el borde (o espera mejor GPS) y vuelve a intentar.",
+  measurement_finished: "Esta medición ya terminó. Empieza una nueva.",
+  measurement_not_found: "La medición no existe.",
+  calibration_phone_moved: "El celular se movió. Déjalo quieto sobre la mesa y repite.",
+  calibration_too_short: "Calibración muy corta. Repite y espera 5 segundos.",
+  calibration_few_samples: "No llegaron lecturas del giroscopio. ¿Activaste los sensores?",
+  calibration_few_trials: "Faltan intentos.",
+  calibration_step_out_of_range: "El largo del paso salió raro. Revisa la distancia y vuelve a caminar.",
+  calibration_invalid_trial: "Un intento tiene datos inválidos.",
+  model_few_measurements: "Elige al menos 2 mediciones (5 es lo ideal).",
+  model_mixed_methods: "Elige mediciones hechas de la misma forma (todas por pasos).",
+  model_gps_unsupported: "El modelo ajusta mediciones por pasos o con carro, no por GPS.",
+  model_mixed_devices: "Las mediciones deben ser del mismo celular.",
+  gps_trial_few_fixes: "Llegaron pocas lecturas GPS. Quédate más tiempo quieta al aire libre.",
+  unauthorized: "Debes iniciar sesión: escribe usuario y contraseña y toca Conectar.",
+  invalid_credentials: "Usuario o contraseña incorrectos.",
+};
+const WARNINGS = {
+  end_heading_unknown: "Al terminar no volviste a mirar hacia donde empezaste: no se pudo corregir el giroscopio.",
+  step_not_calibrated: "No calibraste tu paso: se usó 0,70 m. Escribe el primer lado medido para corregirlo.",
+  scale_needs_corner: "Para usar el lado medido con cinta, marca al menos una esquina.",
+  gps_space_too_small: "El lugar es chico para el GPS: usa la medición por pasos.",
+  gps_low_accuracy_dropped: "Se descartaron lecturas GPS con mala precisión.",
+};
+const QUALITY = {
+  green: ["good", "Medición confiable", "Error de cierre menor a 3 %."],
+  yellow: ["warn", "Medición con error moderado", "Error de cierre entre 3 % y 6 %. Puedes repetir."],
+  red: ["red", "Medición con mucho error", "Error de cierre mayor a 6 %. Repite la medición."],
+};
+const METHOD_ES = { steps: "Pasos", gps: "GPS", car: "Carro + celular" };
+
+/* ---------- conexión con el backend ---------- */
+const params = new URLSearchParams(location.search);
+let API = (params.get("api") || store.get("api", "")).replace(/\/+$/, "");
+let TOKEN = store.get("token", null);
+let DEVICE = store.get("device", null);
+if (params.get("dev")) { DEVICE = params.get("dev"); store.set("device", DEVICE); }
+if (!DEVICE) { DEVICE = "cel-" + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); store.set("device", DEVICE); }
+$("#apiUrl").value = API;
+const shortCode = (d) => d.replace(/^cel-/, "").slice(0, 8);
+$("#sDevice").textContent = shortCode(DEVICE);
+/* Recuperar el código anterior: busca entre las mediciones un celular cuyo código empiece igual. */
+$("#btnDevOld").onclick = async () => {
+  const code = $("#devOld").value.trim().toLowerCase().replace(/^cel-/, "");
+  if (code.length < 6) { msg("#devMsg", "Escribe al menos los 6 primeros caracteres de tu código.", "err"); return; }
+  try {
+    const page = await api("/api/measurements?limit=200");
+    const found = [...new Set(page.items.map((m) => m.device_id))].filter((d) => d.replace(/^cel-/, "").startsWith(code));
+    if (found.length !== 1) { msg("#devMsg", found.length ? "Hay varios códigos así: escribe más caracteres." : "No encontré mediciones con ese código.", "err"); return; }
+    DEVICE = found[0]; store.set("device", DEVICE);
+    $("#sDevice").textContent = shortCode(DEVICE);
+    const n = page.items.filter((m) => m.device_id === DEVICE).length;
+    msg("#devMsg", "Listo ✔ recuperé tus datos (" + n + " mediciones). Ya puedes verlas en Medir y en Modelo.", "good");
+    refreshCalibration(); loadHistory();
+  } catch (e) { msg("#devMsg", e.message, "err"); }
+};
+
+async function api(path, body, method) {
+  if (!API) throw new Error("Primero escribe la dirección del backend (paso 1).");
+  const headers = { "Content-Type": "application/json" };
+  if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
+  let res;
+  try {
+    res = await fetch(API + path, { method: method || (body === undefined ? "GET" : "POST"), headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch {
+    throw new Error("No hay conexión con el backend. Revisa internet y la dirección.");
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const d = data && data.detail;
+    if (res.status === 401) $("#loginBox").hidden = false;
+    if (d && d.reason) throw new Error(REASONS[d.reason] || d.detail || d.reason);
+    if (Array.isArray(d)) throw new Error("Datos inválidos: revisa los campos (" + (d[0] && d[0].loc ? d[0].loc.slice(-1)[0] : "") + ").");
+    throw new Error("Error " + res.status + " del backend.");
+  }
+  return data;
+}
+
+$("#btnConnect").onclick = async () => {
+  API = $("#apiUrl").value.trim().replace(/\/+$/, "");
+  store.set("api", API);
+  msg("#connMsg", "Conectando…");
+  try {
+    const user = $("#user").value.trim(), pass = $("#pass").value;
+    if (user && pass) {
+      const r = await api("/api/auth/login", { username: user, password: pass });
+      TOKEN = r.access_token; store.set("token", TOKEN);
+    }
+    const h = await api("/api/health");
+    if (h.database !== "ok") throw new Error("El backend responde pero la base de datos no.");
+    await api("/api/calibrations/" + encodeURIComponent(DEVICE));
+    msg("#connMsg", "Conectado ✔ (base de datos lista)", "good");
+    refreshCalibration();
+  } catch (e) {
+    const notReady = /404/.test(e.message) ? " ¿Ya se subió y desplegó el backend de mediciones?" : "";
+    msg("#connMsg", e.message + notReady, "err");
+  }
+};
+
+/* ---------- sensores ---------- */
+const live = { gyro: null, acc: null, gyroAt: 0, accAt: 0, fix: null, listeners: new Set(), fixListeners: new Set() };
+let wakeLock = null;
+/* Giro alrededor de la vertical (°/s, positivo = a la izquierda).
+   Se usa la orientación que ya calcula el celular (deviceorientation: une giroscopio y acelerómetro),
+   así no importa cómo se sostiene. rotationRate.alpha NO sirve solo: según el navegador es el eje X
+   o el Z del celular, y con el celular inclinado mezcla el balanceo de cada paso. */
+const yaw = { value: null, raw: null, at: 0, prev: null, prevT: 0 };
+function onOrientation(e) {
+  if (e.alpha == null) return;
+  if (yaw.raw == null) yaw.value = e.alpha;
+  else { let d = e.alpha - yaw.raw; if (d > 180) d -= 360; if (d < -180) d += 360; yaw.value += d; }
+  yaw.raw = e.alpha; yaw.at = Date.now();
+}
+const gravity = { x: 0, y: 0, z: 9.8 };
+function verticalRate(e, acc) {
+  // Respaldo sin orientación: proyecta el vector de giro sobre la vertical (gravedad suavizada).
+  const r = e.rotationRate;
+  if (!r || r.alpha == null || !acc) return null;
+  gravity.x += 0.1 * (acc[0] - gravity.x); gravity.y += 0.1 * (acc[1] - gravity.y); gravity.z += 0.1 * (acc[2] - gravity.z);
+  const n = Math.hypot(gravity.x, gravity.y, gravity.z) || 1;
+  return ((r.beta || 0) * gravity.x + (r.gamma || 0) * gravity.y + r.alpha * gravity.z) / n;
+}
+function turnRate(t, e, acc) {
+  if (yaw.value != null && t - yaw.at < 500) {
+    let rate = 0;
+    if (yaw.prev != null && t > yaw.prevT) rate = (yaw.value - yaw.prev) / ((t - yaw.prevT) / 1000);
+    yaw.prev = yaw.value; yaw.prevT = t;
+    return rate;
+  }
+  return verticalRate(e, acc);
+}
+function onMotion(e) {
+  const t = Date.now();
+  const g = e.accelerationIncludingGravity;
+  const acc = g && g.x != null ? [g.x, g.y, g.z] : null;
+  const gz = turnRate(t, e, acc);
+  if (gz == null && acc == null) return; // algunos navegadores mandan eventos vacíos: se ignoran
+  if (gz != null) { live.gyro = gz; live.gyroAt = t; }
+  if (acc != null) { live.acc = acc; live.accAt = t; }
+  for (const fn of live.listeners) fn(t, gz, acc);
+}
+function onFix(p) {
+  const f = { t_ms: Date.now(), lat: p.coords.latitude, lon: p.coords.longitude, accuracy_m: p.coords.accuracy };
+  live.fix = f;
+  $("#sGps").textContent = "± " + fmt(f.accuracy_m, 1) + " m";
+  for (const fn of live.fixListeners) fn(f);
+}
+async function keepAwake() {
+  try {
+    if ("wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); $("#sWake").textContent = "Sí"; }
+    else $("#sWake").textContent = "No disponible (no bloquees el celular)";
+  } catch { $("#sWake").textContent = "No (no bloquees el celular)"; }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && wakeLock) keepAwake(); });
+
+$("#btnSensors").onclick = async () => {
+  if (!window.isSecureContext) { msg("#sensMsg", "Esta página debe abrirse con https:// para usar los sensores.", "err"); return; }
+  try {
+    if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+      const ok = await DeviceMotionEvent.requestPermission();
+      if (ok !== "granted") throw new Error("No diste permiso de movimiento.");
+    }
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      await DeviceOrientationEvent.requestPermission().catch(() => "denied");
+    }
+    window.addEventListener("deviceorientation", onOrientation);
+    window.addEventListener("devicemotion", onMotion);
+    if (!navigator.geolocation) throw new Error("Este navegador no tiene GPS.");
+    navigator.geolocation.watchPosition(onFix, (err) => { $("#sGps").textContent = "Sin permiso o sin señal"; msg("#sensMsg", "GPS: " + err.message, "err"); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    await keepAwake();
+    msg("#sensMsg", "Sensores activados. Mueve el celular para verlos.", "good");
+    setTimeout(() => {
+      if (!live.accAt) msg("#sensMsg", "No llegan datos de movimiento. Recarga la página y acepta los permisos.", "err");
+      else if (!live.gyroAt) msg("#sensMsg", "Este celular no tiene giroscopio: solo podrás medir por GPS.", "err");
+    }, 3000);
+  } catch (e) { msg("#sensMsg", e.message, "err"); }
+};
+setInterval(() => {
+  $("#sGyro").textContent = live.gyro == null ? "—" : fmt(live.gyro, 1) + " °/s";
+  $("#sAcc").textContent = live.acc == null ? "—" : fmt(Math.hypot(...live.acc), 2) + " m/s²";
+}, 300);
+function needSensors() {
+  const now = Date.now();
+  if (now - live.accAt > 2000) throw new Error("Activa los sensores en el paso 1.");
+  if (now - live.gyroAt > 2000) throw new Error("No llegan datos del giroscopio: este celular no sirve para medir por pasos.");
+}
+
+/* ---------- pestañas ---------- */
+document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach((x) => x.setAttribute("aria-current", x === b));
+  document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== b.dataset.tab));
+  if (b.dataset.tab === "calibrar") refreshCalibration();
+  if (b.dataset.tab === "medir") loadHistory();
+  if (b.dataset.tab === "modelo") loadModelList();
+  if (b.dataset.tab === "gps") loadGpsTrials();
+}));
+
+/* ---------- 2. calibración ---------- */
+let CAL = null; // última calibración leída del backend
+async function refreshCalibration() {
+  try {
+    const s = await api("/api/calibrations/" + encodeURIComponent(DEVICE));
+    const c = s.calibration;
+    CAL = c;
+    $("#cGyro").textContent = c.gyro_calibrated ? "✔ sesgo " + fmt(c.gyro_bias_dps, 2) + " °/s" : "Falta";
+    $("#cStep").textContent = c.step_length_m ? "✔ " + fmt(c.step_length_m, 3) + " m" : "Opcional (se usa 0,70 m)";
+    $("#cCar").textContent = c.speed_k != null ? "✔ v = " + fmt(c.speed_k, 4) + "·PWM + " + fmt(c.speed_c, 3) : "Falta (solo carro)";
+  } catch { /* sin conexión todavía */ }
+}
+$("#btnCalRefresh").onclick = refreshCalibration;
+
+function collectMotion(ms, onTick) {
+  return new Promise((resolve) => {
+    const out = [];
+    const fn = (t, gz, acc) => out.push({ t, gz, acc });
+    live.listeners.add(fn);
+    const t0 = Date.now();
+    const iv = setInterval(() => onTick && onTick(Math.ceil((ms - (Date.now() - t0)) / 1000)), 250);
+    setTimeout(() => { live.listeners.delete(fn); clearInterval(iv); resolve(out); }, ms);
+  });
+}
+$("#btnGyro").onclick = async () => {
+  const b = $("#btnGyro");
+  try {
+    needSensors(); b.disabled = true;
+    const s = await collectMotion(5500, (left) => msg("#gyroMsg", "No muevas el celular… " + Math.max(left, 0) + " s"));
+    const samples = s.filter((x) => x.gz != null).map((x) => ({ t_ms: x.t, gyro_z_dps: x.gz }));
+    const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/gyro", { samples: samples.slice(0, 5000) });
+    msg("#gyroMsg", "Listo ✔ sesgo del giroscopio: " + fmt(r.params.bias_dps, 3) + " °/s", "good");
+    refreshCalibration();
+  } catch (e) { msg("#gyroMsg", e.message, "err"); } finally { b.disabled = false; }
+};
+
+/* paso: 3 caminatas; el backend cuenta los pasos con el mismo detector que usa al medir.
+   Este contador en vivo usa el mismo método (pico de |a| − g, umbral 1,2 y rearme en −0,6). */
+function stepCounter(th = (CAL && CAL.step_threshold_ms2) || 1.2) {
+  // misma regla que el backend: la aprendida al calibrar el paso, o 1,2 si aún no se aprendió
+  const win = [];
+  let armed = true, last = -1e12, count = 0;
+  return (t, acc) => {
+    if (!acc) return count;
+    win.push(Math.hypot(acc[0], acc[1], acc[2]) - 9.80665);
+    if (win.length > 3) win.shift();
+    const s = win.reduce((a, b) => a + b, 0) / win.length;
+    if (armed && s > th && t - last >= 300) { count++; last = t; armed = false; }
+    else if (s < -th / 2) armed = true;
+    return count;
+  };
+}
+/* Punto GPS de una persona quieta: lecturas con precisión ≤ la mediana, ponderadas por 1/precisión². */
+function stillPoint(fixes) {
+  if (fixes.length < 3) return null;
+  const acc = fixes.map((f) => f.accuracy_m).sort((a, b) => a - b);
+  const cut = acc[Math.floor(acc.length / 2)];
+  const used = fixes.filter((f) => f.accuracy_m <= cut);
+  let w = 0, lat = 0, lon = 0;
+  for (const f of used) { const k = 1 / Math.max(f.accuracy_m, 0.5) ** 2; w += k; lat += f.lat * k; lon += f.lon * k; }
+  return { lat: lat / w, lon: lon / w, accuracy_m: cut };
+}
+function metersBetween(a, b) {
+  const R = 6371008.8, rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * R * Math.cos(a.lat * rad), y = (b.lat - a.lat) * rad * R;
+  return Math.hypot(x, y);
+}
+/* Junta lecturas GPS durante `secs` segundos mostrando la cuenta atrás. */
+function collectStill(secs, el, label) {
+  return new Promise((resolve) => {
+    const out = [];
+    const fn = (f) => out.push(f);
+    live.fixListeners.add(fn);
+    const t0 = Date.now();
+    const iv = setInterval(() => msg(el, label + "… " + Math.max(0, Math.ceil(secs - (Date.now() - t0) / 1000)) + " s"), 250);
+    setTimeout(() => { live.fixListeners.delete(fn); clearInterval(iv); resolve(out); }, secs * 1000);
+  });
+}
+$("#stepMode").onchange = () => {
+  const gps = $("#stepMode").value === "gps";
+  $("#stepKnownBox").hidden = gps; $("#stepGpsBox").hidden = !gps;
+  $("#stepGpsLbl").hidden = !gps; $("#stepGpsLive").hidden = !gps;
+};
+
+let stepTrials = [], stepWalk = null, stepBusy = false;
+function resetStepButton() {
+  const b = $("#btnStepWalk");
+  b.disabled = false; b.className = "sb red wide";
+  b.textContent = "Empezar caminata " + (stepTrials.length + 1) + " de 3";
+}
+$("#btnStepWalk").onclick = async () => {
+  const b = $("#btnStepWalk");
+  if (stepBusy) return;
+  try {
+    const gps = $("#stepMode").value === "gps";
+    if (!stepWalk) {
+      needSensors();
+      const dist = Number($("#stepDist").value), goal = Number($("#stepGoal").value);
+      if (!gps && !(dist > 0)) throw new Error("Escribe la distancia de la recta.");
+      if (gps && !(goal >= 20)) throw new Error("La meta debe ser de al menos 20 m.");
+      if (gps && !live.fix) throw new Error("No hay señal GPS. Activa los sensores y sal al aire libre.");
+      stepWalk = { gps, dist, goal, readings: [], count: stepCounter(), start: null, warned: false, heading: 0, lastT: null };
+      // Paso para la distancia en vivo: la calibración anterior o 0,70 m (promedio de un adulto).
+      stepWalk.stepM = (CAL && CAL.step_length_m) || 0.7;
+      stepWalk.bias = (CAL && CAL.gyro_calibrated && CAL.gyro_bias_dps) || 0;
+      $("#stepLive").textContent = "0";
+      $("#stepDistLive").textContent = "0,00 m";
+      $("#stepDirLive").textContent = "recto ✔";
+      if (gps) {
+        stepBusy = true; b.disabled = true;
+        const fixes = await collectStill(5, "#stepMsg", "Quédate quieta: marcando el inicio");
+        stepBusy = false; b.disabled = false;
+        stepWalk.start = stillPoint(fixes);
+        if (!stepWalk.start) throw new Error("Llegaron pocas lecturas GPS. Sal al aire libre y repite.");
+        if (stepWalk.start.accuracy_m > 15) throw new Error("El GPS está impreciso (± " + fmt(stepWalk.start.accuracy_m, 0) + " m). Aléjate de edificios y repite.");
+        stepWalk.recent = [];
+        stepWalk.fixFn = (f) => {
+          stepWalk.recent.push(f); if (stepWalk.recent.length > 3) stepWalk.recent.shift();
+          const here = stillPoint(stepWalk.recent.length >= 3 ? stepWalk.recent : [f, f, f]);
+          const d = metersBetween(stepWalk.start, here);
+          $("#stepGpsLive").textContent = fmt(d, 1) + " m de " + fmt(stepWalk.goal, 0) + " m";
+          if (d >= stepWalk.goal && !stepWalk.warned) {
+            stepWalk.warned = true;
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            msg("#stepMsg", "¡Para! Llegaste a " + fmt(stepWalk.goal, 0) + " m. Toca \"Terminar caminata\" y quédate quieta.", "good");
+          }
+        };
+        live.fixListeners.add(stepWalk.fixFn);
+        $("#stepGpsLive").textContent = "0 m de " + fmt(goal, 0) + " m";
+      }
+      stepWalk.fn = (t, gz, acc) => {
+        if (!acc) return;
+        stepWalk.readings.push({ seq: stepWalk.readings.length, t_ms: t, kind: "motion", gyro_z_dps: gz, accel: acc });
+        const steps = stepWalk.count(t, acc);
+        $("#stepLive").textContent = steps;
+        const d = steps * stepWalk.stepM;
+        $("#stepDistLive").textContent = "≈ " + fmt(d, 2) + " m" + (stepWalk.gps ? "" : " de " + fmt(stepWalk.dist, 1) + " m");
+        // Giro acumulado desde el inicio (giroscopio menos su sesgo); positivo = a la izquierda.
+        if (gz != null && stepWalk.lastT != null) stepWalk.heading += (gz - stepWalk.bias) * Math.min(t - stepWalk.lastT, 1000) / 1000;
+        if (gz != null) stepWalk.lastT = t;
+        const turn = stepWalk.heading;
+        $("#stepDirLive").textContent = Math.abs(turn) < 15 ? "recto ✔"
+          : "giraste " + fmt(Math.abs(turn), 0) + "° a la " + (turn > 0 ? "izquierda" : "derecha") + ": corrige";
+        $("#stepDirLive").style.color = Math.abs(turn) < 15 ? "var(--green)" : "var(--yellow)";
+      };
+      live.listeners.add(stepWalk.fn);
+      b.textContent = "Terminar caminata " + (stepTrials.length + 1); b.className = "sb wide stop";
+      msg("#stepMsg", gps ? "Camina en línea recta. Te aviso cuando llegues." : "Camina normal hasta el final de la recta…");
+      return;
+    }
+    live.listeners.delete(stepWalk.fn);
+    let distance = stepWalk.dist;
+    if (stepWalk.gps) {
+      live.fixListeners.delete(stepWalk.fixFn);
+      stepBusy = true; b.disabled = true;
+      const fixes = await collectStill(5, "#stepMsg", "Quédate quieta: marcando el final");
+      stepBusy = false;
+      const end = stillPoint(fixes);
+      if (!end) throw new Error("Llegaron pocas lecturas GPS al final.");
+      distance = Math.round(metersBetween(stepWalk.start, end) * 10) / 10;
+      if (distance < 15) throw new Error("Según el GPS caminaste solo " + fmt(distance, 1) + " m: camina más (40 m).");
+    }
+    stepTrials.push({ distance_m: distance, readings: stepWalk.readings.slice(0, 20000) });
+    stepWalk = null;
+    if (stepTrials.length < 3) {
+      resetStepButton();
+      msg("#stepMsg", "Caminata " + stepTrials.length + " guardada (" + fmt(distance, 1) + " m). Ponte en el inicio de la siguiente.", "good");
+      return;
+    }
+    b.disabled = true; msg("#stepMsg", "Calculando…");
+    const trials = stepTrials; stepTrials = [];
+    const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/step", { trials });
+    const uneven = (r.params.warnings || []).includes("uneven_pace");
+    const tuned = r.params.step_threshold_ms2 ? " · contador ajustado a tu forma de pisar" : "";
+    msg("#stepMsg", "Listo ✔ tu paso mide " + fmt(r.params.step_length_m, 3) + " m (pasos: " + r.params.steps.join(", ") + ")" + tuned + (uneven ? ". Ojo: caminaste a ritmos distintos, puedes repetir." : ""), uneven ? "" : "good");
+    resetStepButton();
+    refreshCalibration();
+  } catch (e) {
+    if (stepWalk) { live.listeners.delete(stepWalk.fn); if (stepWalk.fixFn) live.fixListeners.delete(stepWalk.fixFn); }
+    msg("#stepMsg", e.message + " Vuelve a empezar las 3 caminatas.", "err");
+    stepTrials = []; stepWalk = null; stepBusy = false;
+    resetStepButton();
+  }
+};
+
+/* carro */
+let carTrials = [];
+function drawCar() { $("#carTable tbody").innerHTML = carTrials.map((t) => `<tr><td>${fmt(t.pwm, 0)}</td><td>${fmt(t.distance_m, 2)}</td><td>${fmt(t.seconds, 2)}</td></tr>`).join(""); }
+$("#btnCarAdd").onclick = () => {
+  const t = { pwm: Number($("#carPwm").value), distance_m: Number($("#carDist").value), seconds: Number($("#carSec").value) };
+  if (!(t.pwm > 0 && t.pwm <= 100 && t.distance_m > 0 && t.seconds > 0)) { msg("#carMsg", "Completa PWM (1-100), distancia y tiempo.", "err"); return; }
+  carTrials.push(t); drawCar(); msg("#carMsg", "");
+  ["#carDist", "#carSec"].forEach((s) => ($(s).value = ""));
+};
+$("#btnCarSave").onclick = async () => {
+  try {
+    if (carTrials.length < 2) throw new Error("Agrega al menos 2 pruebas.");
+    const r = await api("/api/calibrations/" + encodeURIComponent(DEVICE) + "/car", { trials: carTrials });
+    msg("#carMsg", "Listo ✔ v = " + fmt(r.params.k, 4) + "·PWM + " + fmt(r.params.c, 3) + " m/s", "good");
+    carTrials = []; drawCar(); refreshCalibration();
+  } catch (e) { msg("#carMsg", e.message, "err"); }
+};
+
+/* ---------- 3. medición ---------- */
+function methodUi() {
+  const m = $("#method").value, gps = m === "gps";
+  $("#carBox").hidden = m !== "car";
+  // en un terreno grande no se piden medidas: justamente no se saben
+  $("#hasRefRow").hidden = gps;
+  $("#refBox").hidden = gps || !$("#hasRef").checked;
+  $("#stepsHow").hidden = gps; $("#gpsHow").hidden = !gps;
+  $("#methodHint").textContent = gps
+    ? "Se mide caminando el borde con el GPS. No necesitas saber cuánto mide."
+    : "Se mide caminando el borde: el celular cuenta tus pasos y tus giros.";
+  $("#place").placeholder = gps ? "Ej. Parque central" : "Ej. Mi cuarto";
+}
+$("#method").onchange = methodUi;
+$("#hasRef").onchange = methodUi;
+let run = null;
+function num(sel) { const v = Number($(sel).value); return $(sel).value !== "" && v > 0 ? v : null; }
+
+$("#btnStart").onclick = async () => {
+  const b = $("#btnStart");
+  msg("#startMsg", ""); // al iniciar otra medición no queda ningún mensaje viejo
+  try {
+    const method = $("#method").value;
+    if (method !== "gps") needSensors();
+    if (method === "gps" && !live.fix) throw new Error("Espera a que el GPS tenga señal (paso 1).");
+    const place = $("#place").value.trim();
+    if (!place) throw new Error("Escribe el nombre del lugar.");
+    const pwm = num("#carRunPwm");
+    if (method === "car" && !pwm) throw new Error("Escribe el PWM con el que avanza el carro.");
+    const useRef = method !== "gps" && $("#hasRef").checked;
+    const L = num("#planL"), W = num("#planW"), N = num("#planN") || 1;
+    const body = { method, source: "phone", mount: method === "car" ? "robot" : "hand", place_name: place, device_id: DEVICE };
+    if (useRef && L && W) body.reference = { points: [{ x: 0, y: 0 }, { x: L, y: 0 }, { x: L, y: W }, { x: 0, y: W }], scale_n: N };
+    if (useRef && num("#tape")) body.tape_side_m = num("#tape");
+    b.disabled = true;
+    const m = await api("/api/measurements", body);
+    run = { id: m.id, method, pwm, seq: 0, queue: [], sent: 0, corners: 0, t0: Date.now(), sending: false, stopped: false,
+      // recorrido en vivo (aproximado; el resultado final lo calcula el backend con correcciones)
+      path: [{ x: 0, y: 0 }], marks: [], heading: 0, lastT: null, steps: 0, dist: 0, count: stepCounter(),
+      stepM: (CAL && CAL.step_length_m) || 0.7, bias: (CAL && CAL.gyro_calibrated && CAL.gyro_bias_dps) || 0,
+      gps0: null, lastCorner: 0, sides: [], sideFrom: 0, sideIdx: [0], sideHeading: null };
+    run.motionFn = (t, gz, acc) => {
+      if (method === "gps") return;
+      const r = { seq: run.seq++, t_ms: t, kind: "motion" };
+      if (gz != null) r.gyro_z_dps = gz;
+      if (acc) r.accel = acc;
+      if (method === "car") r.pwm = pwm;
+      run.queue.push(r);
+      if (gz != null && run.lastT != null) run.heading += (gz - run.bias) * Math.min(t - run.lastT, 1000) / 1000;
+      if (gz != null) run.lastT = t;
+      const n = run.count(t, acc);
+      if (n > run.steps) {
+        run.steps = n;
+        const last = run.path[run.path.length - 1], a = run.heading * Math.PI / 180;
+        run.path.push({ x: last.x + run.stepM * Math.cos(a), y: last.y + run.stepM * Math.sin(a) });
+        run.dist += run.stepM;
+      }
+      // Esquina automática: el rumbo del lado se fija tras caminar 0,5 m; si después giras más de 60°
+      // (y ya caminaste 1 m en este lado) se marca la esquina y la cuenta del lado vuelve a 0.
+      const walked = run.dist - run.sideFrom;
+      if (run.sideHeading == null && walked >= 0.5) run.sideHeading = run.heading;
+      if (run.sideHeading != null && walked >= 1 && Math.abs(run.heading - run.sideHeading) > 60) markCorner(true);
+    };
+    run.fixFn = (f) => {
+      run.queue.push({ seq: run.seq++, t_ms: f.t_ms, kind: "gps", lat: f.lat, lon: f.lon, accuracy_m: f.accuracy_m });
+      if (method !== "gps") return;
+      if (!run.gps0) { run.gps0 = f; return; }
+      const R = 6371008.8, rad = Math.PI / 180;
+      const p = { x: (f.lon - run.gps0.lon) * rad * R * Math.cos(run.gps0.lat * rad), y: (f.lat - run.gps0.lat) * rad * R };
+      const last = run.path[run.path.length - 1];
+      run.dist += Math.hypot(p.x - last.x, p.y - last.y);
+      run.path.push(p);
+    };
+    run.draw = setInterval(drawLive, 300);
+    live.listeners.add(run.motionFn);
+    live.fixListeners.add(run.fixFn);
+    run.timer = setInterval(flush, 500);
+    run.clock = setInterval(() => { $("#rTime").textContent = Math.round((Date.now() - run.t0) / 1000) + " s"; $("#rPend").textContent = run.queue.length; }, 500);
+    $("#setupBox").hidden = true; $("#resultBox").hidden = true; $("#runBox").hidden = false; $("#runBox").scrollIntoView({ behavior: "smooth" });
+    $("#rSent").textContent = "0"; $("#rCorners").textContent = "0";
+    $("#cornerRow").hidden = method === "gps"; // con GPS no hay esquinas que marcar
+    msg("#runMsg", method === "gps" ? "Camina por el borde y termina donde empezaste." : "Camina por el borde. Al girar en cada esquina, se marca sola.");
+  } catch (e) { msg("#startMsg", e.message, "err"); } finally { b.disabled = false; }
+};
+
+async function flush() {
+  const cur = run; // si se cancela mientras envía, `run` pasa a null
+  if (!cur || cur.sending || cur.queue.length === 0) return;
+  cur.sending = true;
+  const batch = cur.queue.slice(0, 1000);
+  try {
+    const r = await api("/api/measurements/" + cur.id + "/readings", { readings: batch });
+    cur.queue.splice(0, batch.length);
+    cur.sent = r.total_readings;
+    $("#rSent").textContent = cur.sent;
+    if (!cur.stopped) msg("#runMsg", "Enviando ✔");
+  } catch (e) {
+    if (run === cur) msg("#runMsg", "Sin conexión, se reintentará: " + e.message, "err"); // las lecturas siguen en la cola
+  } finally { cur.sending = false; }
+}
+
+$("#btnCorner").onclick = () => markCorner(false);
+function markCorner(auto) {
+  if (!run) return;
+  const now = Date.now();
+  // el botón no vuelve a marcar una esquina que el giro marcó hace poco (4 s)
+  if (now - run.lastCorner < (auto ? 1500 : run.lastAuto ? 4000 : 1500)) {
+    if (!auto) msg("#runMsg", "Esa esquina ya se marcó. Camina hasta la siguiente.");
+    return;
+  }
+  run.lastCorner = now; run.lastAuto = auto; run.sideHeading = null;
+  run.queue.push({ seq: run.seq++, t_ms: now, kind: "corner" });
+  run.marks.push(run.path[run.path.length - 1]);
+  const side = run.dist - run.sideFrom;
+  run.sides.push(side); run.sideFrom = run.dist; run.sideIdx.push(run.path.length - 1);
+  run.corners++; $("#rCorners").textContent = run.corners;
+  msg("#runMsg", (auto ? "Giraste: " : "") + "esquina " + run.corners + " ✔ · lado " + run.sides.length + " = " + fmt(side, 1) + " m. Empieza el lado " + (run.sides.length + 1) + ".", "good");
+  if (navigator.vibrate) navigator.vibrate(auto ? [120, 80, 120] : 120);
+}
+
+/* Mapa en vivo: inicio, camino, posición actual y esquinas; distancia para volver al inicio. */
+function drawLive() {
+  if (!run) return;
+  const cv = $("#cvLive"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  if (!w) return;
+  cv.width = w * dpr; cv.height = hh * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const pts = run.path, here = pts[pts.length - 1];
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const span = Math.max(x1 - x0, y1 - y0, 4); // al menos 4 m de ancho para no agrandar el ruido
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const k = Math.min(w, hh) * 0.8 / span;
+  const P = (q) => [w / 2 + (q.x - cx) * k, hh / 2 - (q.y - cy) * k];
+  const css = getComputedStyle(document.documentElement);
+  // cuadrícula (1, 5 o 10 m según el tamaño)
+  ctx.strokeStyle = css.getPropertyValue("--line"); ctx.lineWidth = 1;
+  const step = span > 40 ? 10 : span > 15 ? 5 : 1;
+  for (let gx = Math.floor((cx - w / 2 / k) / step) * step; gx < cx + w / 2 / k; gx += step) { const [sx0] = P({ x: gx, y: 0 }); ctx.beginPath(); ctx.moveTo(sx0, 0); ctx.lineTo(sx0, hh); ctx.stroke(); }
+  for (let gy = Math.floor((cy - hh / 2 / k) / step) * step; gy < cy + hh / 2 / k; gy += step) { const [, sy0] = P({ x: 0, y: gy }); ctx.beginPath(); ctx.moveTo(0, sy0); ctx.lineTo(w, sy0); ctx.stroke(); }
+  // línea punteada de vuelta al inicio
+  const [sx, sy] = P(pts[0]), [hx, hy] = P(here);
+  ctx.setLineDash([4, 5]); ctx.strokeStyle = css.getPropertyValue("--dim"); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(sx, sy); ctx.stroke(); ctx.setLineDash([]);
+  // camino
+  ctx.strokeStyle = css.getPropertyValue("--red"); ctx.lineWidth = 2.6; ctx.lineJoin = "round"; ctx.beginPath();
+  pts.forEach((q, i) => { const [x, y] = P(q); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  // esquinas
+  ctx.fillStyle = css.getPropertyValue("--ink");
+  run.marks.forEach((q) => { const [x, y] = P(q); ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.fill(); });
+  // largo de cada lado, escrito en el medio del lado
+  const cuts = [...run.sideIdx, pts.length - 1];
+  ctx.font = "600 11px " + css.getPropertyValue("--mono"); ctx.textAlign = "center";
+  for (let s = 0; s < cuts.length - 1; s++) {
+    const a = pts[cuts[s]], z = pts[cuts[s + 1]];
+    const len = s < run.sides.length ? run.sides[s] : run.dist - run.sideFrom;
+    if (len < 0.3) continue;
+    const [mx, my] = P({ x: (a.x + z.x) / 2, y: (a.y + z.y) / 2 });
+    const label = fmt(len, 1) + " m";
+    const tw = ctx.measureText(label).width + 8;
+    ctx.fillStyle = css.getPropertyValue("--panel3"); ctx.fillRect(mx - tw / 2, my - 16, tw, 15);
+    ctx.fillStyle = s < run.sides.length ? css.getPropertyValue("--ink") : css.getPropertyValue("--red-hi");
+    ctx.fillText(label, mx, my - 5);
+  }
+  // inicio
+  ctx.fillStyle = css.getPropertyValue("--green"); ctx.beginPath(); ctx.arc(sx, sy, 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = css.getPropertyValue("--bg"); ctx.font = "600 8px " + css.getPropertyValue("--mono"); ctx.textAlign = "center"; ctx.fillText("INI", sx, sy + 3);
+  // tú
+  ctx.strokeStyle = css.getPropertyValue("--ink"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 6, 0, 2 * Math.PI); ctx.stroke();
+  const back = Math.hypot(here.x, here.y);
+  $("#rSteps").textContent = run.method === "gps" ? "—" : run.steps;
+  $("#rDist").textContent = fmt(run.dist, 1) + " m";
+  $("#rSide").textContent = "lado " + (run.sides.length + 1) + ": " + fmt(run.dist - run.sideFrom, 1) + " m";
+  $("#bigSideLbl").textContent = run.method === "gps" ? "Recorrido" : "Lado " + (run.sides.length + 1);
+  $("#bigSide").textContent = fmt(run.method === "gps" ? run.dist : run.dist - run.sideFrom, 1) + " m";
+  $("#rSides").textContent = run.sides.length ? run.sides.map((s, i) => (i + 1) + ") " + fmt(s, 1) + " m").join(" · ") : "—";
+  $("#rBack").textContent = "a " + fmt(back, 1) + " m";
+  $("#rBack").style.color = run.dist > 5 && back < 1.5 ? "var(--green)" : "";
+  $("#rDir").textContent = run.method === "gps" ? "GPS" : "giro total " + fmt(run.heading, 0) + "°";
+}
+
+$("#btnFinish").onclick = async () => {
+  if (!run) return;
+  const b = $("#btnFinish"); b.disabled = true;
+  run.stopped = true;
+  live.listeners.delete(run.motionFn); live.fixListeners.delete(run.fixFn);
+  clearInterval(run.timer); clearInterval(run.draw);
+  msg("#runMsg", "Enviando las últimas lecturas…");
+  try {
+    for (let i = 0; i < 40 && (run.queue.length || run.sending); i++) { await flush(); if (run.queue.length || run.sending) await sleep(500); }
+    if (run.queue.length) throw new Error("No se pudieron enviar todas las lecturas. Revisa la conexión y toca de nuevo.");
+    msg("#runMsg", "Calculando…");
+    const m = await api("/api/measurements/" + run.id + "/finish", {});
+    clearInterval(run.clock);
+    run = null;
+    showResult(m);
+  } catch (e) {
+    msg("#runMsg", e.message, "err");
+    if (run && /corta|calibrar/.test(e.message)) {
+      clearInterval(run.clock); run = null;
+      $("#runBox").hidden = true; $("#setupBox").hidden = false;
+      msg("#startMsg", e.message, "err");
+    }
+  } finally { b.disabled = false; }
+};
+
+/* Aviso corto que aparece abajo y se va solo. */
+let toastTimer = null;
+function toast(text) {
+  const t = $("#toast");
+  t.textContent = text; t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 2200);
+}
+/* Ventana "¿Estás segura?" con Sí / No. Devuelve true solo si tocó "Sí, borrar". */
+function askYesNo(text, yes = "Sí, borrar") {
+  return new Promise((resolve) => {
+    $("#askT").textContent = "¿Estás segura?"; $("#askIn").hidden = true; $("#askYes").className = "sb red";
+    $("#askX").textContent = text; $("#askYes").textContent = yes; $("#ask").hidden = false; $("#askNo").focus();
+    const done = (yes) => { $("#ask").hidden = true; $("#askYes").onclick = $("#askNo").onclick = null; resolve(yes); };
+    $("#askYes").onclick = () => done(true);
+    $("#askNo").onclick = () => done(false);
+  });
+}
+/* La misma ventana, con un campo de texto: devuelve el texto escrito, o null si tocó "Cancelar". */
+function askText(title, text, value) {
+  return new Promise((resolve) => {
+    $("#askT").textContent = title; $("#askX").textContent = text;
+    $("#askIn").hidden = false; $("#askIn").value = value;
+    $("#askNo").textContent = "Cancelar"; $("#askYes").textContent = "Guardar"; $("#askYes").className = "sb red";
+    $("#ask").hidden = false; $("#askIn").focus(); $("#askIn").select();
+    const done = (v) => { $("#ask").hidden = true; $("#askNo").textContent = "No"; $("#askYes").onclick = $("#askNo").onclick = $("#askIn").onkeydown = null; resolve(v); };
+    $("#askYes").onclick = () => done($("#askIn").value.trim() || null);
+    $("#askNo").onclick = () => done(null);
+    $("#askIn").onkeydown = (e) => { if (e.key === "Enter") done($("#askIn").value.trim() || null); };
+  });
+}
+const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4M13.5 6.5l4 4"/></svg>';
+const deleteMeasurement = (id) => api("/api/measurements/" + id, undefined, "DELETE");
+
+$("#btnCancel").onclick = async () => {
+  if (!run) return;
+  if (!(await askYesNo("¿Estás segura de cancelar y borrar esta medición? Lo que caminaste hasta ahora no se guarda."))) return;
+  if (!run) return;
+  const id = run.id;
+  run.stopped = true;
+  live.listeners.delete(run.motionFn); live.fixListeners.delete(run.fixFn);
+  clearInterval(run.timer); clearInterval(run.draw); clearInterval(run.clock);
+  run = null;
+  $("#runBox").hidden = true; $("#setupBox").hidden = false;
+  try {
+    await deleteMeasurement(id);
+    msg("#startMsg", ""); toast("Medición cancelada ✔");
+  } catch (e) { msg("#startMsg", "Se canceló aquí, pero no se pudo borrar: " + e.message + " Bórrala con 🗑 en Mis mediciones.", "err"); }
+  loadHistory();
+};
+
+let lastResultId = null;
+$("#btnHideRes").onclick = async () => {
+  if (!lastResultId || !(await askYesNo("¿Estás segura de borrar esta medición? No se puede recuperar."))) return;
+  try {
+    await deleteMeasurement(lastResultId);
+    lastResultId = null;
+    $("#resultBox").hidden = true; $("#setupBox").hidden = false;
+    msg("#startMsg", ""); toast("Medición borrada ✔");
+    loadHistory();
+  } catch (e) { msg("#resMsg", e.message, "err"); }
+};
+
+function showResult(m) {
+  lastResultId = m.id;
+  msg("#resMsg", "");
+  const when = new Date(m.finished_at || m.started_at).toLocaleString("es-PE", { dateStyle: "medium", timeStyle: "short" });
+  $("#resWho").textContent = m.place_name + " #" + m.id + " · " + METHOD_ES[m.method] + " · " + when;
+  document.querySelectorAll("#histBody tr").forEach((tr) => tr.classList.toggle("sel", tr.dataset.open === String(m.id)));
+  const r = m.result;
+  const [cls, label, desc] = QUALITY[r.quality];
+  $("#resTag").className = "tag " + cls;
+  $("#resTag").textContent = cls === "good" ? "Confiable" : cls === "warn" ? "Revisar" : "Repetir";
+  $("#sem").className = "semaforo " + cls; $("#resLabel").textContent = label; $("#resDesc").textContent = desc;
+  $("#resP").textContent = fmt(r.perimeter_m, 2) + " m";
+  $("#resA").textContent = fmt(r.area_m2, 2) + " m²";
+  $("#resC").textContent = fmt(r.closure_error_m, 2) + " m (" + fmt(r.closure_error_pct, 1) + " %)";
+  $("#resD").textContent = fmt(r.distance_m, 2) + " m";
+  $("#resNL").textContent = m.method === "steps" ? "Pasos" : "Lecturas";
+  $("#resN").textContent = m.method === "steps" ? r.step_count : r.reading_count;
+  $("#resRef").textContent = r.perimeter_error_pct == null ? "Sin plano" : (r.perimeter_error_pct > 0 ? "+" : "") + fmt(r.perimeter_error_pct, 1) + " % / " + (r.area_error_pct > 0 ? "+" : "") + fmt(r.area_error_pct, 1) + " %";
+  $("#resWarn").innerHTML = (r.warnings || []).map((w) => `<li>${esc(WARNINGS[w] || w)}</li>`).join("");
+  $("#runBox").hidden = true; $("#resultBox").hidden = false;
+  draw(r);
+  loadHistory();
+}
+
+function draw(r) {
+  const cv = $("#cv"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+  const all = [...r.raw_path, ...r.corrected_path, ...r.polygon];
+  if (!all.length) return;
+  const xs = all.map((p) => p.x), ys = all.map((p) => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const k = Math.min((w - 24) / (x1 - x0 || 1), (h - 24) / (y1 - y0 || 1));
+  const P = (p) => [12 + (p.x - x0) * k, h - 12 - (p.y - y0) * k];
+  const css = getComputedStyle(document.documentElement);
+  const line = (pts, color, width) => { ctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke(); };
+  line(r.raw_path, css.getPropertyValue("--dim"), 1.2);
+  line(r.corrected_path, css.getPropertyValue("--red"), 2.4);
+  ctx.fillStyle = css.getPropertyValue("--ink");
+  // esquinas solo si son pocas: en GPS el polígono trae cientos de puntos y taparían el camino rojo
+  if (r.polygon.length <= 12) r.polygon.forEach((p) => { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); });
+}
+
+$("#btnAgain").onclick = () => { $("#resultBox").hidden = true; $("#setupBox").hidden = false; msg("#startMsg", ""); };
+
+const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
+async function loadHistory() {
+  try {
+    const page = await api("/api/measurements?limit=200&device_id=" + encodeURIComponent(DEVICE));
+    $("#histBody").innerHTML = page.items.map((m) => {
+      const r = m.result;
+      const q = r ? QUALITY[r.quality] : null;
+      const name = esc(m.place_name) + " #" + m.id;
+      return `<tr${r ? ` data-open="${m.id}"` : ""}${m.id === lastResultId ? ' class="sel"' : ""}><td>${name}</td><td>${METHOD_ES[m.method]}</td><td>${r ? fmt(r.perimeter_m, 1) + " m" : "—"}</td><td>${r ? fmt(r.area_m2, 1) + " m²" : "—"}</td><td>${r ? `<span class="tag ${q[0]}">${fmt(r.closure_error_pct, 1)} %</span>` : "sin terminar"}</td><td><button class="sb ico" data-del="${m.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
+    }).join("") || `<tr><td colspan="6">Aún no hay mediciones.</td></tr>`;
+  } catch { /* sin conexión */ }
+}
+$("#btnHist").onclick = loadHistory;
+$("#histBody").onclick = async (ev) => {
+  const b = ev.target.closest("button[data-del]");
+  if (!b) return openMeasurement(ev.target.closest("tr"));
+  const place = b.closest("tr").cells[0].textContent;
+  if (!(await askYesNo("¿Estás segura de borrar la medición \"" + place + "\"? No se puede recuperar."))) return;
+  b.disabled = true;
+  try {
+    await deleteMeasurement(b.dataset.del);
+    msg("#histMsg", ""); toast("\"" + place + "\" borrada ✔");
+    loadHistory();
+  } catch (e) { msg("#histMsg", e.message, "err"); b.disabled = false; }
+};
+
+/* Detalles de una medición de la lista: la misma pantalla de Resultado, con su mapa. */
+async function openMeasurement(tr) {
+  if (!tr || !tr.cells[1]) return;
+  if (!tr.dataset.open) { msg("#histMsg", "Esta medición no terminó, así que no tiene resultado. Puedes borrarla con 🗑.", "err"); return; }
+  if (run) { msg("#histMsg", "Termina o cancela la medición en curso primero.", "err"); return; }
+  msg("#histMsg", "Abriendo…");
+  try {
+    const m = await api("/api/measurements/" + tr.dataset.open);
+    msg("#histMsg", "");
+    $("#setupBox").hidden = true;
+    showResult(m);
+    $("#resultBox").scrollIntoView({ behavior: "smooth" });
+  } catch (e) { msg("#histMsg", e.message, "err"); }
+}
+
+/* ---------- 4. prueba de error del GPS (SP-06): guía de 3 pasos ----------
+   1) quieta en el inicio (20 s)  2) caminar hasta el final viendo el mapa  3) quieta en el final (20 s) */
+const STILL_S = 20;
+let gT = null; // prueba en curso
+function gGuide(cls, title, sub, stage) {
+  $("#gGuide").className = "semaforo " + cls; $("#gGuideT").textContent = title; $("#gGuideS").textContent = sub;
+  if (stage) $("#gStage").textContent = stage;
+}
+const gStepM = () => (CAL && CAL.step_length_m) || null;
+const gByStep = () => $("#gRef").value === "steps";
+const gLoop = () => $("#gRef").value === "loop";
+function gRealM() {
+  if (gLoop()) return 0;
+  if (!gByStep()) return Number($("#gReal").value) || 0;
+  return gT && gT.steps && gStepM() ? gT.steps * gStepM() : 0;
+}
+$("#gRef").onchange = () => {
+  $("#gRealBox").hidden = $("#gRef").value !== "known";
+  $("#gStepHint").hidden = !gByStep(); $("#gLoopHint").hidden = !gLoop();
+};
+function gLocal(f) {
+  const R = 6371008.8, rad = Math.PI / 180, o = gT.startPt;
+  return { x: (f.lon - o.lon) * rad * R * Math.cos(o.lat * rad), y: (f.lat - o.lat) * rad * R };
+}
+function drawGps() {
+  if (!gT || !gT.startPt) return;
+  const cv = $("#cvGps"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  if (!w) return;
+  cv.width = w * dpr; cv.height = hh * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const pts = [{ x: 0, y: 0 }, ...gT.track];
+  const real = gRealM();
+  const span = Math.max(real * 1.3, ...pts.map((q) => Math.hypot(q.x, q.y) * 2.2), 10);
+  const k = Math.min(w, hh) / span;
+  const P = (q) => [w / 2 + q.x * k, hh / 2 - q.y * k];
+  const css = getComputedStyle(document.documentElement);
+  // círculo con la distancia real: el final debería caer sobre esta línea
+  ctx.setLineDash([4, 5]); ctx.strokeStyle = css.getPropertyValue("--dim"); ctx.beginPath(); ctx.arc(w / 2, hh / 2, real * k, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = css.getPropertyValue("--red"); ctx.lineWidth = 2.4; ctx.beginPath();
+  pts.forEach((q, i) => { const [x, y] = P(q); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+  const [sx, sy] = P(pts[0]), [hx, hy] = P(pts[pts.length - 1]);
+  ctx.fillStyle = css.getPropertyValue("--green"); ctx.beginPath(); ctx.arc(sx, sy, 8, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = css.getPropertyValue("--bg"); ctx.font = "600 8px " + css.getPropertyValue("--mono"); ctx.textAlign = "center"; ctx.fillText("INI", sx, sy + 3);
+  ctx.strokeStyle = css.getPropertyValue("--ink"); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(hx, hy, 6, 0, 2 * Math.PI); ctx.stroke();
+  ctx.fillStyle = css.getPropertyValue("--dim"); ctx.textAlign = "start"; ctx.fillText("círculo = " + fmt(real, 0) + " m reales", 8, 14);
+}
+async function gStill(label) {
+  const fixes = [];
+  const fn = (f) => fixes.push(f);
+  live.fixListeners.add(fn);
+  const t0 = Date.now();
+  await new Promise((res) => {
+    const iv = setInterval(() => {
+      const left = Math.max(0, Math.ceil(STILL_S - (Date.now() - t0) / 1000));
+      $("#btnGps").textContent = label + " · " + left + " s";
+      if (left <= 0 || !gT || gT.cancelled) { clearInterval(iv); res(); }
+    }, 250);
+  });
+  live.fixListeners.delete(fn);
+  return fixes;
+}
+function gReset() {
+  $("#btnGCancel").hidden = true;
+  if (gT) { live.listeners.delete(gT.motionFn); live.fixListeners.delete(gT.fixFn); clearInterval(gT.draw); }
+  gT = null;
+  $("#gSetup").hidden = false; $("#cvGps").hidden = true; $("#gLive").hidden = true; $("#gResBox").hidden = true;
+  $("#btnGps").hidden = false; $("#btnGps").disabled = false; $("#btnGps").className = "go"; $("#btnGps").textContent = "Estoy en el inicio";
+  gGuide("", "Párate en el punto de inicio", "Cuando estés ahí, toca el botón. Tendrás que quedarte quieta unos segundos.", "Paso 1 de 3");
+}
+$("#btnGps").onclick = async () => {
+  const b = $("#btnGps");
+  try {
+    if (!gT) {
+      // Paso 1: quieta en el inicio
+      msg("#gMsg", ""); // al empezar otra prueba no queda ningún mensaje viejo
+      if (!live.fix) throw new Error("No hay señal GPS: activa los sensores (pestaña 1) y sal al aire libre.");
+      const real = Number($("#gReal").value);
+      if (gByStep()) {
+        if (!gStepM()) throw new Error("Primero calibra tu paso (pestaña 2, parte B) para contar la distancia con tus pasos.");
+      } else if (!gLoop() && ($("#gReal").value === "" || !(real >= 0))) throw new Error("Escribe la distancia real.");
+      gT = { start: [], end: [], track: [], startPt: null, count: stepCounter(), steps: 0 };
+      const cur = gT;
+      $("#gSetup").hidden = true; b.disabled = true; $("#btnGCancel").hidden = false;
+      gGuide("warn", "Quédate quieta en el inicio", "Estoy midiendo dónde estás. No te muevas.", "Paso 1 de 3");
+      cur.start = await gStill("Midiendo el inicio");
+      if (cur.cancelled) return;
+      gT.startPt = stillPoint(gT.start);
+      if (!gT.startPt) throw new Error("Llegaron pocas lecturas del GPS. Sal al aire libre y repite.");
+      // Paso 2: caminar viendo el mapa
+      gT.motionFn = (t, gz, acc) => {
+        const n = gT.count(t, acc);
+        if (n === gT.steps) return;
+        gT.steps = n;
+        $("#gSteps").textContent = n + (gByStep() ? " = " + fmt(gRealM(), 1) + " m reales" : "");
+      };
+      gT.fixFn = (f) => {
+        gT.track.push(gLocal(f));
+        const last = gT.track[gT.track.length - 1];
+        $("#gDist").textContent = fmt(Math.hypot(last.x, last.y), 1) + " m";
+        $("#gAcc").textContent = "± " + fmt(f.accuracy_m, 0) + " m";
+      };
+      live.listeners.add(gT.motionFn); live.fixListeners.add(gT.fixFn);
+      gT.draw = setInterval(drawGps, 500);
+      $("#cvGps").hidden = false; $("#gLive").hidden = false;
+      gGuide("good", gLoop() ? "Ahora recorre y vuelve al inicio" : "Ahora camina hasta el final", gLoop()
+        ? "Recorre lo que quieras (a pie o en carro) y vuelve exactamente al punto donde empezaste."
+        : gByStep()
+        ? "Camina en línea recta y a paso normal hasta el punto final. Cuento tus pasos para saber la distancia real."
+        : "Camina en línea recta hasta el punto final (" + fmt(real, 0) + " m). Mira tu recorrido en el mapa.", "Paso 2 de 3");
+      b.disabled = false; b.textContent = gLoop() ? "Volví al inicio" : "Llegué al final";
+      return;
+    }
+    // Paso 3: quieta en el final y resultado
+    live.listeners.delete(gT.motionFn); live.fixListeners.delete(gT.fixFn); clearInterval(gT.draw);
+    b.disabled = true;
+    gGuide("warn", "Quédate quieta en el final", "Estoy midiendo dónde terminaste. No te muevas.", "Paso 3 de 3");
+    const cur = gT;
+    cur.end = await gStill("Midiendo el final");
+    if (cur.cancelled) return;
+    $("#btnGCancel").hidden = true; // ya se guarda: no se puede cancelar a medias
+    if (gT.end.length < 3) throw new Error("Llegaron pocas lecturas del GPS al final. Repite la prueba.");
+    const real = Math.round(gRealM() * 10) / 10;
+    if (gByStep() && gT.steps < 20) throw new Error("Contaste solo " + gT.steps + " pasos: camina un tramo más largo (20 a 50 m) y repite.");
+    // la fuente de la distancia real queda en el nombre, como evidencia
+    const place = ($("#gPlace").value.trim() || "Prueba GPS").slice(0, 60) + (gByStep() ? " (real por " + gT.steps + " pasos)" : gLoop() ? " (ida y vuelta)" : "");
+    const r = await api("/api/gps-trials", {
+      device_id: DEVICE, place_name: place, environment: $("#gEnv").value,
+      real_distance_m: real, start_fixes: gT.start.slice(0, 600), end_fixes: gT.end.slice(0, 600),
+    });
+    const m = r.result.methods, best = m.filtered;
+    const names = { single: "Una sola lectura (como una app normal)", mean: "Promedio de lecturas", filtered: "Promedio filtrado (el mejor)" };
+    $("#gResBody").innerHTML = Object.entries(m).map(([k, v]) => `<tr><td>${names[k]}</td><td>${fmt(v.gps_distance_m, 1)} m</td><td>${fmt(v.error_m, 1)} m${v.error_pct == null ? "" : " (" + fmt(v.error_pct, 0) + " %)"}</td></tr>`).join("");
+    const pct = best.error_pct == null ? null : best.error_pct;
+    // ida y vuelta (real 0): no hay %; se juzga en metros
+    const cls = pct == null ? (best.error_m < 5 ? "good" : best.error_m < 10 ? "warn" : "red") : pct < 5 ? "good" : pct < 15 ? "warn" : "red";
+    $("#gResSem").className = "semaforo " + cls;
+    $("#gResT").textContent = gLoop() ? "Ida y vuelta: debía marcar 0 m · el GPS marcó " + fmt(best.gps_distance_m, 1) + " m de diferencia" : "Real" + (gByStep() ? " (" + gT.steps + " pasos × " + fmt(gStepM(), 2) + " m)" : "") + ": " + fmt(real, 1) + " m · GPS: " + fmt(best.gps_distance_m, 1) + " m · Error: " + fmt(best.error_m, 1) + " m";
+    $("#gResS").textContent = "Una sola lectura se equivocó " + fmt(m.single.error_m, 1) + " m; promediando se equivocó " + fmt(best.error_m, 1) + " m. Prueba guardada ✔";
+    $("#gResBox").hidden = false; b.hidden = true; $("#cvGps").hidden = false;
+    gGuide("good", "¡Listo! Prueba guardada", "Haz al menos 3 pruebas en lugares distintos para el informe.", "Terminado");
+    loadGpsTrials();
+    live.listeners.delete(gT.motionFn); gT = { done: true, startPt: gT.startPt, track: gT.track }; drawGps(); gT = null;
+  } catch (e) {
+    msg("#gMsg", e.message, "err");
+    gReset();
+  }
+};
+$("#btnGAgain").onclick = () => { msg("#gMsg", ""); gReset(); };
+$("#btnGCancel").onclick = async () => {
+  if (!gT) return;
+  if (!(await askYesNo("¿Cancelar esta prueba del GPS? No se guarda nada y vuelves al inicio.", "Sí, cancelar"))) return;
+  if (!gT) return;
+  gT.cancelled = true;
+  gReset();
+  msg("#gMsg", ""); toast("Prueba cancelada ✔ No se guardó nada");
+};
+async function loadGpsTrials() {
+  try {
+    const trials = await api("/api/gps-trials?device_id=" + encodeURIComponent(DEVICE));
+    $("#gList").innerHTML = trials.map((t) => {
+      const f = t.result.methods.filtered;
+      const name = esc(t.place_name) + " #" + t.id;
+      return `<tr data-name="${esc(t.place_name)}"><td style="white-space:normal">${name}</td><td>${fmt(t.real_distance_m, 1)} m</td><td>${fmt(f.gps_distance_m, 1)} m</td><td>${fmt(f.error_m, 1)} m</td><td style="display:flex;gap:6px;justify-content:flex-end"><button class="sb ico" data-gren="${t.id}" title="Cambiar nombre" aria-label="Cambiar nombre de ${name}">${PENCIL}</button><button class="sb ico" data-gdel="${t.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
+    }).join("") || `<tr><td colspan="5">Aún no hay pruebas.</td></tr>`;
+  } catch { /* sin conexión */ }
+  gSummary();
+}
+$("#gList").onclick = async (ev) => {
+  const r = ev.target.closest("button[data-gren]");
+  if (r) {
+    const old = r.closest("tr").dataset.name;
+    const name = await askText("Cambiar nombre", "Escribe el nombre correcto del lugar. Las lecturas y el error no cambian.", old);
+    if (!name || name === old) return;
+    try {
+      await api("/api/gps-trials/" + r.dataset.gren, { place_name: name }, "PATCH");
+      toast("Nombre cambiado ✔");
+      loadGpsTrials();
+    } catch (e) { msg("#gMsg", e.message, "err"); }
+    return;
+  }
+  const b = ev.target.closest("button[data-gdel]");
+  if (!b) return;
+  const name = b.closest("tr").cells[0].textContent;
+  if (!(await askYesNo("¿Estás segura de borrar la prueba \"" + name + "\"? No se puede recuperar."))) return;
+  b.disabled = true;
+  try {
+    await api("/api/gps-trials/" + b.dataset.gdel, undefined, "DELETE");
+    toast("Prueba borrada ✔");
+    loadGpsTrials();
+  } catch (e) { msg("#gMsg", e.message, "err"); b.disabled = false; }
+};
+$("#btnGSum").onclick = loadGpsTrials;
+async function gSummary() {
+  try {
+    const s = await api("/api/gps-trials/summary?device_id=" + encodeURIComponent(DEVICE));
+    if (!s.trials) { $("#gSum").innerHTML = "<span>Pruebas</span><b>0</b>"; return; }
+    const best = s.methods[s.best_method];
+    $("#gSum").innerHTML = `
+      <span>Pruebas hechas</span><b>${s.trials}</b>
+      <span>Error con una sola lectura</span><b>${fmt(s.methods.single.mean_error_m, 1)} m</b>
+      <span>Error promediando</span><b>${fmt(best.mean_error_m, 1)} m</b>
+      <span>Mejora al promediar</span><b>${fmt(s.improvement_pct, 0)} %</b>
+      <span>El GPS sirve en lugares de lado mayor a</span><b>${fmt(s.min_side_m, 0)} m</b>`;
+  } catch (e) { $("#gSum").innerHTML = `<span>${esc(e.message)}</span><b></b>`; }
+};
+
+/* ---------- 5. modelo de precisión (SP-07) ---------- */
+async function loadModelList() {
+  try {
+    const page = await api("/api/measurements?limit=200&device_id=" + encodeURIComponent(DEVICE));
+    const done = page.items.filter((m) => m.result && m.method !== "gps").reverse(); // de la más antigua a la más nueva
+    const gpsCount = page.items.filter((m) => m.result && m.method === "gps").length;
+    const gpsNote = gpsCount ? " Tus " + gpsCount + " mediciones por GPS no salen aquí: el modelo ajusta tu paso y tu giro, y el GPS no usa pasos." : "";
+    if (!done.length) { msg("#mMsg", "Aún no tienes mediciones por pasos terminadas." + gpsNote); $("#mListBox").hidden = true; return; }
+    // preselecciona las últimas 5 del lugar más reciente
+    const place = done[done.length - 1].place_name;
+    const pre = new Set(done.filter((m) => m.place_name === place).slice(-5).map((m) => m.id));
+    $("#mList").innerHTML = done.map((m) => {
+      const r = m.result;
+      const ref = r.perimeter_error_pct == null ? "sin medida real" : (r.perimeter_error_pct > 0 ? "+" : "") + fmt(r.perimeter_error_pct, 1) + " %";
+      return `<tr><td><input type="checkbox" data-id="${m.id}" ${pre.has(m.id) ? "checked" : ""} style="width:22px;height:22px"></td><td>${esc(m.place_name)} #${m.id}</td><td>${fmt(r.closure_error_pct, 1)} %</td><td>${ref}</td></tr>`;
+    }).join("");
+    $("#mListBox").hidden = false; $("#btnMRun").disabled = false;
+    msg("#mMsg", "Marca las mediciones del mismo lugar y toca Correr modelo." + gpsNote);
+  } catch (e) { msg("#mMsg", e.message, "err"); }
+}
+$("#btnMLoad").onclick = loadModelList;
+
+function drawModel(res) {
+  const cv = $("#cvModel"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, hh = cv.clientHeight;
+  cv.width = w * dpr; cv.height = hh * dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, hh);
+  const css = getComputedStyle(document.documentElement);
+  const best = res.attempts.map((a) => a.best_cost);
+  const top = Math.max(res.baseline_cost, ...best, 4) * 1.15;
+  const L = 36, B = 22, T = 10, W = w - L - 10, H = hh - T - B;
+  const X = (i) => L + W * (best.length > 1 ? i / (best.length - 1) : 0), Y = (v) => T + H - H * Math.min(v, top) / top;
+  ctx.font = "10px " + css.getPropertyValue("--mono"); ctx.fillStyle = css.getPropertyValue("--dim"); ctx.strokeStyle = css.getPropertyValue("--line");
+  for (let i = 0; i <= 4; i++) { const v = top * i / 4, y = Y(v); ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + W, y); ctx.stroke(); ctx.fillText(fmt(v, 0) + "%", 2, y + 3); }
+  ctx.fillText("intentos →", L + W - 60, hh - 6);
+  const hline = (v, color) => { ctx.setLineDash([5, 5]); ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(L, Y(v)); ctx.lineTo(L + W, Y(v)); ctx.stroke(); ctx.setLineDash([]); };
+  hline(3, css.getPropertyValue("--green"));
+  hline(res.baseline_cost, css.getPropertyValue("--yellow"));
+  ctx.strokeStyle = css.getPropertyValue("--red"); ctx.lineWidth = 2.4; ctx.beginPath();
+  best.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)))); ctx.stroke();
+  ctx.fillStyle = css.getPropertyValue("--red");
+  best.forEach((v, i) => { ctx.beginPath(); ctx.arc(X(i), Y(v), 2.5, 0, 2 * Math.PI); ctx.fill(); });
+}
+
+async function runModel(apply) {
+  const ids = [...document.querySelectorAll("#mList input:checked")].map((c) => Number(c.dataset.id));
+  if (ids.length < 2) throw new Error("Elige al menos 2 mediciones (5 es lo ideal).");
+  return api("/api/precision-model/runs", { measurement_ids: ids, max_attempts: 40, apply });
+}
+$("#btnMRun").onclick = async () => {
+  const b = $("#btnMRun");
+  try {
+    b.disabled = true; msg("#mMsg", "El modelo está probando ajustes…");
+    const run = await runModel(false);
+    const res = run.result;
+    const improved = res.final_cost < res.baseline_cost;
+    const drop = res.baseline_cost > 0 ? (res.baseline_cost - res.final_cost) / res.baseline_cost * 100 : 0;
+    const cls = res.final_cost < 3 ? "good" : improved ? "warn" : "red";
+    $("#mSem").className = "semaforo " + cls;
+    $("#mSemT").textContent = improved ? "El error bajó de " + fmt(res.baseline_cost, 1) + " % a " + fmt(res.final_cost, 1) + " %" : "El modelo no logró bajar el error";
+    $("#mSemS").textContent = improved ? "Bajó " + fmt(drop, 0) + " % en " + res.attempts.length + " intentos." : "Así se declara en el informe: queda como trabajo futuro.";
+    $("#mBase").textContent = fmt(res.baseline_cost, 1) + " %";
+    $("#mFinal").textContent = fmt(res.final_cost, 1) + " %";
+    const ip = res.initial_params, fp = res.final_params;
+    $("#mStep").textContent = ip.step_length_m != null ? fmt(ip.step_length_m, 3) + " → " + fmt(fp.step_length_m, 3) + " m" : "—";
+    $("#mBias").textContent = fmt(ip.gyro_bias_dps, 2) + " → " + fmt(fp.gyro_bias_dps, 2) + " °/s";
+    $("#mGen").textContent = res.generalizes == null ? "Usa 3 o más mediciones para comprobarlo" : res.generalizes ? "Sí ✔ (también bajó en la medición de prueba)" : "No: en la medición de prueba no mejoró";
+    const errOf = (x) => x.perimeter_error_pct == null ? "cierre " + fmt(x.closure_error_pct, 1) + " %" : (x.perimeter_error_pct > 0 ? "+" : "") + fmt(x.perimeter_error_pct, 1) + " %";
+    $("#mTable").innerHTML = res.measurements.map((r) => `<tr><td>#${r.measurement_id}</td><td>${errOf(r.before)}</td><td>${errOf(r.after)}</td></tr>`).join("");
+    $("#mResBox").hidden = false; $("#btnMApply").disabled = !improved; msg("#mApplyMsg", "");
+    drawModel(res);
+    $("#mResBox").scrollIntoView({ behavior: "smooth" });
+    msg("#mMsg", "Listo ✔ corrida guardada.", "good");
+  } catch (e) { msg("#mMsg", e.message, "err"); } finally { b.disabled = false; }
+};
+$("#btnMApply").onclick = async () => {
+  try {
+    const run = await runModel(true);
+    msg("#mApplyMsg", run.applied ? "Listo ✔ tus próximas mediciones usarán estos ajustes." : "No se aplicó: el ajuste no mejoró en la medición de prueba.", run.applied ? "good" : "err");
+    refreshCalibration();
+  } catch (e) { msg("#mApplyMsg", e.message, "err"); }
+};
+
+if (API) refreshCalibration();
+</script>
+</body>
+</html>

@@ -16,6 +16,15 @@ export default defineConfig(({ mode }) => {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
       },
     },
+    // Dos páginas: la consola (index.html) y la página del celular (celular.html, HU-37/HU-40).
+    build: {
+      rollupOptions: {
+        input: {
+          main: fileURLToPath(new URL("./index.html", import.meta.url)),
+          celular: fileURLToPath(new URL("./celular.html", import.meta.url)),
+        },
+      },
+    },
     server: {
       host: true,
       port: 5173,

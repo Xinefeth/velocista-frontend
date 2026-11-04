@@ -1,5 +1,6 @@
 // Vista Control (Protoripo.html): tablero del velocista en vivo.
 // EN-19, HU-13 a HU-18, HU-21 a HU-24, HU-30, HU-11.
+import { SPEED_MAP_PENDING, speedMapBlock } from "@/domain/profileStatus";
 import { useState } from "react";
 import { useConsole } from "@/application/state/ConsoleContext";
 import { useOptionalConnection } from "@/application/state/ConnectionContext";
@@ -262,9 +263,8 @@ function Setup() {
   if (pend) tag = [same ? "Sin enviar" : `Cambia a ${ctrl.short}`, "tag red"];
   else if (differs(c.applied, c.saved)) tag = ["Sin guardar", "tag warn"];
   else tag = ["Guardado", "tag good"];
-  const why = c.profile.rules.speedMap
-    ? "Permitido por este perfil, pero la función queda fuera de este curso (HU-33)."
-    : `Bloqueado por ${c.profile.comp} · ${c.profile.cat}: el robot solo puede guiarse por la línea, sin movimientos pre-programados.`;
+  const speedMap = speedMapBlock(c.profile);
+  const why = speedMap.blocked ? speedMap.reason : SPEED_MAP_PENDING;
   const eng = c.engineer.vista(c.applied.controller);
   return (
     <Card className="a-setup" pbi="HU-17" sprint="1">
@@ -340,13 +340,21 @@ function Setup() {
         </div>
         <div className="row" data-sprint="W">
           <span className="l">Velocidad por mapa</span>
-          <button type="button" className="sw" role="switch" aria-checked={false} disabled>
+          <button
+            type="button"
+            className="sw"
+            role="switch"
+            aria-checked={false}
+            aria-label="Velocidad por mapa"
+            aria-describedby="speedmap-why"
+            disabled
+          >
             <i />
           </button>
         </div>
         <div className="lockrow">
           {ICO.lock}
-          <span>{why}</span>
+          <span id="speedmap-why">{why}</span>
         </div>
       </div>
       <div className="eng" data-sprint="2">

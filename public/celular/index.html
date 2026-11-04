@@ -39,6 +39,7 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradi
 .sb.wide{width:100%}
 .sb.stop{background:var(--panel3);border-color:var(--red);color:var(--red-hi)}
 .sb.ico{min-height:36px;width:36px;padding:0;color:var(--mid)}.sb.ico:active{color:var(--red-hi);border-color:var(--red)}
+.toast{position:fixed;left:50%;bottom:24px;z-index:60;transform:translate(-50%,20px);max-width:calc(100% - 32px);padding:12px 16px;border-radius:12px;border:1px solid rgba(61,220,151,.45);background:var(--panel3);color:var(--ink);font-size:13px;text-align:center;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none}.toast.on{opacity:1;transform:translate(-50%,0)}
 .ask{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,6,9,.78)}
 .ask[hidden]{display:none}.ask .card{width:100%;max-width:360px;margin:0;border-color:rgba(255,45,85,.45)}
 .ask .row .sb{flex:1}
@@ -46,7 +47,7 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradi
 .go{width:100%;height:62px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--mono);font-size:16px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 10px 30px -8px rgba(255,45,85,.6)}
 .go.stop{background:var(--panel3);color:var(--ink);box-shadow:0 0 0 1px var(--red) inset}
 .bigside{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(255,45,85,.4);border-radius:12px;background:var(--red-soft)}.bigside span{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--red-hi)}.bigside b{font-family:var(--mono);font-size:40px;font-weight:500;font-variant-numeric:tabular-nums}
-#btnCorner{height:72px;font-size:15px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase}
+
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .row>*{flex:1 1 140px}
 .kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px;color:var(--mid)}
@@ -263,7 +264,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
         <span>Lecturas enviadas</span><b id="rSent">0</b>
         <span>Pendientes de enviar</span><b id="rPend">0</b>
       </div>
-      <div class="row"><button class="sb wide" id="btnCorner">Marcar esquina</button></div>
+      <div class="row" id="cornerRow"><button class="sb wide" id="btnCorner">¿No se marcó sola? Marcar esquina</button></div>
       <div class="row"><button class="go stop" id="btnFinish">Terminar y calcular</button></div>
       <div class="row"><button class="sb wide" id="btnCancel">Cancelar y borrar (me equivoqué)</button></div>
       <p class="hint" id="runMsg"></p>
@@ -296,6 +297,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     </section>
   </div>
 
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="ask" id="ask" hidden role="dialog" aria-modal="true" aria-labelledby="askT">
     <section class="card">
       <div class="hd"><h2 id="askT">¿Estás segura?</h2></div>
@@ -319,16 +321,19 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
           <option value="trees">Bajo árboles</option>
           <option value="indoor">Bajo techo</option>
         </select>
-        <label style="display:flex;align-items:center;gap:10px;margin-top:14px;font-size:13px;color:var(--mid)">
-          <input type="checkbox" id="gByStep" style="width:22px;height:22px;flex:none">
-          No sé la distancia: calcularla con mis pasos
-        </label>
+        <label class="lbl" for="gRef">¿Cómo sabes la distancia real?</label>
+        <select class="inp" id="gRef">
+          <option value="known">La sé: cinta, líneas de cancha o Google Maps</option>
+          <option value="steps">Caminando: contar mis pasos</option>
+          <option value="loop">Ida y vuelta: termino donde empecé (sirve en carro)</option>
+        </select>
         <div id="gRealBox">
           <label class="lbl" for="gReal">Distancia real entre el inicio y el final (m)</label>
           <input class="inp" id="gReal" type="number" inputmode="decimal" value="30">
           <p class="hint">Usa más de 15 m (30 o 50 m es mejor): el GPS suele equivocarse varios metros.</p>
         </div>
-        <p class="hint" id="gStepHint" hidden>Camina <b>en línea recta</b> del inicio al final, a paso normal. La distancia real será tus pasos × el largo de tu paso calibrado. Elige un tramo de 20 a 50 m.</p>
+        <p class="hint" id="gStepHint" hidden><b>Solo caminando, no en carro</b> (el carro mueve el celular y cuenta pasos falsos). Camina <b>en línea recta</b> de 20 a 50 m y <b>no regreses</b>: el final es otro lugar. La distancia real será tus pasos × tu paso calibrado.</p>
+        <p class="hint" id="gLoopHint" hidden>Sirve <b>a pie o en carro</b>. Quieta en un punto que reconozcas (tu puerta, un poste), recorre lo que quieras y <b>vuelve exactamente a ese mismo punto</b>. La distancia real es 0 m: todo lo que el GPS diga de diferencia es su error.</p>
       </div>
       <div class="semaforo" id="gGuide" style="margin-top:12px"><span class="dotl"></span><div><b id="gGuideT">Párate en el punto de inicio</b><small id="gGuideS">Cuando estés ahí, toca el botón. Tendrás que quedarte quieta unos segundos.</small></div></div>
       <canvas id="cvGps" hidden></canvas>
@@ -349,7 +354,9 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     <section class="card">
       <div class="hd"><h2>Resumen de mis pruebas</h2></div>
       <div class="kv" id="gSum"><span>Pruebas</span><b>—</b></div>
-      <div class="row"><button class="sb" id="btnGSum">Ver resumen</button></div>
+      <div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>Prueba</th><th>Real</th><th>GPS</th><th>Error</th><th></th></tr></thead><tbody id="gList"></tbody></table></div>
+      <p class="hint">El resumen promedia todas estas pruebas. 🗑 borra una prueba equivocada (siempre te pregunta antes).</p>
+      <div class="row"><button class="sb" id="btnGSum">Actualizar</button></div>
     </section>
   </div>
   <!-- ===================== 5. MODELO DE PRECISIÓN (SP-07) ===================== -->
@@ -591,6 +598,7 @@ document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => {
   if (b.dataset.tab === "calibrar") refreshCalibration();
   if (b.dataset.tab === "medir") loadHistory();
   if (b.dataset.tab === "modelo") loadModelList();
+  if (b.dataset.tab === "gps") loadGpsTrials();
 }));
 
 /* ---------- 2. calibración ---------- */
@@ -875,7 +883,8 @@ $("#btnStart").onclick = async () => {
     run.clock = setInterval(() => { $("#rTime").textContent = Math.round((Date.now() - run.t0) / 1000) + " s"; $("#rPend").textContent = run.queue.length; }, 500);
     $("#setupBox").hidden = true; $("#resultBox").hidden = true; $("#runBox").hidden = false; $("#runBox").scrollIntoView({ behavior: "smooth" });
     $("#rSent").textContent = "0"; $("#rCorners").textContent = "0";
-    msg("#runMsg", "Camina por el borde. Marca cada esquina.");
+    $("#cornerRow").hidden = method === "gps"; // con GPS no hay esquinas que marcar
+    msg("#runMsg", method === "gps" ? "Camina por el borde y termina donde empezaste." : "Camina por el borde. Al girar en cada esquina, se marca sola.");
   } catch (e) { msg("#startMsg", e.message, "err"); } finally { b.disabled = false; }
 };
 
@@ -999,6 +1008,13 @@ $("#btnFinish").onclick = async () => {
   } finally { b.disabled = false; }
 };
 
+/* Aviso corto que aparece abajo y se va solo. */
+let toastTimer = null;
+function toast(text) {
+  const t = $("#toast");
+  t.textContent = text; t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 2200);
+}
 /* Ventana "¿Estás segura?" con Sí / No. Devuelve true solo si tocó "Sí, borrar". */
 function askYesNo(text, yes = "Sí, borrar") {
   return new Promise((resolve) => {
@@ -1022,7 +1038,7 @@ $("#btnCancel").onclick = async () => {
   $("#runBox").hidden = true; $("#setupBox").hidden = false;
   try {
     await deleteMeasurement(id);
-    msg("#startMsg", "Medición cancelada y borrada ✔ Revisa el nombre del lugar y vuelve a iniciar.", "good");
+    msg("#startMsg", ""); toast("Medición cancelada ✔");
   } catch (e) { msg("#startMsg", "Se canceló aquí, pero no se pudo borrar: " + e.message + " Bórrala con 🗑 en Mis mediciones.", "err"); }
   loadHistory();
 };
@@ -1034,7 +1050,7 @@ $("#btnHideRes").onclick = async () => {
     await deleteMeasurement(lastResultId);
     lastResultId = null;
     $("#resultBox").hidden = true; $("#setupBox").hidden = false;
-    msg("#startMsg", "Medición borrada ✔ Corrige el nombre del lugar y mide de nuevo.", "good");
+    msg("#startMsg", ""); toast("Medición borrada ✔");
     loadHistory();
   } catch (e) { msg("#resMsg", e.message, "err"); }
 };
@@ -1105,7 +1121,7 @@ $("#histBody").onclick = async (ev) => {
   b.disabled = true;
   try {
     await deleteMeasurement(b.dataset.del);
-    msg("#histMsg", "\"" + place + "\" borrada ✔", "good");
+    msg("#histMsg", ""); toast("\"" + place + "\" borrada ✔");
     loadHistory();
   } catch (e) { msg("#histMsg", e.message, "err"); b.disabled = false; }
 };
@@ -1134,12 +1150,17 @@ function gGuide(cls, title, sub, stage) {
   if (stage) $("#gStage").textContent = stage;
 }
 const gStepM = () => (CAL && CAL.step_length_m) || null;
-const gByStep = () => $("#gByStep").checked;
+const gByStep = () => $("#gRef").value === "steps";
+const gLoop = () => $("#gRef").value === "loop";
 function gRealM() {
+  if (gLoop()) return 0;
   if (!gByStep()) return Number($("#gReal").value) || 0;
   return gT && gT.steps && gStepM() ? gT.steps * gStepM() : 0;
 }
-$("#gByStep").onchange = () => { $("#gRealBox").hidden = gByStep(); $("#gStepHint").hidden = !gByStep(); };
+$("#gRef").onchange = () => {
+  $("#gRealBox").hidden = $("#gRef").value !== "known";
+  $("#gStepHint").hidden = !gByStep(); $("#gLoopHint").hidden = !gLoop();
+};
 function gLocal(f) {
   const R = 6371008.8, rad = Math.PI / 180, o = gT.startPt;
   return { x: (f.lon - o.lon) * rad * R * Math.cos(o.lat * rad), y: (f.lat - o.lat) * rad * R };
@@ -1198,7 +1219,7 @@ $("#btnGps").onclick = async () => {
       const real = Number($("#gReal").value);
       if (gByStep()) {
         if (!gStepM()) throw new Error("Primero calibra tu paso (pestaña 2, parte B) para contar la distancia con tus pasos.");
-      } else if ($("#gReal").value === "" || !(real >= 0)) throw new Error("Escribe la distancia real.");
+      } else if (!gLoop() && ($("#gReal").value === "" || !(real >= 0))) throw new Error("Escribe la distancia real.");
       gT = { start: [], end: [], track: [], startPt: null, count: stepCounter(), steps: 0 };
       const cur = gT;
       $("#gSetup").hidden = true; b.disabled = true; $("#btnGCancel").hidden = false;
@@ -1223,10 +1244,12 @@ $("#btnGps").onclick = async () => {
       live.listeners.add(gT.motionFn); live.fixListeners.add(gT.fixFn);
       gT.draw = setInterval(drawGps, 500);
       $("#cvGps").hidden = false; $("#gLive").hidden = false;
-      gGuide("good", "Ahora camina hasta el final", gByStep()
+      gGuide("good", gLoop() ? "Ahora recorre y vuelve al inicio" : "Ahora camina hasta el final", gLoop()
+        ? "Recorre lo que quieras (a pie o en carro) y vuelve exactamente al punto donde empezaste."
+        : gByStep()
         ? "Camina en línea recta y a paso normal hasta el punto final. Cuento tus pasos para saber la distancia real."
         : "Camina en línea recta hasta el punto final (" + fmt(real, 0) + " m). Mira tu recorrido en el mapa.", "Paso 2 de 3");
-      b.disabled = false; b.textContent = "Llegué al final";
+      b.disabled = false; b.textContent = gLoop() ? "Volví al inicio" : "Llegué al final";
       return;
     }
     // Paso 3: quieta en el final y resultado
@@ -1241,7 +1264,7 @@ $("#btnGps").onclick = async () => {
     const real = Math.round(gRealM() * 10) / 10;
     if (gByStep() && gT.steps < 20) throw new Error("Contaste solo " + gT.steps + " pasos: camina un tramo más largo (20 a 50 m) y repite.");
     // la fuente de la distancia real queda en el nombre, como evidencia
-    const place = ($("#gPlace").value.trim() || "Prueba GPS").slice(0, 60) + (gByStep() ? " (real por " + gT.steps + " pasos)" : "");
+    const place = ($("#gPlace").value.trim() || "Prueba GPS").slice(0, 60) + (gByStep() ? " (real por " + gT.steps + " pasos)" : gLoop() ? " (ida y vuelta)" : "");
     const r = await api("/api/gps-trials", {
       device_id: DEVICE, place_name: place, environment: $("#gEnv").value,
       real_distance_m: real, start_fixes: gT.start.slice(0, 600), end_fixes: gT.end.slice(0, 600),
@@ -1250,12 +1273,14 @@ $("#btnGps").onclick = async () => {
     const names = { single: "Una sola lectura (como una app normal)", mean: "Promedio de lecturas", filtered: "Promedio filtrado (el mejor)" };
     $("#gResBody").innerHTML = Object.entries(m).map(([k, v]) => `<tr><td>${names[k]}</td><td>${fmt(v.gps_distance_m, 1)} m</td><td>${fmt(v.error_m, 1)} m${v.error_pct == null ? "" : " (" + fmt(v.error_pct, 0) + " %)"}</td></tr>`).join("");
     const pct = best.error_pct == null ? null : best.error_pct;
-    const cls = pct == null ? "" : pct < 5 ? "good" : pct < 15 ? "warn" : "red";
+    // ida y vuelta (real 0): no hay %; se juzga en metros
+    const cls = pct == null ? (best.error_m < 5 ? "good" : best.error_m < 10 ? "warn" : "red") : pct < 5 ? "good" : pct < 15 ? "warn" : "red";
     $("#gResSem").className = "semaforo " + cls;
-    $("#gResT").textContent = "Real" + (gByStep() ? " (" + gT.steps + " pasos × " + fmt(gStepM(), 2) + " m)" : "") + ": " + fmt(real, 1) + " m · GPS: " + fmt(best.gps_distance_m, 1) + " m · Error: " + fmt(best.error_m, 1) + " m";
+    $("#gResT").textContent = gLoop() ? "Ida y vuelta: debía marcar 0 m · el GPS marcó " + fmt(best.gps_distance_m, 1) + " m de diferencia" : "Real" + (gByStep() ? " (" + gT.steps + " pasos × " + fmt(gStepM(), 2) + " m)" : "") + ": " + fmt(real, 1) + " m · GPS: " + fmt(best.gps_distance_m, 1) + " m · Error: " + fmt(best.error_m, 1) + " m";
     $("#gResS").textContent = "Una sola lectura se equivocó " + fmt(m.single.error_m, 1) + " m; promediando se equivocó " + fmt(best.error_m, 1) + " m. Prueba guardada ✔";
     $("#gResBox").hidden = false; b.hidden = true; $("#cvGps").hidden = false;
     gGuide("good", "¡Listo! Prueba guardada", "Haz al menos 3 pruebas en lugares distintos para el informe.", "Terminado");
+    loadGpsTrials();
     live.listeners.delete(gT.motionFn); gT = { done: true, startPt: gT.startPt, track: gT.track }; drawGps(); gT = null;
   } catch (e) {
     msg("#gMsg", e.message, "err");
@@ -1269,9 +1294,33 @@ $("#btnGCancel").onclick = async () => {
   if (!gT) return;
   gT.cancelled = true;
   gReset();
-  msg("#gMsg", "Prueba cancelada. No se guardó nada: párate en el inicio y vuelve a empezar.", "good");
+  msg("#gMsg", ""); toast("Prueba cancelada ✔ No se guardó nada");
 };
-$("#btnGSum").onclick = async () => {
+async function loadGpsTrials() {
+  try {
+    const trials = await api("/api/gps-trials?device_id=" + encodeURIComponent(DEVICE));
+    $("#gList").innerHTML = trials.map((t) => {
+      const f = t.result.methods.filtered;
+      const name = esc(t.place_name) + " #" + t.id;
+      return `<tr><td style="white-space:normal">${name}</td><td>${fmt(t.real_distance_m, 1)} m</td><td>${fmt(f.gps_distance_m, 1)} m</td><td>${fmt(f.error_m, 1)} m</td><td><button class="sb ico" data-gdel="${t.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
+    }).join("") || `<tr><td colspan="5">Aún no hay pruebas.</td></tr>`;
+  } catch { /* sin conexión */ }
+  gSummary();
+}
+$("#gList").onclick = async (ev) => {
+  const b = ev.target.closest("button[data-gdel]");
+  if (!b) return;
+  const name = b.closest("tr").cells[0].textContent;
+  if (!(await askYesNo("¿Estás segura de borrar la prueba \"" + name + "\"? No se puede recuperar."))) return;
+  b.disabled = true;
+  try {
+    await api("/api/gps-trials/" + b.dataset.gdel, undefined, "DELETE");
+    toast("Prueba borrada ✔");
+    loadGpsTrials();
+  } catch (e) { msg("#gMsg", e.message, "err"); b.disabled = false; }
+};
+$("#btnGSum").onclick = loadGpsTrials;
+async function gSummary() {
   try {
     const s = await api("/api/gps-trials/summary?device_id=" + encodeURIComponent(DEVICE));
     if (!s.trials) { $("#gSum").innerHTML = "<span>Pruebas</span><b>0</b>"; return; }

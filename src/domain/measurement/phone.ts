@@ -33,6 +33,47 @@ export function stepCounter(threshold = STEP_THRESHOLD) {
   };
 }
 
+/** Una lectura del acelerómetro (con gravedad) para saber si la persona camina o está quieta. */
+export interface MotionSample {
+  t: number;
+  acc: readonly number[];
+}
+export type MotionState = "walking" | "still" | "no_data";
+/** Sin lecturas del acelerómetro durante este tiempo (ms) se dice «sin datos». */
+export const NO_DATA_MS = 3000;
+/** Un paso detectado en este lapso (ms) cuenta como «caminando». */
+export const WALK_STEP_WINDOW_MS = 1500;
+/** Ventana (ms) y desviación estándar de |a| − g (m/s²) sobre la cual el celular ya no está quieto. */
+export const MOTION_WINDOW_MS = 1000;
+export const STILL_DEVIATION = 0.6;
+
+/**
+ * ¿La persona camina, está quieta o no llegan datos? Usa el mismo detector de pasos del método por
+ * pasos y, además, la variación de |a| − g del último segundo (un paso flojo o una sacudida mueven
+ * el celular aunque no pasen el umbral). Función pura: `now` y las muestras llevan la misma escala.
+ */
+export function motionState(
+  samples: readonly MotionSample[],
+  now: number,
+  threshold = STEP_THRESHOLD,
+): MotionState {
+  const last = samples[samples.length - 1];
+  if (!last || now - last.t > NO_DATA_MS) return "no_data";
+  const count = stepCounter(threshold);
+  let steps = 0;
+  for (const s of samples) if (now - s.t <= WALK_STEP_WINDOW_MS) steps = count(s.t, s.acc);
+  if (steps > 0) return "walking";
+  const dev = samples
+    .filter((s) => now - s.t <= MOTION_WINDOW_MS)
+    .map((s) => Math.hypot(s.acc[0], s.acc[1], s.acc[2]) - GRAVITY);
+  if (dev.length >= 3) {
+    const mean = dev.reduce((a, b) => a + b, 0) / dev.length;
+    const variance = dev.reduce((a, b) => a + (b - mean) ** 2, 0) / dev.length;
+    if (Math.sqrt(variance) > STILL_DEVIATION) return "walking";
+  }
+  return "still";
+}
+
 export interface Fix {
   t_ms: number;
   lat: number;

@@ -53,7 +53,7 @@ export function PhoneApp() {
         <Calibrate active={tab === "calibrar"} />
       </div>
       <div hidden={tab !== "medir"}>
-        <Measure active={tab === "medir"} />
+        <Measure active={tab === "medir"} onOpenGpsTab={() => setTab("gps")} />
       </div>
       <div hidden={tab !== "gps"}>
         <GpsError active={tab === "gps"} />

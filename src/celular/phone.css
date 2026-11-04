@@ -435,6 +435,61 @@ ul.warns {
   color: var(--yellow);
   font-size: 12.5px;
 }
+/* Aviso de lugar chico para el GPS (HU-37): texto en --ink, borde de aviso con tokens existentes */
+.gpsadvice {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.gpsadvice.warn {
+  border-color: var(--yellow);
+}
+.gpsadvice p {
+  margin: 0 0 6px;
+}
+.gpsadvice button {
+  margin-top: 4px;
+}
+/* Estado caminando / quieto (HU-37): icono + palabra; texto en --ink / --mid, nunca --dim */
+.motion {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--ink);
+  font-size: 13px;
+}
+.motion svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.motion.walking svg {
+  color: var(--green);
+}
+.motion.no_data svg {
+  color: var(--yellow);
+}
+.motion small {
+  display: block;
+  color: var(--mid);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 canvas {
   width: 100%;
   height: 260px;

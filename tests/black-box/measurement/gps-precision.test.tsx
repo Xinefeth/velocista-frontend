@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { GpsTrials, gpsFits } from "@/ui/components/measurement/GpsTrials";
+import { GpsTrials } from "@/ui/components/measurement/GpsTrials";
+import { gpsFits } from "@/domain/measurement/gpsFit";
 import { stubBrowser } from "../pages/_harness";
 import { gpsTrial, mockApi } from "./_api";
 

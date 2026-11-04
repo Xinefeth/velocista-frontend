@@ -72,6 +72,7 @@ table.t{width:100%;border-collapse:collapse}
 table.t th{font-family:var(--mono);font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--dim);text-align:right;padding:8px;border-bottom:1px solid var(--line);text-transform:uppercase;white-space:nowrap}
 table.t td{font-family:var(--mono);font-size:12.5px;text-align:right;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--sans)}
+#histBody tr[data-open]{cursor:pointer}#histBody tr[data-open]:active td,#histBody tr.sel td{background:var(--red-soft)}
 .tw{overflow-x:auto}
 .legend{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:8px}
 [hidden]{display:none!important}
@@ -269,6 +270,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     </section>
     <section class="card" id="resultBox" hidden>
       <div class="hd"><h2>Resultado <span class="tag" id="resTag"></span></h2></div>
+      <p class="hint" id="resWho" style="margin-top:-4px"></p>
       <div class="semaforo" id="sem"><span class="dotl"></span><div><b id="resLabel">—</b><small id="resDesc"></small></div></div>
       <div class="kv">
         <span>Perímetro</span><b id="resP">—</b>
@@ -282,13 +284,13 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <canvas id="cv"></canvas>
       <p class="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
       <div class="row"><button class="sb red wide" id="btnAgain">Nueva medición</button></div>
-      <div class="row"><button class="sb wide" id="btnHideRes">Me equivoqué: borrar esta medición</button></div>
+      <div class="row"><button class="sb wide" id="btnHideRes">Borrar esta medición</button></div>
       <p class="hint" id="resMsg"></p>
     </section>
     <section class="card">
       <div class="hd"><h2 id="histTitle">Mis mediciones</h2></div>
       <div class="tw"><table class="t"><thead><tr><th>Lugar</th><th>Método</th><th>Perímetro</th><th>Área</th><th>Cierre</th><th></th></tr></thead><tbody id="histBody"></tbody></table></div>
-      <p class="hint">🗑 borra una medición equivocada. Siempre te pregunta antes, y lo borrado no se puede recuperar.</p>
+      <p class="hint">Toca una medición para ver sus detalles y su mapa. 🗑 borra una medición equivocada. Siempre te pregunta antes, y lo borrado no se puede recuperar.</p>
       <div class="row"><button class="sb" id="btnHist">Actualizar</button></div>
       <p class="hint" id="histMsg"></p>
     </section>
@@ -1032,6 +1034,9 @@ $("#btnHideRes").onclick = async () => {
 function showResult(m) {
   lastResultId = m.id;
   msg("#resMsg", "");
+  const when = new Date(m.finished_at || m.started_at).toLocaleString("es-PE", { dateStyle: "medium", timeStyle: "short" });
+  $("#resWho").textContent = m.place_name + " #" + m.id + " · " + METHOD_ES[m.method] + " · " + when;
+  document.querySelectorAll("#histBody tr").forEach((tr) => tr.classList.toggle("sel", tr.dataset.open === String(m.id)));
   const r = m.result;
   const [cls, label, desc] = QUALITY[r.quality];
   $("#resTag").className = "tag " + cls;
@@ -1065,7 +1070,8 @@ function draw(r) {
   line(r.raw_path, css.getPropertyValue("--dim"), 1.2);
   line(r.corrected_path, css.getPropertyValue("--red"), 2.4);
   ctx.fillStyle = css.getPropertyValue("--ink");
-  r.polygon.forEach((p) => { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); });
+  // esquinas solo si son pocas: en GPS el polígono trae cientos de puntos y taparían el camino rojo
+  if (r.polygon.length <= 12) r.polygon.forEach((p) => { const [x, y] = P(p); ctx.beginPath(); ctx.arc(x, y, 4, 0, 2 * Math.PI); ctx.fill(); });
 }
 
 $("#btnAgain").onclick = () => { $("#resultBox").hidden = true; $("#setupBox").hidden = false; msg("#startMsg", ""); };
@@ -1078,14 +1084,14 @@ async function loadHistory() {
       const r = m.result;
       const q = r ? QUALITY[r.quality] : null;
       const name = esc(m.place_name) + " #" + m.id;
-      return `<tr><td>${name}</td><td>${METHOD_ES[m.method]}</td><td>${r ? fmt(r.perimeter_m, 1) + " m" : "—"}</td><td>${r ? fmt(r.area_m2, 1) + " m²" : "—"}</td><td>${r ? `<span class="tag ${q[0]}">${fmt(r.closure_error_pct, 1)} %</span>` : "sin terminar"}</td><td><button class="sb ico" data-del="${m.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
+      return `<tr${r ? ` data-open="${m.id}"` : ""}${m.id === lastResultId ? ' class="sel"' : ""}><td>${name}</td><td>${METHOD_ES[m.method]}</td><td>${r ? fmt(r.perimeter_m, 1) + " m" : "—"}</td><td>${r ? fmt(r.area_m2, 1) + " m²" : "—"}</td><td>${r ? `<span class="tag ${q[0]}">${fmt(r.closure_error_pct, 1)} %</span>` : "sin terminar"}</td><td><button class="sb ico" data-del="${m.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
     }).join("") || `<tr><td colspan="6">Aún no hay mediciones.</td></tr>`;
   } catch { /* sin conexión */ }
 }
 $("#btnHist").onclick = loadHistory;
 $("#histBody").onclick = async (ev) => {
   const b = ev.target.closest("button[data-del]");
-  if (!b) return;
+  if (!b) return openMeasurement(ev.target.closest("tr"));
   const place = b.closest("tr").cells[0].textContent;
   if (!(await askYesNo("¿Estás segura de borrar la medición \"" + place + "\"? No se puede recuperar."))) return;
   b.disabled = true;
@@ -1095,6 +1101,21 @@ $("#histBody").onclick = async (ev) => {
     loadHistory();
   } catch (e) { msg("#histMsg", e.message, "err"); b.disabled = false; }
 };
+
+/* Detalles de una medición de la lista: la misma pantalla de Resultado, con su mapa. */
+async function openMeasurement(tr) {
+  if (!tr || !tr.cells[1]) return;
+  if (!tr.dataset.open) { msg("#histMsg", "Esta medición no terminó, así que no tiene resultado. Puedes borrarla con 🗑.", "err"); return; }
+  if (run) { msg("#histMsg", "Termina o cancela la medición en curso primero.", "err"); return; }
+  msg("#histMsg", "Abriendo…");
+  try {
+    const m = await api("/api/measurements/" + tr.dataset.open);
+    msg("#histMsg", "");
+    $("#setupBox").hidden = true;
+    showResult(m);
+    $("#resultBox").scrollIntoView({ behavior: "smooth" });
+  } catch (e) { msg("#histMsg", e.message, "err"); }
+}
 
 /* ---------- 4. prueba de error del GPS (SP-06): guía de 3 pasos ----------
    1) quieta en el inicio (20 s)  2) caminar hasta el final viendo el mapa  3) quieta en el final (20 s) */

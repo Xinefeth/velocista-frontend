@@ -2,6 +2,7 @@
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { celularRewrite } from "./vite.celular";
 
 // Desarrollo: Vite reenvía /api y /ws a la API en :8000.
 // Pista: la API sirve esta consola compilada desde el mismo origen (:8000).
@@ -9,7 +10,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const backend = env.BACKEND_PROXY_TARGET || "http://127.0.0.1:8000";
   return {
-    plugins: [react()],
+    plugins: [react(), celularRewrite()],
     // Alias "@/..." → src/... (arquitectura Clean: imports independientes de la ubicación).
     resolve: {
       alias: {

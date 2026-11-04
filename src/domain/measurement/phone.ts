@@ -142,3 +142,21 @@ export function newDeviceId(random = () => Math.random().toString(36).slice(2)):
   const uuid = globalThis.crypto?.randomUUID?.();
   return `cel-${uuid ?? Date.now().toString(36) + random()}`;
 }
+
+/**
+ * Id de celular leído de localStorage. La página vieja lo guardaba como JSON (con comillas, por
+ * ejemplo `"cel-621b8d99"`); la nueva lo guarda tal cual. Se quitan las comillas para no leer un
+ * id roto. Devuelve `null` si no hay un id usable.
+ */
+export function normalizeDeviceId(raw: string | null | undefined): string | null {
+  let value = (raw ?? "").trim();
+  if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      value = typeof parsed === "string" ? parsed.trim() : value.slice(1, -1).trim();
+    } catch {
+      value = value.slice(1, -1).trim();
+    }
+  }
+  return value || null;
+}

@@ -49,6 +49,8 @@ export const REASONS: Record<string, string> = {
   measurement_too_short:
     "La medición es muy corta: camina todo el borde (o espera mejor GPS) y vuelve a intentar.",
   measurement_finished: "Esta medición ya terminó. Empieza una nueva.",
+  measurement_too_many_readings:
+    "Se llegó al máximo de lecturas de esta medición, así que ya no se envían más. Toca «Terminar y calcular» para ver el resultado.",
   measurement_not_found: "La medición no existe.",
   calibration_phone_moved: "El celular se movió. Déjalo quieto sobre la mesa y repite.",
   calibration_too_short: "Calibración muy corta. Repite y espera 5 segundos.",
@@ -76,6 +78,10 @@ export const REASONS: Record<string, string> = {
   unauthorized: "Debes iniciar sesión.",
   invalid_credentials: "Usuario o contraseña incorrectos.",
 };
+
+/** Aviso cuando el token caduca a mitad de una medición: las lecturas pendientes no se pierden. */
+export const SESSION_EXPIRED_TEXT =
+  "Tu sesión caducó. Inicia sesión de nuevo: las lecturas pendientes se enviarán solas.";
 
 /** Texto para mostrar de un error de la API (o de red). */
 export function errorText(error: unknown): string {

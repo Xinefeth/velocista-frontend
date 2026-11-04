@@ -17,6 +17,7 @@ import {
   fmtEs,
   METHOD_LABEL,
   QUALITY,
+  SESSION_EXPIRED_TEXT,
   signedPct,
   WARNINGS,
 } from "@/domain/measurement/labels";
@@ -41,6 +42,15 @@ import type {
   MethodApi,
   ReadingApi,
 } from "@/infrastructure/contracts/measurements";
+
+/** El backend rechaza más lecturas de las permitidas por medición con 409 y esta razón. */
+export const TOO_MANY_READINGS = "measurement_too_many_readings";
+
+/** ¿El error es el tope de lecturas de la medición? (reintentar no sirve: hay que dejar de enviar) */
+export function isReadingCap(error: unknown): boolean {
+  const e = error as { status?: number; reason?: string } | null;
+  return e?.status === 409 && e?.reason === TOO_MANY_READINGS;
+}
 
 const FLUSH_MS = 500;
 const DRAW_MS = 300;
@@ -90,6 +100,8 @@ interface Run {
   queue: ReadingApi[];
   sent: number;
   sending: boolean;
+  /** El backend llegó al tope de lecturas: ya no se encolan ni se envían más. */
+  capped: boolean;
   stopped: boolean;
   t0: number;
   walk: WalkState;
@@ -163,9 +175,14 @@ export function Measure({ active }: { active: boolean }) {
     r.timers.forEach((t) => window.clearInterval(t));
   }
 
+  /** Encola una lectura para el siguiente lote (no hace nada si ya se llegó al tope). */
+  function enqueue(r: Run, reading: ReadingApi) {
+    if (!r.capped) r.queue.push(reading);
+  }
+
   async function flush() {
     const cur = run.current; // si se cancela mientras envía, run pasa a null
-    if (!cur || cur.sending || !cur.queue.length) return;
+    if (!cur || cur.sending || cur.capped || !cur.queue.length) return;
     cur.sending = true;
     const batch = cur.queue.slice(0, READINGS_BATCH);
     try {
@@ -174,8 +191,19 @@ export function Measure({ active }: { active: boolean }) {
       cur.sent = r.total_readings;
       if (!cur.stopped) setRunMsg({ text: "Enviando ✔", kind: "" });
     } catch (e) {
-      if (run.current === cur)
-        setRunMsg({ text: `Sin conexión, se reintentará: ${errorText(e)}`, kind: "err" });
+      if (isReadingCap(e)) {
+        // tope de lecturas: se deja de enviar y de encolar, pero la medición se puede terminar
+        cur.capped = true;
+        cur.queue.length = 0;
+        if (run.current === cur) setRunMsg({ text: errorText(e), kind: "err" });
+      } else if (run.current === cur) {
+        // las lecturas siguen en la cola: se reenvían solas al volver la conexión o la sesión
+        const expired = (e as { status?: number } | null)?.status === 401;
+        setRunMsg({
+          text: expired ? SESSION_EXPIRED_TEXT : `Sin conexión, se reintentará: ${errorText(e)}`,
+          kind: "err",
+        });
+      }
     } finally {
       cur.sending = false;
     }
@@ -193,7 +221,7 @@ export function Measure({ active }: { active: boolean }) {
     }
     r.lastCorner = now;
     r.lastAuto = auto;
-    r.queue.push({ seq: r.seq++, t_ms: now, kind: "corner" });
+    enqueue(r, { seq: r.seq++, t_ms: now, kind: "corner" });
     r.marks.push(r.walk.path[r.walk.path.length - 1]);
     const side = r.walk.dist - r.walk.sideFrom;
     r.walk = closeSide(r.walk);
@@ -260,6 +288,7 @@ export function Measure({ active }: { active: boolean }) {
         queue: [],
         sent: 0,
         sending: false,
+        capped: false,
         stopped: false,
         t0: Date.now(),
         walk: newWalk(),
@@ -278,7 +307,7 @@ export function Measure({ active }: { active: boolean }) {
           const reading: ReadingApi = { seq: r.seq++, t_ms: t, kind: "motion" };
           if (gz != null) reading.gyro_z_dps = gz;
           if (acc) reading.accel = acc;
-          r.queue.push(reading);
+          enqueue(r, reading);
           if (gz != null && r.lastT != null)
             r.walk = { ...r.walk, heading: integrateTurn(r.walk.heading, gz, bias, t - r.lastT) };
           if (gz != null) r.lastT = t;
@@ -288,7 +317,7 @@ export function Measure({ active }: { active: boolean }) {
           if (shouldMarkCorner(r.walk)) markCorner(true);
         }),
         sensors.onFix((f) => {
-          r.queue.push({
+          enqueue(r, {
             seq: r.seq++,
             t_ms: f.t_ms,
             kind: "gps",
@@ -347,11 +376,11 @@ export function Measure({ active }: { active: boolean }) {
     r.offs = [];
     setRunMsg({ text: "Enviando las últimas lecturas…", kind: "" });
     try {
-      for (let i = 0; i < 40 && (r.queue.length || r.sending); i++) {
+      for (let i = 0; i < 40 && !r.capped && (r.queue.length || r.sending); i++) {
         await flush();
         if (r.queue.length || r.sending) await new Promise((ok) => window.setTimeout(ok, 500));
       }
-      if (r.queue.length)
+      if (r.queue.length && !r.capped)
         throw new Error(
           "No se pudieron enviar todas las lecturas. Revisa la conexión y toca de nuevo.",
         );

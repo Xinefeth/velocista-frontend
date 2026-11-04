@@ -11,7 +11,7 @@ import { PhoneApp } from "@/celular/PhoneApp";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AuthGate>
+    <AuthGate keepMounted>
       <PhoneProvider>
         <PhoneApp />
       </PhoneProvider>

@@ -1,17 +1,20 @@
 // Estado compartido de la página del celular: código de este celular, su calibración vigente y un
 // aviso corto (toast). El código se guarda en el navegador para no perder las mediciones.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { newDeviceId } from "@/domain/measurement/phone";
+import { newDeviceId, normalizeDeviceId } from "@/domain/measurement/phone";
 import { calibrationsApi } from "@/infrastructure/http/measurements";
 import type { CalibrationApi } from "@/infrastructure/contracts/measurements";
 
 const KEY = "apaec.celular.device";
 
 export function storedDevice(search = window.location.search): string {
-  const fromUrl = new URLSearchParams(search).get("dev");
+  const fromUrl = normalizeDeviceId(new URLSearchParams(search).get("dev"));
   try {
     if (fromUrl) localStorage.setItem(KEY, fromUrl);
-    const saved = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY);
+    const saved = normalizeDeviceId(raw);
+    // si venía de la página vieja (con comillas JSON), se deja guardado ya limpio
+    if (saved && saved !== raw) localStorage.setItem(KEY, saved);
     if (saved) return saved;
     const id = newDeviceId();
     localStorage.setItem(KEY, id);

@@ -338,6 +338,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
         <span>Precisión del GPS ahora</span><b id="gAcc">—</b>
       </div>
       <div class="row"><button class="go" id="btnGps">Estoy en el inicio</button></div>
+      <div class="row"><button class="sb wide" id="btnGCancel" hidden>Cancelar prueba (me equivoqué)</button></div>
       <p class="hint" id="gMsg"></p>
       <div id="gResBox" hidden>
         <div class="semaforo" id="gResSem"><span class="dotl"></span><div><b id="gResT"></b><small id="gResS"></small></div></div>
@@ -999,9 +1000,9 @@ $("#btnFinish").onclick = async () => {
 };
 
 /* Ventana "¿Estás segura?" con Sí / No. Devuelve true solo si tocó "Sí, borrar". */
-function askYesNo(text) {
+function askYesNo(text, yes = "Sí, borrar") {
   return new Promise((resolve) => {
-    $("#askX").textContent = text; $("#ask").hidden = false; $("#askNo").focus();
+    $("#askX").textContent = text; $("#askYes").textContent = yes; $("#ask").hidden = false; $("#askNo").focus();
     const done = (yes) => { $("#ask").hidden = true; $("#askYes").onclick = $("#askNo").onclick = null; resolve(yes); };
     $("#askYes").onclick = () => done(true);
     $("#askNo").onclick = () => done(false);
@@ -1174,13 +1175,14 @@ async function gStill(label) {
     const iv = setInterval(() => {
       const left = Math.max(0, Math.ceil(STILL_S - (Date.now() - t0) / 1000));
       $("#btnGps").textContent = label + " · " + left + " s";
-      if (left <= 0) { clearInterval(iv); res(); }
+      if (left <= 0 || !gT || gT.cancelled) { clearInterval(iv); res(); }
     }, 250);
   });
   live.fixListeners.delete(fn);
   return fixes;
 }
 function gReset() {
+  $("#btnGCancel").hidden = true;
   if (gT) { live.listeners.delete(gT.motionFn); live.fixListeners.delete(gT.fixFn); clearInterval(gT.draw); }
   gT = null;
   $("#gSetup").hidden = false; $("#cvGps").hidden = true; $("#gLive").hidden = true; $("#gResBox").hidden = true;
@@ -1198,9 +1200,11 @@ $("#btnGps").onclick = async () => {
         if (!gStepM()) throw new Error("Primero calibra tu paso (pestaña 2, parte B) para contar la distancia con tus pasos.");
       } else if ($("#gReal").value === "" || !(real >= 0)) throw new Error("Escribe la distancia real.");
       gT = { start: [], end: [], track: [], startPt: null, count: stepCounter(), steps: 0 };
-      $("#gSetup").hidden = true; b.disabled = true;
+      const cur = gT;
+      $("#gSetup").hidden = true; b.disabled = true; $("#btnGCancel").hidden = false;
       gGuide("warn", "Quédate quieta en el inicio", "Estoy midiendo dónde estás. No te muevas.", "Paso 1 de 3");
-      gT.start = await gStill("Midiendo el inicio");
+      cur.start = await gStill("Midiendo el inicio");
+      if (cur.cancelled) return;
       gT.startPt = stillPoint(gT.start);
       if (!gT.startPt) throw new Error("Llegaron pocas lecturas del GPS. Sal al aire libre y repite.");
       // Paso 2: caminar viendo el mapa
@@ -1229,7 +1233,10 @@ $("#btnGps").onclick = async () => {
     live.listeners.delete(gT.motionFn); live.fixListeners.delete(gT.fixFn); clearInterval(gT.draw);
     b.disabled = true;
     gGuide("warn", "Quédate quieta en el final", "Estoy midiendo dónde terminaste. No te muevas.", "Paso 3 de 3");
-    gT.end = await gStill("Midiendo el final");
+    const cur = gT;
+    cur.end = await gStill("Midiendo el final");
+    if (cur.cancelled) return;
+    $("#btnGCancel").hidden = true; // ya se guarda: no se puede cancelar a medias
     if (gT.end.length < 3) throw new Error("Llegaron pocas lecturas del GPS al final. Repite la prueba.");
     const real = Math.round(gRealM() * 10) / 10;
     if (gByStep() && gT.steps < 20) throw new Error("Contaste solo " + gT.steps + " pasos: camina un tramo más largo (20 a 50 m) y repite.");
@@ -1256,6 +1263,14 @@ $("#btnGps").onclick = async () => {
   }
 };
 $("#btnGAgain").onclick = () => { msg("#gMsg", ""); gReset(); };
+$("#btnGCancel").onclick = async () => {
+  if (!gT) return;
+  if (!(await askYesNo("¿Cancelar esta prueba del GPS? No se guarda nada y vuelves al inicio.", "Sí, cancelar"))) return;
+  if (!gT) return;
+  gT.cancelled = true;
+  gReset();
+  msg("#gMsg", "Prueba cancelada. No se guardó nada: párate en el inicio y vuelve a empezar.", "good");
+};
 $("#btnGSum").onclick = async () => {
   try {
     const s = await api("/api/gps-trials/summary?device_id=" + encodeURIComponent(DEVICE));

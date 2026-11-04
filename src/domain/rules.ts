@@ -265,13 +265,32 @@ export function compat(f: Facts): Check[] {
   return L;
 }
 
+// Predicados del reglamento compartidos por `checks()` y por `src/domain/profileBlocks.ts`,
+// para que el aviso posterior y el bloqueo preventivo no tengan dos verdades.
+
+/** ¿El microcontrolador (por nombre) está en la lista permitida del perfil? */
+export const mcuAllowed = (name: string, allowed: string[]): boolean =>
+  allowed.some((m) => name.includes(m.split(" ").pop() ?? m) || name.includes(m));
+
+/** ¿El material del chasis coincide con alguno de los permitidos? */
+export const chassisMaterialAllowed = (material: unknown, allowed: string[]): boolean =>
+  allowed.some((m) => String(material).includes(m));
+
+/** ¿La familia del motor está entre las permitidas? */
+export const motorFamilyAllowed = (family: unknown, allowed: string[]): boolean =>
+  allowed.includes(String(family));
+
+/** ¿El chasis cabe en las dimensiones máximas [ancho, largo] del perfil? */
+export const fitsDimensions = (ancho: number, largo: number, dim: [number, number]): boolean =>
+  ancho <= dim[0] && largo <= dim[1];
+
 /** Cumplimiento del reglamento de un perfil (HU-10). */
 export function checks(f: Facts, prof: Profile): Check[] {
   const r = prof.rules,
     L: Check[] = [];
   if (r.dim)
     L.push(
-      f.ancho <= r.dim[0] && f.length <= r.dim[1]
+      fitsDimensions(f.ancho, f.length, r.dim)
         ? C("ok", "Dimensiones", `${f.ancho} × ${f.length} mm ≤ ${r.dim[0]} × ${r.dim[1]} mm`)
         : C(
             "bad",
@@ -296,14 +315,13 @@ export function checks(f: Facts, prof: Profile): Check[] {
     );
   if (r.motorFam)
     L.push(
-      f.motor && r.motorFam.includes(String(f.motor.specs.familia))
+      f.motor && motorFamilyAllowed(f.motor.specs.familia, r.motorFam)
         ? C("ok", "Tipo de motor", String(f.motor.specs.familia))
         : C("bad", "Tipo de motor", "Solo motorreductores amarillos o celestes sin modificar"),
     );
   if (r.mcu)
     L.push(
-      f.mcu &&
-        r.mcu.some((m) => f.mcu!.name.includes(m.split(" ").pop() ?? m) || f.mcu!.name.includes(m))
+      f.mcu && mcuAllowed(f.mcu.name, r.mcu)
         ? C("ok", "Microcontrolador", f.mcu.name)
         : C("bad", "Microcontrolador", `Permitidos: ${r.mcu.join(", ")}`),
     );
@@ -311,7 +329,7 @@ export function checks(f: Facts, prof: Profile): Check[] {
     L.push(C("bad", "PCB comercial", "No permitida en Amateur (el robot pasa a Senior)"));
   if (r.chasisMat)
     L.push(
-      f.chassis && r.chasisMat.some((m) => String(f.chassis!.specs.material).includes(m))
+      f.chassis && chassisMaterialAllowed(f.chassis.specs.material, r.chasisMat)
         ? C("ok", "Chasis", String(f.chassis.specs.material))
         : C("bad", "Chasis", "Obligatorio de impresión 3D o MDF"),
     );

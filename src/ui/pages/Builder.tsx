@@ -16,6 +16,8 @@ import {
   manifest,
   manifestPanels,
 } from "@/domain/rules";
+import { SlotBlockNote, hasBlockNote } from "@/ui/components/SlotBlockNote";
+import { itemBlock, qtyLimit, slotBlock } from "@/domain/profileBlocks";
 import { clamp, clone, fmt, money, VERSION_STATUS_LABEL } from "@/domain/format";
 import type { Parts, RobotDef } from "@/domain/models/domain";
 
@@ -207,8 +209,36 @@ export function Builder() {
                 !!abDraft &&
                 isCur &&
                 JSON.stringify(orig[sl.key] || null) !== JSON.stringify(p || null);
+              // Bloqueos del perfil activo (HU-10): se recalculan en cada render, sin recargar.
+              const qty = p?.qty ?? 1;
+              const sb = slotBlock(c.profile, sl);
+              const items = c.catalog.filter((x) => x.typeId === sl.typeId);
+              const blocks = items.map((x) =>
+                sb.blocked ? sb : itemBlock(c.profile, sl, x, sl.key === "linea" ? qty : 1),
+              );
+              const blockedItems = items.flatMap((x, i) =>
+                blocks[i].blocked && !sb.blocked
+                  ? [{ name: x.name, reason: blocks[i].reason }]
+                  : [],
+              );
+              const selBlock = comp ? (sb.blocked ? sb : blocks[items.indexOf(comp)]) : null;
+              const lim = sb.blocked ? null : qtyLimit(c.profile, sl, comp);
+              const atMax = !!(lim && p && p.qty >= lim.max);
+              const note = {
+                slotReason: sb.blocked && !comp ? sb.reason : "",
+                selected:
+                  comp && selBlock?.blocked ? { name: comp.name, reason: selBlock.reason } : null,
+                items: blockedItems,
+                limit: lim && p ? { reason: lim.reason, reached: atMax } : null,
+              };
+              const noteId = `blk-${sl.key}`;
+              const describedBy = hasBlockNote(note) ? noteId : undefined;
+              const marked = !!note.selected;
               return (
-                <div key={sl.key} className={`slot ${sl.opt ? "opt" : ""} ${chg ? "chg" : ""}`}>
+                <div
+                  key={sl.key}
+                  className={`slot ${sl.opt ? "opt" : ""} ${chg ? "chg" : ""} ${marked ? "blocked" : ""}`}
+                >
                   <div className="sl">
                     {sl.name}
                     <small>
@@ -217,8 +247,9 @@ export function Builder() {
                   </div>
                   <select
                     className="inp"
-                    disabled={!isCur}
+                    disabled={!isCur || (sb.blocked && !comp)}
                     aria-label={sl.name}
+                    aria-describedby={describedBy}
                     value={p?.id ?? ""}
                     onChange={(e) =>
                       edit((d) => {
@@ -232,13 +263,12 @@ export function Builder() {
                     }
                   >
                     <option value="">— Ninguno —</option>
-                    {c.catalog
-                      .filter((x) => x.typeId === sl.typeId)
-                      .map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.name} · {money(x.price)}
-                        </option>
-                      ))}
+                    {items.map((x, i) => (
+                      <option key={x.id} value={x.id} disabled={blocks[i].blocked}>
+                        {x.name} · {money(x.price)}
+                        {blocks[i].blocked ? " — no permitido" : ""}
+                      </option>
+                    ))}
                   </select>
                   <div className="q">
                     {sl.qty && p ? (
@@ -256,10 +286,15 @@ export function Builder() {
                         <span>{p.qty}</span>
                         <button
                           type="button"
-                          disabled={!isCur}
+                          disabled={!isCur || p.qty >= (lim ? Math.min(lim.max, 4) : 4)}
                           aria-label="Más"
+                          aria-describedby={atMax ? noteId : undefined}
+                          title={atMax ? lim!.reason : undefined}
                           onClick={() =>
-                            edit((d) => (d[sl.key]!.qty = clamp(d[sl.key]!.qty + 1, 1, 4)))
+                            edit(
+                              (d) =>
+                                (d[sl.key]!.qty = clamp(d[sl.key]!.qty + 1, 1, lim ? lim.max : 4)),
+                            )
                           }
                         >
                           +
@@ -271,6 +306,7 @@ export function Builder() {
                   </div>
                   <div className="pr">{comp ? money(comp.price * p!.qty) : "—"}</div>
                   <div className="ms">{comp ? comp.mass * p!.qty + " g" : "—"}</div>
+                  {hasBlockNote(note) && <SlotBlockNote id={noteId} {...note} />}
                 </div>
               );
             })}

@@ -39,6 +39,9 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:linear-gradi
 .sb.wide{width:100%}
 .sb.stop{background:var(--panel3);border-color:var(--red);color:var(--red-hi)}
 .sb.ico{min-height:36px;width:36px;padding:0;color:var(--mid)}.sb.ico:active{color:var(--red-hi);border-color:var(--red)}
+.ask{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,6,9,.78)}
+.ask[hidden]{display:none}.ask .card{width:100%;max-width:360px;margin:0;border-color:rgba(255,45,85,.45)}
+.ask .row .sb{flex:1}
 .sb.ico svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .go{width:100%;height:62px;border-radius:12px;border:0;background:var(--red);color:#fff;font-family:var(--mono);font-size:16px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 10px 30px -8px rgba(255,45,85,.6)}
 .go.stop{background:var(--panel3);color:var(--ink);box-shadow:0 0 0 1px var(--red) inset}
@@ -261,7 +264,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       </div>
       <div class="row"><button class="sb wide" id="btnCorner">Marcar esquina</button></div>
       <div class="row"><button class="go stop" id="btnFinish">Terminar y calcular</button></div>
-      <div class="row"><button class="sb wide" id="btnCancel">Cancelar medición (me equivoqué)</button></div>
+      <div class="row"><button class="sb wide" id="btnCancel">Cancelar y borrar (me equivoqué)</button></div>
       <p class="hint" id="runMsg"></p>
     </section>
     <section class="card" id="resultBox" hidden>
@@ -279,15 +282,23 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <canvas id="cv"></canvas>
       <p class="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
       <div class="row"><button class="sb red wide" id="btnAgain">Nueva medición</button></div>
-      <div class="row"><button class="sb wide" id="btnHideRes">Me equivoqué: ocultar esta medición</button></div>
+      <div class="row"><button class="sb wide" id="btnHideRes">Me equivoqué: borrar esta medición</button></div>
       <p class="hint" id="resMsg"></p>
     </section>
     <section class="card">
       <div class="hd"><h2 id="histTitle">Mis mediciones</h2></div>
       <div class="tw"><table class="t"><thead><tr><th>Lugar</th><th>Método</th><th>Perímetro</th><th>Área</th><th>Cierre</th><th></th></tr></thead><tbody id="histBody"></tbody></table></div>
-      <p class="hint">🗑 oculta una medición equivocada: <b>no se borra</b>, la puedes restaurar en "Ver ocultas".</p>
-      <div class="row"><button class="sb" id="btnHist">Actualizar</button><button class="sb" id="btnShowHidden">Ver ocultas</button></div>
+      <p class="hint">🗑 borra una medición equivocada. Siempre te pregunta antes, y lo borrado no se puede recuperar.</p>
+      <div class="row"><button class="sb" id="btnHist">Actualizar</button></div>
       <p class="hint" id="histMsg"></p>
+    </section>
+  </div>
+
+  <div class="ask" id="ask" hidden role="dialog" aria-modal="true" aria-labelledby="askT">
+    <section class="card">
+      <div class="hd"><h2 id="askT">¿Estás segura?</h2></div>
+      <p class="hint" id="askX"></p>
+      <div class="row"><button class="sb" id="askNo">No</button><button class="sb red" id="askYes">Sí, borrar</button></div>
     </section>
   </div>
 
@@ -378,7 +389,6 @@ const REASONS = {
   measurement_not_calibrated: "Falta calibrar: ve al paso 2 (Calibrar).",
   measurement_too_short: "La medición es muy corta: camina todo el borde (o espera mejor GPS) y vuelve a intentar.",
   measurement_finished: "Esta medición ya terminó. Empieza una nueva.",
-  measurement_archived: "Esta medición está oculta. Restáurala en \"Ver ocultas\" si la necesitas.",
   measurement_not_found: "La medición no existe.",
   calibration_phone_moved: "El celular se movió. Déjalo quieto sobre la mesa y repite.",
   calibration_too_short: "Calibración muy corta. Repite y espera 5 segundos.",
@@ -434,13 +444,13 @@ $("#btnDevOld").onclick = async () => {
   } catch (e) { msg("#devMsg", e.message, "err"); }
 };
 
-async function api(path, body) {
+async function api(path, body, method) {
   if (!API) throw new Error("Primero escribe la dirección del backend (paso 1).");
   const headers = { "Content-Type": "application/json" };
   if (TOKEN) headers.Authorization = "Bearer " + TOKEN;
   let res;
   try {
-    res = await fetch(API + path, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(API + path, { method: method || (body === undefined ? "GET" : "POST"), headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
     throw new Error("No hay conexión con el backend. Revisa internet y la dirección.");
   }
@@ -979,9 +989,21 @@ $("#btnFinish").onclick = async () => {
   } finally { b.disabled = false; }
 };
 
+/* Ventana "¿Estás segura?" con Sí / No. Devuelve true solo si tocó "Sí, borrar". */
+function askYesNo(text) {
+  return new Promise((resolve) => {
+    $("#askX").textContent = text; $("#ask").hidden = false; $("#askNo").focus();
+    const done = (yes) => { $("#ask").hidden = true; $("#askYes").onclick = $("#askNo").onclick = null; resolve(yes); };
+    $("#askYes").onclick = () => done(true);
+    $("#askNo").onclick = () => done(false);
+  });
+}
+const deleteMeasurement = (id) => api("/api/measurements/" + id, undefined, "DELETE");
+
 $("#btnCancel").onclick = async () => {
   if (!run) return;
-  if (!confirm("¿Cancelar esta medición? No se borra: queda oculta y puedes restaurarla.")) return;
+  if (!(await askYesNo("¿Estás segura de cancelar y borrar esta medición? Lo que caminaste hasta ahora no se guarda."))) return;
+  if (!run) return;
   const id = run.id;
   run.stopped = true;
   live.listeners.delete(run.motionFn); live.fixListeners.delete(run.fixFn);
@@ -989,20 +1011,20 @@ $("#btnCancel").onclick = async () => {
   run = null;
   $("#runBox").hidden = true; $("#setupBox").hidden = false;
   try {
-    await api("/api/measurements/" + id + "/archive", {});
-    msg("#startMsg", "Medición cancelada ✔ Revisa el nombre del lugar y vuelve a iniciar.", "good");
-  } catch (e) { msg("#startMsg", "Se canceló aquí, pero no se pudo ocultar: " + e.message, "err"); }
+    await deleteMeasurement(id);
+    msg("#startMsg", "Medición cancelada y borrada ✔ Revisa el nombre del lugar y vuelve a iniciar.", "good");
+  } catch (e) { msg("#startMsg", "Se canceló aquí, pero no se pudo borrar: " + e.message + " Bórrala con 🗑 en Mis mediciones.", "err"); }
   loadHistory();
 };
 
 let lastResultId = null;
 $("#btnHideRes").onclick = async () => {
-  if (!lastResultId || !confirm("¿Ocultar esta medición? No se borra: puedes restaurarla en \"Ver ocultas\".")) return;
+  if (!lastResultId || !(await askYesNo("¿Estás segura de borrar esta medición? No se puede recuperar."))) return;
   try {
-    await api("/api/measurements/" + lastResultId + "/archive", {});
+    await deleteMeasurement(lastResultId);
     lastResultId = null;
     $("#resultBox").hidden = true; $("#setupBox").hidden = false;
-    msg("#startMsg", "Medición oculta ✔ Corrige el nombre del lugar y mide de nuevo.", "good");
+    msg("#startMsg", "Medición borrada ✔ Corrige el nombre del lugar y mide de nuevo.", "good");
     loadHistory();
   } catch (e) { msg("#resMsg", e.message, "err"); }
 };
@@ -1049,38 +1071,27 @@ function draw(r) {
 $("#btnAgain").onclick = () => { $("#resultBox").hidden = true; $("#setupBox").hidden = false; msg("#startMsg", ""); };
 
 const TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
-let showHidden = false; // false: mis mediciones · true: las ocultas
 async function loadHistory() {
   try {
-    const page = await api("/api/measurements?limit=20&archived=" + showHidden + "&device_id=" + encodeURIComponent(DEVICE));
+    const page = await api("/api/measurements?limit=200&device_id=" + encodeURIComponent(DEVICE));
     $("#histBody").innerHTML = page.items.map((m) => {
       const r = m.result;
       const q = r ? QUALITY[r.quality] : null;
-      const act = showHidden
-        ? `<button class="sb" data-restore="${m.id}">Restaurar</button>`
-        : `<button class="sb ico" data-hide="${m.id}" title="Ocultar" aria-label="Ocultar ${esc(m.place_name)}">${TRASH}</button>`;
-      return `<tr><td>${esc(m.place_name)}</td><td>${METHOD_ES[m.method]}</td><td>${r ? fmt(r.perimeter_m, 1) + " m" : "—"}</td><td>${r ? fmt(r.area_m2, 1) + " m²" : "—"}</td><td>${r ? `<span class="tag ${q[0]}">${fmt(r.closure_error_pct, 1)} %</span>` : "sin terminar"}</td><td>${act}</td></tr>`;
-    }).join("") || `<tr><td colspan="6">${showHidden ? "No tienes mediciones ocultas." : "Aún no hay mediciones."}</td></tr>`;
+      const name = esc(m.place_name) + " #" + m.id;
+      return `<tr><td>${name}</td><td>${METHOD_ES[m.method]}</td><td>${r ? fmt(r.perimeter_m, 1) + " m" : "—"}</td><td>${r ? fmt(r.area_m2, 1) + " m²" : "—"}</td><td>${r ? `<span class="tag ${q[0]}">${fmt(r.closure_error_pct, 1)} %</span>` : "sin terminar"}</td><td><button class="sb ico" data-del="${m.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
+    }).join("") || `<tr><td colspan="6">Aún no hay mediciones.</td></tr>`;
   } catch { /* sin conexión */ }
 }
 $("#btnHist").onclick = loadHistory;
-$("#btnShowHidden").onclick = () => {
-  showHidden = !showHidden;
-  $("#histTitle").textContent = showHidden ? "Mediciones ocultas" : "Mis mediciones";
-  $("#btnShowHidden").textContent = showHidden ? "Volver a mis mediciones" : "Ver ocultas";
-  msg("#histMsg", "");
-  loadHistory();
-};
 $("#histBody").onclick = async (ev) => {
-  const b = ev.target.closest("button[data-hide], button[data-restore]");
+  const b = ev.target.closest("button[data-del]");
   if (!b) return;
-  const hide = b.dataset.hide, id = hide || b.dataset.restore;
   const place = b.closest("tr").cells[0].textContent;
-  if (hide && !confirm("¿Ocultar \"" + place + "\"? No se borra: puedes restaurarla en \"Ver ocultas\".")) return;
+  if (!(await askYesNo("¿Estás segura de borrar la medición \"" + place + "\"? No se puede recuperar."))) return;
   b.disabled = true;
   try {
-    await api("/api/measurements/" + id + (hide ? "/archive" : "/restore"), {});
-    msg("#histMsg", hide ? "\"" + place + "\" oculta ✔ (no se borró)." : "\"" + place + "\" restaurada ✔", "good");
+    await deleteMeasurement(b.dataset.del);
+    msg("#histMsg", "\"" + place + "\" borrada ✔", "good");
     loadHistory();
   } catch (e) { msg("#histMsg", e.message, "err"); b.disabled = false; }
 };
@@ -1215,9 +1226,11 @@ $("#btnGSum").onclick = async () => {
 /* ---------- 5. modelo de precisión (SP-07) ---------- */
 async function loadModelList() {
   try {
-    const page = await api("/api/measurements?limit=50&device_id=" + encodeURIComponent(DEVICE));
+    const page = await api("/api/measurements?limit=200&device_id=" + encodeURIComponent(DEVICE));
     const done = page.items.filter((m) => m.result && m.method !== "gps").reverse(); // de la más antigua a la más nueva
-    if (!done.length) { msg("#mMsg", "Aún no tienes mediciones por pasos terminadas."); $("#mListBox").hidden = true; return; }
+    const gpsCount = page.items.filter((m) => m.result && m.method === "gps").length;
+    const gpsNote = gpsCount ? " Tus " + gpsCount + " mediciones por GPS no salen aquí: el modelo ajusta tu paso y tu giro, y el GPS no usa pasos." : "";
+    if (!done.length) { msg("#mMsg", "Aún no tienes mediciones por pasos terminadas." + gpsNote); $("#mListBox").hidden = true; return; }
     // preselecciona las últimas 5 del lugar más reciente
     const place = done[done.length - 1].place_name;
     const pre = new Set(done.filter((m) => m.place_name === place).slice(-5).map((m) => m.id));
@@ -1227,7 +1240,7 @@ async function loadModelList() {
       return `<tr><td><input type="checkbox" data-id="${m.id}" ${pre.has(m.id) ? "checked" : ""} style="width:22px;height:22px"></td><td>${esc(m.place_name)} #${m.id}</td><td>${fmt(r.closure_error_pct, 1)} %</td><td>${ref}</td></tr>`;
     }).join("");
     $("#mListBox").hidden = false; $("#btnMRun").disabled = false;
-    msg("#mMsg", "Marca las mediciones del mismo lugar y toca Correr modelo.");
+    msg("#mMsg", "Marca las mediciones del mismo lugar y toca Correr modelo." + gpsNote);
   } catch (e) { msg("#mMsg", e.message, "err"); }
 }
 $("#btnMLoad").onclick = loadModelList;

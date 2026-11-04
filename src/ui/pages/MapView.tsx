@@ -1,9 +1,12 @@
-// Vista Mapa de pista (Protoripo.html): reconstrucción desde la vuelta 1 (HU-30, solo análisis).
+// Vista Mapa de pista (HU-30, solo análisis): reconstrucción desde la vuelta 1 del robot y, con el
+// celular encima del carro (o en la mano), la pista medida frente a la diseñada en el Trazador.
 import { useConsole } from "@/application/state/ConsoleContext";
 import { Card } from "@/ui/components/Card";
 import { fmt } from "@/domain/format";
 import { drawRec } from "@/domain/canvas";
 import { useCanvas } from "@/application/hooks/useCanvas";
+import { PageHead } from "@/ui/components/measurement/MeasurementUi";
+import { TrackComparison } from "@/ui/components/measurement/TrackComparison";
 
 function DesdeVuelta() {
   const c = useConsole();
@@ -74,7 +77,12 @@ function DesdeVuelta() {
 export function MapView() {
   return (
     <section className="view on dv" aria-label="Mapa de pista">
+      <PageHead title="Mapa de pista">
+        El carro da una vuelta con el celular encima y el sistema dibuja la pista medida. Se compara
+        con la pista diseñada en el Trazador.
+      </PageHead>
       <DesdeVuelta />
+      <TrackComparison />
     </section>
   );
 }

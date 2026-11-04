@@ -25,7 +25,7 @@ La vista **Trazador de pistas** (EN-28) permite dibujar y verificar pistas, simu
 
 ## Página del celular (medición)
 
-`/celular.html` (o `/celular` en Render) es la página que se abre en el celular para calibrar,
+`/celular.html` (o `/celular` y `/celular/` en Render, y también en `npm run dev` y `vite preview`) es la página que se abre en el celular para calibrar,
 medir por pasos o GPS, probar el error del GPS y correr el modelo de precisión (HU-37, HU-40,
 EN-35, SP-06, SP-07). Es una segunda entrada de Vite con React y usa la misma API y sesión que la
 consola. Los sensores necesitan HTTPS: en local, levanta `npm run dev` y abre un túnel, por

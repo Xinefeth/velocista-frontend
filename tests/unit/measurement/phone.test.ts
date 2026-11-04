@@ -7,6 +7,7 @@ import {
   metersBetween,
   newDeviceId,
   newWalk,
+  normalizeDeviceId,
   shouldMarkCorner,
   stepCounter,
   stepForward,
@@ -14,7 +15,9 @@ import {
   toLocal,
   unwrap,
 } from "@/domain/measurement/phone";
-import { measurementBody } from "@/celular/tabs/Measure";
+import { storedDevice } from "@/celular/context";
+import { errorText } from "@/domain/measurement/labels";
+import { isReadingCap, measurementBody } from "@/celular/tabs/Measure";
 import { gpsTone, realDistance } from "@/celular/tabs/GpsError";
 import { findDevice } from "@/celular/tabs/Connection";
 
@@ -165,5 +168,53 @@ describe("validación de los formularios del celular", () => {
     expect(findDevice("621b8d", ids)).toEqual({ error: expect.stringMatching(/varios/) });
     expect(findDevice("621", ids)).toEqual({ error: expect.stringMatching(/6 primeros/) });
     expect(findDevice("ffffffff", ids)).toEqual({ error: expect.stringMatching(/No encontré/) });
+  });
+});
+
+describe("id del dispositivo guardado por la página vieja", () => {
+  it("quita las comillas JSON y deja intacto el id sin comillas", () => {
+    expect(normalizeDeviceId('"cel-621b8d99-aaaa"')).toBe("cel-621b8d99-aaaa");
+    expect(normalizeDeviceId("cel-621b8d99-aaaa")).toBe("cel-621b8d99-aaaa");
+    expect(normalizeDeviceId('  "cel-1"  ')).toBe("cel-1");
+  });
+
+  it("devuelve null si no hay un id usable", () => {
+    expect(normalizeDeviceId(null)).toBeNull();
+    expect(normalizeDeviceId("")).toBeNull();
+    expect(normalizeDeviceId('""')).toBeNull();
+    expect(normalizeDeviceId('"   "')).toBeNull();
+  });
+
+  it("storedDevice lee el valor viejo con comillas, lo usa limpio y lo deja guardado limpio", () => {
+    localStorage.clear();
+    localStorage.setItem("apaec.celular.device", '"cel-621b8d99-aaaa"');
+    expect(storedDevice("")).toBe("cel-621b8d99-aaaa");
+    expect(localStorage.getItem("apaec.celular.device")).toBe("cel-621b8d99-aaaa");
+    expect(storedDevice("")).toBe("cel-621b8d99-aaaa");
+    localStorage.clear();
+  });
+
+  it("storedDevice crea un id nuevo si no había y respeta ?dev=", () => {
+    localStorage.clear();
+    expect(storedDevice("")).toMatch(/^cel-/);
+    expect(storedDevice("?dev=cel-otro")).toBe("cel-otro");
+    expect(localStorage.getItem("apaec.celular.device")).toBe("cel-otro");
+    localStorage.clear();
+  });
+});
+
+describe("tope de lecturas (409)", () => {
+  it("solo el 409 con la razón de tope corta el envío", () => {
+    expect(isReadingCap({ status: 409, reason: "measurement_too_many_readings" })).toBe(true);
+    expect(isReadingCap({ status: 409, reason: "measurement_finished" })).toBe(false);
+    expect(isReadingCap({ status: 401, reason: "measurement_too_many_readings" })).toBe(false);
+    expect(isReadingCap(new TypeError("Failed to fetch"))).toBe(false);
+    expect(isReadingCap(null)).toBe(false);
+  });
+
+  it("la razón tiene texto en español", () => {
+    const text = errorText({ reason: "measurement_too_many_readings", message: "x" });
+    expect(text).toMatch(/máximo de lecturas/);
+    expect(text).toMatch(/Terminar y calcular/);
   });
 });

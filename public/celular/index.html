@@ -824,6 +824,7 @@ function num(sel) { const v = Number($(sel).value); return $(sel).value !== "" &
 
 $("#btnStart").onclick = async () => {
   const b = $("#btnStart");
+  msg("#startMsg", ""); // al iniciar otra medición no queda ningún mensaje viejo
   try {
     const method = $("#method").value;
     if (method !== "gps") needSensors();
@@ -1215,6 +1216,7 @@ $("#btnGps").onclick = async () => {
   try {
     if (!gT) {
       // Paso 1: quieta en el inicio
+      msg("#gMsg", ""); // al empezar otra prueba no queda ningún mensaje viejo
       if (!live.fix) throw new Error("No hay señal GPS: activa los sensores (pestaña 1) y sal al aire libre.");
       const real = Number($("#gReal").value);
       if (gByStep()) {

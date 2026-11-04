@@ -23,6 +23,16 @@ El frontend obtiene el token mediante `POST /api/auth/login` y lo usa en las sol
 
 La vista **Trazador de pistas** (EN-28) permite dibujar y verificar pistas, simular una vuelta, guardarlas en la API y exportarlas (SVG 1:1, SVG con zonas, PNG y JSON) o importar un JSON (de la API o del prototipo v2). Mientras se edita guarda un borrador local por pista. El detalle de capas y pruebas está en `docs/ARCHITECTURE.md`; el spec, en `.kiro/specs/EN-28 — Integrar-creador-de-pista/`.
 
+## Página del celular (medición)
+
+`/celular.html` (o `/celular` en Render) es la página que se abre en el celular para calibrar,
+medir por pasos o GPS, probar el error del GPS y correr el modelo de precisión (HU-37, HU-40,
+EN-35, SP-06, SP-07). Es una segunda entrada de Vite con React y usa la misma API y sesión que la
+consola. Los sensores necesitan HTTPS: en local, levanta `npm run dev` y abre un túnel, por
+ejemplo `cloudflared tunnel --url http://127.0.0.1:5173`, y en el celular entra a
+`https://<túnel>/celular.html`. El código del celular se guarda en el navegador; si cambias de
+enlace, recupéralo en la pestaña Conexión.
+
 ## Comprobaciones
 
 ```powershell

@@ -48,6 +48,9 @@ export type Tab =
   | "telemetry"
   | "runs"
   | "map"
+  | "odo"
+  | "areas"
+  | "gps"
   | "catalog"
   | "builder"
   | "rules"
@@ -81,6 +84,9 @@ const GROUP: Record<Tab, "velocista" | "gestion"> = {
   telemetry: "velocista",
   runs: "velocista",
   map: "velocista",
+  odo: "velocista",
+  areas: "velocista",
+  gps: "velocista",
   catalog: "gestion",
   builder: "gestion",
   rules: "gestion",

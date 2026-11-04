@@ -13,7 +13,7 @@ export interface SimulatorStatus {
 
 const object = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 
 /** Interpreta snapshots y eventos del emisor sim publicados por /ws/console. */
@@ -30,17 +30,20 @@ export function simulatorFromMessages(messages: MensajeConsola[]): SimulatorStat
   const stateValue = typeof snapshot?.state === "string" ? snapshot.state : "unknown";
   const received = (message: MensajeConsola | undefined) =>
     typeof message?.received_ms === "number" ? message.received_ms : 0;
-  const disconnectedAfterTelemetry = stateValue !== "ready" && connection &&
-    received(connection) >= received(latestTelemetry);
-  const connected = Boolean(frames.length) && !disconnectedAfterTelemetry &&
+  const disconnectedAfterTelemetry =
+    stateValue !== "ready" && connection && received(connection) >= received(latestTelemetry);
+  const connected =
+    Boolean(frames.length) &&
+    !disconnectedAfterTelemetry &&
     (stateValue === "ready" || received(latestTelemetry) > received(connection));
-  const eventRunning = event?.event === "run_started" ? true
-    : event?.event === "run_finished" ? false
-    : null;
+  const eventRunning =
+    event?.event === "run_started" ? true : event?.event === "run_finished" ? false : null;
   const telemetryRunning = typeof telemetry?.running === "boolean" ? telemetry.running : null;
-  const activeRunId = typeof snapshot?.active_run_id === "string" ||
-    typeof snapshot?.active_run_id === "number" ? snapshot.active_run_id : null;
-  const running = eventRunning ?? telemetryRunning ?? (activeRunId !== null);
+  const activeRunId =
+    typeof snapshot?.active_run_id === "string" || typeof snapshot?.active_run_id === "number"
+      ? snapshot.active_run_id
+      : null;
+  const running = eventRunning ?? telemetryRunning ?? activeRunId !== null;
   return {
     available: frames.length > 0,
     state: stateValue,

@@ -73,20 +73,16 @@ function Salida() {
         c.robot.id,
       );
     } catch (error) {
-      c.showToast(
-        error instanceof ErrorApi ? error.message : "No se pudo enviar la orden al simulador.",
-      );
+      c.showToast(error instanceof ErrorApi ? error.message : "No se pudo enviar la orden al simulador.");
     } finally {
       setCommandPending(false);
     }
   };
-  const calTag = useExternalSim
-    ? ["No requerido", "tag"]
-    : c.calibrating
-      ? ["Calibrando", "tag"]
-      : c.calibrated
-        ? ["Calibrado", "tag good"]
-        : ["Sin calibrar", "tag warn"];
+  const calTag = useExternalSim ? ["No requerido", "tag"] : c.calibrating
+    ? ["Calibrando", "tag"]
+    : c.calibrated
+      ? ["Calibrado", "tag good"]
+      : ["Sin calibrar", "tag warn"];
   let hint: [string, string];
   if (running)
     hint = [
@@ -111,13 +107,7 @@ function Salida() {
         <h2>Salida</h2>
         <span className={calTag[1]}>{calTag[0]}</span>
       </div>
-      <button
-        type="button"
-        className="go"
-        data-running={running}
-        disabled={commandPending || (useExternalSim && !simConnected)}
-        onClick={() => void toggleRun()}
-      >
+      <button type="button" className="go" data-running={running} disabled={commandPending || (useExternalSim && !simConnected)} onClick={() => void toggleRun()}>
         {running ? <Stop /> : <Play />}
         <span>{commandPending ? "ENVIANDO…" : running ? "DETENER" : "ARRANCAR"}</span>
       </button>
@@ -127,15 +117,7 @@ function Salida() {
           {c.profile.rules.wireless ? `Requerido · ${c.profile.cat}` : "Opcional en este perfil"}
         </span>
       </div>
-      <p className={hint[1]}>
-        {useExternalSim
-          ? simConnected
-            ? running
-              ? "Corrida externa en curso; la telemetría y el cierre llegan por el backend."
-              : "Simulador externo listo para iniciar."
-            : `Esperando simulador: ${simulator.state}.`
-          : hint[0]}
-      </p>
+      <p className={hint[1]}>{useExternalSim ? (simConnected ? running ? "Corrida externa en curso; la telemetría y el cierre llegan por el backend." : "Simulador externo listo para iniciar." : `Esperando simulador: ${simulator.state}.`) : hint[0]}</p>
       <div className={`calp ${c.calibrating ? "on" : ""}`}>
         <i style={{ width: `${c.calProgress * 100}%` }} />
       </div>
@@ -148,13 +130,7 @@ function Salida() {
             disabled={useExternalSim || c.running || c.calibrating}
             onClick={c.calibrate}
           >
-            {useExternalSim
-              ? "No disponible"
-              : c.calibrating
-                ? "Desliza…"
-                : c.calibrated
-                  ? "Recalibrar"
-                  : "Calibrar"}
+            {useExternalSim ? "No disponible" : c.calibrating ? "Desliza…" : c.calibrated ? "Recalibrar" : "Calibrar"}
           </button>
         </div>
         <div className="row">
@@ -271,23 +247,12 @@ function Setup() {
   const sendSetup = async () => {
     if (!useExternalSim) return c.sendSetup();
     if (!simConnected) return c.showToast("El simulador externo no está listo.");
-    if (c.draft.controller !== "pid")
-      return c.showToast("El simulador externo solo admite el controlador PID.");
+    if (c.draft.controller !== "pid") return c.showToast("El simulador externo solo admite el controlador PID.");
     try {
-      await api.command("setup", {
-        controller: "pid",
-        parameters: {
-          kp: c.draft.parameters.kp,
-          ki: c.draft.parameters.ki,
-          kd: c.draft.parameters.kd,
-          base_speed: c.draft.parameters.base,
-        },
-      });
+      await api.command("setup", { controller: "pid", parameters: { kp: c.draft.parameters.kp, ki: c.draft.parameters.ki, kd: c.draft.parameters.kd, base_speed: c.draft.parameters.base } });
       c.sendSetup();
     } catch (error) {
-      c.showToast(
-        error instanceof ErrorApi ? error.message : "No se pudo aplicar la configuración.",
-      );
+      c.showToast(error instanceof ErrorApi ? error.message : "No se pudo aplicar la configuración.");
     }
   };
   const ctrl = CTRL[c.draft.controller];
@@ -346,12 +311,7 @@ function Setup() {
         ))}
       </div>
       <div className="acts">
-        <button
-          type="button"
-          className="sb red"
-          disabled={!pend || c.locked || (useExternalSim && c.draft.controller !== "pid")}
-          onClick={() => void sendSetup()}
-        >
+        <button type="button" className="sb red" disabled={!pend || c.locked || (useExternalSim && c.draft.controller !== "pid")} onClick={() => void sendSetup()}>
           Enviar
         </button>
         <button type="button" className="sb ghost" disabled={c.locked} onClick={c.saveSetup}>
@@ -686,57 +646,37 @@ export function Regleta() {
   const simulator = simulatorFromMessages(conexion?.mensajes ?? []);
   const channels = simulator.telemetry?.channels as Record<string, unknown> | undefined;
   const readings = channels?.sensors;
-  const externalStrip: StripView | null =
-    simulator.available &&
-    Array.isArray(readings) &&
-    readings.length > 0 &&
-    readings.every((value) => typeof value === "number" && Number.isFinite(value))
-      ? (() => {
-          const values = readings as number[];
-          const peak = Math.max(...values);
-          const bars = values.map((value) => (peak > 0 ? clamp(value / peak, 0, 1) : 0));
-          const active = bars.filter((value) => value >= ACTIVE_THRESHOLD).length;
-          const lost = channels?.line_lost === true || active === 0;
-          const sum = bars.reduce((total, value) => total + value, 0);
-          const centroid =
-            sum > 0
-              ? bars.reduce((total, value, index) => total + value * index, 0) / sum
-              : (bars.length - 1) / 2;
-          const positionNorm =
-            lost || bars.length < 2
-              ? 0
-              : clamp((centroid - (bars.length - 1) / 2) / ((bars.length - 1) / 2), -1, 1);
-          return {
-            bars,
-            digits: bars.map((value) => Math.round(value * 9)),
-            positionNorm,
-            positionMm: positionNorm * 72,
-            error: positionNorm,
-            centered: !lost && Math.abs(positionNorm) < 0.25,
-            lost,
-            active,
-          };
-        })()
-      : null;
+  const externalStrip: StripView | null = simulator.available && Array.isArray(readings) &&
+    readings.length > 0 && readings.every((value) => typeof value === "number" && Number.isFinite(value))
+    ? (() => {
+        const values = readings as number[];
+        const peak = Math.max(...values);
+        const bars = values.map((value) => peak > 0 ? clamp(value / peak, 0, 1) : 0);
+        const active = bars.filter((value) => value >= ACTIVE_THRESHOLD).length;
+        const lost = channels?.line_lost === true || active === 0;
+        const sum = bars.reduce((total, value) => total + value, 0);
+        const centroid = sum > 0 ? bars.reduce((total, value, index) => total + value * index, 0) / sum : (bars.length - 1) / 2;
+        const positionNorm = lost || bars.length < 2 ? 0 : clamp((centroid - (bars.length - 1) / 2) / ((bars.length - 1) / 2), -1, 1);
+        return {
+          bars,
+          digits: bars.map((value) => Math.round(value * 9)),
+          positionNorm,
+          positionMm: positionNorm * 72,
+          error: positionNorm,
+          centered: !lost && Math.abs(positionNorm) < 0.25,
+          lost,
+          active,
+        };
+      })()
+    : null;
   const real = conexion ? stripFromMessages(conexion.mensajes) : null;
-  const v =
-    real ??
-    externalStrip ??
-    (c.apiMode && c.source === "sim" ? null : simulatedStrip(c.simRef.current));
-  if (!v)
-    return (
-      <Card className="a-sens" pbi="HU-15" sprint="1">
-        <div className="hd">
-          <h2>
-            Regleta <small>telemetría del simulador</small>
-          </h2>
-          <span className="tag">Sin datos</span>
-        </div>
-        <p className="espera-robot" role="status">
-          Esperando lecturas de sensores del backend.
-        </p>
-      </Card>
-    );
+  const v = real ?? externalStrip ?? (c.apiMode && c.source === "sim" ? null : simulatedStrip(c.simRef.current));
+  if (!v) return (
+    <Card className="a-sens" pbi="HU-15" sprint="1">
+      <div className="hd"><h2>Regleta <small>telemetría del simulador</small></h2><span className="tag">Sin datos</span></div>
+      <p className="espera-robot" role="status">Esperando lecturas de sensores del backend.</p>
+    </Card>
+  );
   const posTag: [string, string] = v.lost
     ? ["Línea perdida", "tag red"]
     : v.centered

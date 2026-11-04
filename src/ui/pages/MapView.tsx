@@ -6,6 +6,7 @@ import { fmt } from "@/domain/format";
 import { drawRec } from "@/domain/canvas";
 import { useCanvas } from "@/application/hooks/useCanvas";
 import { PageHead } from "@/ui/components/measurement/MeasurementUi";
+import { ANALYSIS_ONLY } from "@/domain/measurement/labels";
 import { TrackComparison } from "@/ui/components/measurement/TrackComparison";
 
 function DesdeVuelta() {
@@ -81,6 +82,7 @@ export function MapView() {
         El carro da una vuelta con el celular encima y el sistema dibuja la pista medida. Se compara
         con la pista diseñada en el Trazador.
       </PageHead>
+      <p className="analysis-only s12">{ANALYSIS_ONLY}</p>
       <DesdeVuelta />
       <TrackComparison />
     </section>

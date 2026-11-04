@@ -71,12 +71,13 @@ describe("comparación diseño frente a medido (unitarias)", () => {
       "Largo de la vuelta",
       "Área encerrada",
       "Error de cierre",
+      "Giro total",
       "Giro sobrante",
     ]);
     expect(rows[0].design).toBe(11);
     expect(rows[0].diffPct).toBeCloseTo(5);
     expect(rows[1].diffPct).toBeCloseTo(-4);
-    expect(rows[3].measured).toBe(6.5);
+    expect(rows[4].measured).toBe(6.5);
   });
 
   it("solo las mediciones terminadas que no son por GPS sirven como vuelta", () => {
@@ -98,7 +99,7 @@ describe("vista Pista diseñada frente a pista medida", () => {
     });
     render(<TrackComparison />);
     const table = screen.getByRole("table", { name: "Diseño frente a medido" });
-    await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(5));
+    await waitFor(() => expect(within(table).getAllByRole("row")).toHaveLength(6));
     expect(table.textContent).toContain("11.00 m");
     expect(table.textContent).toContain("+5.0 %");
     expect(screen.getAllByText("Medición confiable").length).toBe(1);

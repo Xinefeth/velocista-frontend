@@ -49,6 +49,14 @@ test("CU-2 · mapa de la pista medida frente a la diseñada", async ({ page }) =
   const table = page.getByRole("table", { name: "Diseño frente a medido" });
   await expect(table).toContainText("Largo de la vuelta");
   await expect(table).toContainText("28.00 m");
+  // giro total (diseño ±360°) junto al giro sobrante, con el sentido en palabras
+  await expect(table.getByRole("row", { name: /Giro total/ })).toContainText("±360");
+  await expect(table.getByRole("row", { name: /Giro total/ })).toContainText("356");
+  await expect(table.getByRole("row", { name: /Giro total/ })).toContainText("a la derecha");
+  await expect(table).toContainText("Giro sobrante");
+  await expect(
+    page.getByText("Solo análisis: en competencia el robot no usa el mapa").first(),
+  ).toBeVisible();
   await expect(page.getByLabel("Pista diseñada", { exact: true })).toHaveValue("1");
   await evidence(page, "CU-2");
 });

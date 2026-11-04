@@ -379,7 +379,8 @@ export function ConsoleProvider({
   const [blOpen, setBlOpen] = useState(false);
   const [showPbi, setShowPbiState] = useState<boolean>(() => store.get("pbi", false));
   // Por defecto "Sprint 1": los paneles de Sprint 2 se ven desactivados (criterio de EN-19).
-  const [scope, setScopeState] = useState<Scope>(() => store.get<Scope>("scope", "s1"));
+  // Sprint en curso (2): lo del Sprint 2 queda activo por defecto; la capa del backlog lo cambia.
+  const [scope, setScopeState] = useState<Scope>(() => store.get<Scope>("scope", "s2"));
 
   const [toast, setToast] = useState<string | null>(null);
   const toastT = useRef<ReturnType<typeof setTimeout>>();

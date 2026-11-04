@@ -18,12 +18,18 @@ import { Catalog } from "@/ui/pages/Catalog";
 import { Builder } from "@/ui/pages/Builder";
 import { Rules } from "@/ui/pages/Rules";
 import { TrackTracer } from "@/ui/pages/TrackTracer";
+import { Odometry } from "@/ui/pages/measurement/Odometry";
+import { Areas } from "@/ui/pages/measurement/Areas";
+import { GpsPrecision } from "@/ui/pages/measurement/GpsPrecision";
 
 const PAGINAS: Record<Tab, () => ReactElement> = {
   control: Control,
   telemetry: Telemetry,
   runs: Runs,
   map: MapView,
+  odo: Odometry,
+  areas: Areas,
+  gps: GpsPrecision,
   catalog: Catalog,
   builder: Builder,
   rules: Rules,

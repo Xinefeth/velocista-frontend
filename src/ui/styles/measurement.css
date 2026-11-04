@@ -1,0 +1,344 @@
+/* Vistas de Medición (Odometría, Áreas y planos, Precisión del GPS y Mapa de pista), tomadas del
+   prototipo APAEC_Lab_consola_con_medicion.html. Se apoyan en las clases de prototype.css. */
+.cv {
+  position: relative;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.cv canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.cv.h220 {
+  height: 230px;
+}
+.cv.h360 {
+  height: 380px;
+}
+.kpis .v.warn {
+  color: var(--yellow);
+}
+.kpis .v.bad {
+  color: var(--red-hi);
+}
+.semaforo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line2);
+  background: var(--bg);
+  margin-bottom: 10px;
+}
+.semaforo .dotl {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex: none;
+}
+.semaforo.good {
+  border-color: rgba(61, 220, 151, 0.4);
+}
+.semaforo.good .dotl {
+  background: var(--green);
+}
+.semaforo.warn {
+  border-color: rgba(255, 203, 87, 0.4);
+}
+.semaforo.warn .dotl {
+  background: var(--yellow);
+}
+.semaforo.bad {
+  border-color: rgba(255, 45, 85, 0.45);
+}
+.semaforo.bad .dotl {
+  background: var(--red);
+}
+.semaforo b {
+  font-weight: 500;
+}
+.semaforo small {
+  display: block;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+.checks li .ic {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+.checks li.ok .ic {
+  background: var(--green);
+}
+.checks li.warn .ic {
+  background: var(--yellow);
+}
+.checks li.bad .ic {
+  background: var(--red);
+}
+.tw {
+  overflow-x: auto;
+}
+/* ===== Odometría · Medir terreno (flujo en 4 pasos) ===== */
+.odo-head .hd {
+  margin-bottom: 10px;
+}
+.pills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pills li {
+  flex: 1 1 140px;
+}
+.pills button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--mid);
+  font-size: 13px;
+  text-align: left;
+}
+.pills button span {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--line2);
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  flex: none;
+}
+.pills button.done span {
+  background: var(--green-soft);
+  border-color: rgba(61, 220, 151, 0.4);
+  color: var(--green);
+}
+.pills button[aria-current="step"] {
+  color: var(--ink);
+  border-color: rgba(255, 45, 85, 0.55);
+  background: var(--red-soft);
+}
+.pills button[aria-current="step"] span {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+.odo-flow .card {
+  display: none;
+}
+.odo-flow .card.odo-head {
+  display: block;
+}
+.odo-flow[data-step="1"] .on1,
+.odo-flow[data-step="2"] .on2,
+.odo-flow[data-step="3"] .on3,
+.odo-flow[data-step="4"] .on4 {
+  display: block;
+}
+.odo-flow[data-step="4"] .odo-map {
+  grid-column: span 7;
+}
+.navb {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  background: var(--yellow-soft);
+  color: var(--yellow);
+  border: 1px solid rgba(255, 203, 87, 0.3);
+}
+.guides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+.guide {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.guide.ok {
+  border-color: rgba(61, 220, 151, 0.45);
+}
+.guide .gt {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+.guide .gt b {
+  font-weight: 500;
+  font-size: 14px;
+}
+.guide ol {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--mid);
+}
+.guide .res {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--mid);
+}
+.guide.ok .res {
+  color: var(--green);
+}
+.guide .trials {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.guide .trials span {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: var(--panel3);
+  color: var(--mid);
+}
+.bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--panel4);
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--red);
+}
+.meter {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--panel4);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--green);
+}
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--mid);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend .ln {
+  display: inline-block;
+  width: 18px;
+  border-top: 2px solid var(--dim);
+}
+.legend .ln.dash {
+  border-top-style: dashed;
+}
+.legend .pt {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.corr {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.corr .sw {
+  text-align: left;
+}
+.corr .sw:disabled {
+  opacity: 0.45;
+}
+.badge {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--panel3);
+  color: var(--mid);
+  text-transform: uppercase;
+}
+.badge.good {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.badge.warn {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+.badge.bad {
+  background: var(--red-soft);
+  color: var(--red-hi);
+}
+.pagehead {
+  padding: 2px 4px 2px;
+  grid-column: 1/-1;
+}
+.pagehead h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.pagehead p {
+  margin: 4px 0 0;
+  color: var(--mid);
+  font-size: 13px;
+  max-width: 760px;
+}
+.cv.clickable canvas {
+  cursor: crosshair;
+}
+.live-row td {
+  color: var(--ink);
+}
+@media (max-width: 1100px) {
+  .odo-flow[data-step="4"] .odo-map {
+    grid-column: span 12;
+  }
+}

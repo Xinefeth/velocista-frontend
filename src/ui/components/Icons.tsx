@@ -33,6 +33,25 @@ export const icons: Record<string, ReactElement> = {
       <circle cx="5" cy="18" r="1.6" />
     </svg>
   ),
+  odo: (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 18l5-11 5 6 6-9" />
+      <circle cx="4" cy="18" r="1.6" />
+      <circle cx="20" cy="4" r="1.6" />
+    </svg>
+  ),
+  areas: (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 18l3-11 7 3 5-5 1 13z" />
+    </svg>
+  ),
+  gps: (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="3" />
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </svg>
+  ),
   catalog: (
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <rect x="4" y="4" width="7" height="7" rx="1.5" />

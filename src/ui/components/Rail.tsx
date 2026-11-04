@@ -1,5 +1,5 @@
-// Barra lateral de navegación, igual a la del prototipo (Protoripo.html): grupos Robot y Gestión,
-// más el botón de la capa del backlog.
+// Barra lateral de navegación, igual a la del prototipo (Protoripo.html): grupos Robot, Medición
+// (APAEC_Lab_consola_con_medicion.html) y Gestión, más el botón de la capa del backlog.
 import { useConsole, type Tab } from "@/application/state/ConsoleContext";
 import { icons, Brand } from "@/ui/components/Icons";
 
@@ -8,6 +8,11 @@ const ROBOT: [Tab, string][] = [
   ["telemetry", "Telemetría"],
   ["runs", "Corridas y optimización"],
   ["map", "Mapa de pista"],
+];
+const MEDICION: [Tab, string][] = [
+  ["odo", "Odometría · Medir terreno"],
+  ["areas", "Áreas y planos"],
+  ["gps", "Precisión del GPS"],
 ];
 const GESTION: [Tab, string][] = [
   ["catalog", "Catálogo de componentes"],
@@ -38,6 +43,9 @@ export function Rail() {
       </div>
       <span className="gl">Robot</span>
       {ROBOT.map(boton)}
+      <span className="sep" />
+      <span className="gl">Medición</span>
+      {MEDICION.map(boton)}
       <span className="sep" />
       <span className="gl">Gestión</span>
       {GESTION.map(boton)}

@@ -1,5 +1,6 @@
 // Textos en español de la medición con el celular. El backend responde con códigos en inglés
 // (`reason`, `quality`, `warnings`, `verdict`); aquí se traducen para la consola y el celular.
+import type { MotionState } from "@/domain/measurement/phone";
 import type { MethodApi, QualityApi, VerdictApi } from "@/infrastructure/contracts/measurements";
 
 /** Límites del semáforo de calidad (supuesto del spike SP-05 pendiente del PO). */
@@ -140,3 +141,22 @@ export function signedPct(value: number | null | undefined, digits = 1): string 
 
 /** Código corto de un celular (los 8 primeros caracteres de su id, sin `cel-`). */
 export const deviceCode = (deviceId: string): string => deviceId.replace(/^cel-/, "").slice(0, 8);
+
+/** Estado de movimiento que se muestra mientras se mide (palabra + motivo si no hay datos). */
+export const MOTION_LABEL: Record<MotionState, string> = {
+  walking: "Caminando",
+  still: "Quieto",
+  no_data: "Sin datos del acelerómetro",
+};
+export const MOTION_NO_DATA_REASON =
+  "No llegan lecturas desde hace 3 s. Activa los sensores en la pestaña 1 y revisa el permiso de movimiento.";
+
+/** Aviso de lugar chico con el error del GPS medido en SP-06 (HU-37). Los números van con 1 decimal. */
+export const GPS_MIN_SIDE_ADVICE = (min: string) =>
+  `Con el error de tu GPS, el lado mínimo es ${min} m: si tu terreno es más chico, mide por pasos.`;
+export const GPS_NO_TRIALS_ADVICE =
+  "Aún no hay pruebas de error del GPS de este celular (pestaña 4). Al terminar, el aviso del servidor sigue diciendo si el lugar es chico.";
+export const GPS_TOO_SMALL_RESULT = (side: string, min: string) =>
+  `Tu terreno mide unos ${side} m por lado y, con el error de tu GPS, el lado mínimo es ${min} m: es chico para el GPS. Mide por pasos.`;
+export const MEASURE_BY_STEPS = "Medir por pasos";
+export const OPEN_GPS_TAB = "Ver el error del GPS (pestaña 4)";

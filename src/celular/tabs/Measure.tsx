@@ -1,7 +1,7 @@
 // 3. Medir (HU-37 por GPS, HU-40 por pasos): se camina el borde y el celular manda sus lecturas al
 // backend en lotes cada 0,5 s (si se corta la conexión, la cola se reintenta). El mapa en vivo es
 // aproximado; al terminar, el backend calcula perímetro, área y error de cierre con correcciones.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Msg, NO_MSG, usePhone, type MsgState } from "@/celular/context";
 import { sensors, vibrate } from "@/celular/sensors";
 import {
@@ -15,7 +15,14 @@ import {
 import {
   errorText,
   fmtEs,
+  GPS_MIN_SIDE_ADVICE,
+  GPS_NO_TRIALS_ADVICE,
+  GPS_TOO_SMALL_RESULT,
+  MEASURE_BY_STEPS,
   METHOD_LABEL,
+  MOTION_LABEL,
+  MOTION_NO_DATA_REASON,
+  OPEN_GPS_TAB,
   QUALITY,
   SESSION_EXPIRED_TEXT,
   signedPct,
@@ -24,6 +31,10 @@ import {
 import { boundsOf, fitView, rectangle } from "@/domain/measurement/plot";
 import {
   DEFAULT_STEP_M,
+  motionState,
+  NO_DATA_MS,
+  type MotionSample,
+  type MotionState,
   fixSideHeading,
   integrateTurn,
   markCorner as closeSide,
@@ -35,7 +46,8 @@ import {
   type Fix,
   type WalkState,
 } from "@/domain/measurement/phone";
-import { measurementsApi, READINGS_BATCH } from "@/infrastructure/http/measurements";
+import { smallField, TARGET_PCT } from "@/domain/measurement/gpsFit";
+import { gpsApi, measurementsApi, READINGS_BATCH } from "@/infrastructure/http/measurements";
 import type {
   MeasurementApi,
   MeasurementBodyApi,
@@ -51,6 +63,15 @@ export function isReadingCap(error: unknown): boolean {
   const e = error as { status?: number; reason?: string } | null;
   return e?.status === 409 && e?.reason === TOO_MANY_READINGS;
 }
+
+/** Iconos del chip de movimiento (la palabra va siempre al lado: el color no es la única pista). */
+const MOTION_ICON: Record<MotionState, ReactNode> = {
+  walking: (
+    <path d="M13 4a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM9 21l2-6-2-2 1-5 3 2 2 3M11 9l-3 1-1 3" />
+  ),
+  still: <path d="M9 5v14M15 5v14" />,
+  no_data: <path d="M12 8v5M12 16.5v.5M4 20L12 4l8 16z" />,
+};
 
 const FLUSH_MS = 500;
 const DRAW_MS = 300;
@@ -110,6 +131,8 @@ interface Run {
   lastT: number | null;
   lastCorner: number;
   lastAuto: boolean;
+  /** Últimas lecturas del acelerómetro (unos segundos) para el estado caminando / quieto. */
+  motion: MotionSample[];
   offs: (() => void)[];
   timers: number[];
 }
@@ -126,7 +149,14 @@ function drawResult(cv: HTMLCanvasElement | null, m: MeasurementApi | null) {
   if (r.polygon.length <= 12) dots(s, view, r.polygon, s.color("--ink"), 4);
 }
 
-export function Measure({ active }: { active: boolean }) {
+export function Measure({
+  active,
+  onOpenGpsTab,
+}: {
+  active: boolean;
+  /** Lleva a la pestaña 4 (error del GPS), donde se hacen las pruebas de SP-06. */
+  onOpenGpsTab?: () => void;
+}) {
   const { device, cal, notify } = usePhone();
   const [form, setForm] = useState<SetupForm>({
     method: "steps",
@@ -142,13 +172,22 @@ export function Measure({ active }: { active: boolean }) {
   const [runMsg, setRunMsg] = useState<MsgState>(NO_MSG);
   const [histMsg, setHistMsg] = useState<MsgState>(NO_MSG);
   const [busy, setBusy] = useState(false);
-  const [view, setView] = useState({ sent: 0, pending: 0, secs: 0, corners: 0 });
+  const [view, setView] = useState<{
+    sent: number;
+    pending: number;
+    secs: number;
+    corners: number;
+    motion: MotionState;
+  }>({ sent: 0, pending: 0, secs: 0, corners: 0, motion: "no_data" });
   const [result, setResult] = useState<MeasurementApi | null>(null);
   const [history, setHistory] = useState<MeasurementApi[]>([]);
   const run = useRef<Run | null>(null);
   const liveCv = useRef<HTMLCanvasElement>(null);
   const resultCv = useRef<HTMLCanvasElement>(null);
   const [, setTick] = useState(0);
+  // Lado mínimo del GPS según SP-06: undefined = aún no se consulta, null = sin pruebas
+  const [minSide, setMinSide] = useState<number | null | undefined>(undefined);
+  const minSideFor = useRef<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -161,6 +200,19 @@ export function Measure({ active }: { active: boolean }) {
   useEffect(() => {
     if (active) void loadHistory();
   }, [active, loadHistory]);
+  // Una sola consulta al entrar en Medir (y otra si cambia el código del celular); sin sondeo
+  useEffect(() => {
+    if (!active || minSideFor.current === device) return;
+    minSideFor.current = device;
+    setMinSide(undefined);
+    gpsApi
+      .summary(device, TARGET_PCT)
+      .then((s) => setMinSide(s.min_side_m ?? null))
+      .catch(() => {
+        // sin conexión: no se avisa antes; el aviso del servidor al terminar sigue
+        minSideFor.current = null;
+      });
+  }, [active, device]);
   useEffect(() => drawResult(resultCv.current, result), [result, screen]);
   useEffect(() => () => stop(), []);
 
@@ -297,12 +349,17 @@ export function Measure({ active }: { active: boolean }) {
         lastT: null,
         lastCorner: 0,
         lastAuto: false,
+        motion: [],
         offs: [],
         timers: [],
       };
       run.current = r;
       r.offs.push(
         sensors.onMotion((t, gz, acc) => {
+          if (acc) {
+            r.motion.push({ t, acc });
+            while (r.motion.length && t - r.motion[0].t > NO_DATA_MS) r.motion.shift();
+          }
           if (r.method === "gps") return;
           const reading: ReadingApi = { seq: r.seq++, t_ms: t, kind: "motion" };
           if (gz != null) reading.gyro_z_dps = gz;
@@ -349,6 +406,8 @@ export function Measure({ active }: { active: boolean }) {
               pending: r.queue.length,
               secs: Math.round((Date.now() - r.t0) / 1000),
               corners: r.marks.length,
+              // mismo temporizador de 500 ms que el contador: sin temporizador nuevo
+              motion: motionState(r.motion, Date.now(), cal?.step_threshold_ms2 ?? undefined),
             }),
           500,
         ),
@@ -467,6 +526,10 @@ export function Measure({ active }: { active: boolean }) {
   const q = res ? QUALITY[res.quality] : null;
   const gps = form.method === "gps";
   const side = r ? r.walk.dist - r.walk.sideFrom : 0;
+  const tooSmall =
+    result?.closed && res && result.method === "gps" && minSide != null
+      ? smallField(res.perimeter_m, minSide)
+      : null;
 
   return (
     <>
@@ -495,6 +558,22 @@ export function Measure({ active }: { active: boolean }) {
               ? "Se mide caminando el borde con el GPS. No necesitas saber cuánto mide."
               : "Se mide caminando el borde: el celular cuenta tus pasos y tus giros."}
           </p>
+          {gps && minSide !== undefined && (
+            <div className="gpsadvice" role="status">
+              {minSide != null ? (
+                <p>{GPS_MIN_SIDE_ADVICE(fmtEs(minSide, 1))}</p>
+              ) : (
+                <>
+                  <p>{GPS_NO_TRIALS_ADVICE}</p>
+                  {onOpenGpsTab && (
+                    <button type="button" className="sb wide" onClick={onOpenGpsTab}>
+                      {OPEN_GPS_TAB}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <label className="lbl" htmlFor="place">
             Nombre del lugar
           </label>
@@ -621,6 +700,15 @@ export function Measure({ active }: { active: boolean }) {
           </div>
           <canvas ref={liveCv} aria-label="Mapa en vivo" />
           <p className="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
+          <p className={`motion ${view.motion}`} role="status" aria-live="polite">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              {MOTION_ICON[view.motion]}
+            </svg>
+            <span>
+              <b>{MOTION_LABEL[view.motion]}</b>
+              {view.motion === "no_data" && <small>{MOTION_NO_DATA_REASON}</small>}
+            </span>
+          </p>
           <div className="kv" style={{ marginTop: 10 }}>
             <span>Lados terminados</span>
             <b>
@@ -705,6 +793,22 @@ export function Measure({ active }: { active: boolean }) {
                 <li key={w}>{WARNINGS[w] ?? w}</li>
               ))}
             </ul>
+          )}
+          {tooSmall && (
+            <div className="gpsadvice warn" role="status">
+              <p>{GPS_TOO_SMALL_RESULT(fmtEs(tooSmall.side, 1), fmtEs(tooSmall.minSide, 1))}</p>
+              <button
+                type="button"
+                className="sb red wide"
+                onClick={() => {
+                  // vuelve al formulario con el mismo lugar y el método por pasos
+                  setForm((f) => ({ ...f, method: "steps", place: result.place_name }));
+                  setScreen("setup");
+                }}
+              >
+                {MEASURE_BY_STEPS}
+              </button>
+            </div>
           )}
           <canvas ref={resultCv} aria-label="Mapa del resultado" />
           <p className="legend">Gris: medido · Rojo: corregido · ● esquinas</p>

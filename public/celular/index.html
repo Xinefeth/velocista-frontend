@@ -302,6 +302,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
     <section class="card">
       <div class="hd"><h2 id="askT">¿Estás segura?</h2></div>
       <p class="hint" id="askX"></p>
+      <input class="inp" id="askIn" maxlength="80" autocomplete="off" hidden>
       <div class="row"><button class="sb" id="askNo">No</button><button class="sb red" id="askYes">Sí, borrar</button></div>
     </section>
   </div>
@@ -355,7 +356,7 @@ table.t th:first-child,table.t td:first-child{text-align:left;font-family:var(--
       <div class="hd"><h2>Resumen de mis pruebas</h2></div>
       <div class="kv" id="gSum"><span>Pruebas</span><b>—</b></div>
       <div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>Prueba</th><th>Real</th><th>GPS</th><th>Error</th><th></th></tr></thead><tbody id="gList"></tbody></table></div>
-      <p class="hint">El resumen promedia todas estas pruebas. 🗑 borra una prueba equivocada (siempre te pregunta antes).</p>
+      <p class="hint">El resumen promedia todas estas pruebas. ✏️ cambia el nombre de una prueba y 🗑 la borra (siempre te pregunta antes).</p>
       <div class="row"><button class="sb" id="btnGSum">Actualizar</button></div>
     </section>
   </div>
@@ -1019,12 +1020,27 @@ function toast(text) {
 /* Ventana "¿Estás segura?" con Sí / No. Devuelve true solo si tocó "Sí, borrar". */
 function askYesNo(text, yes = "Sí, borrar") {
   return new Promise((resolve) => {
+    $("#askT").textContent = "¿Estás segura?"; $("#askIn").hidden = true; $("#askYes").className = "sb red";
     $("#askX").textContent = text; $("#askYes").textContent = yes; $("#ask").hidden = false; $("#askNo").focus();
     const done = (yes) => { $("#ask").hidden = true; $("#askYes").onclick = $("#askNo").onclick = null; resolve(yes); };
     $("#askYes").onclick = () => done(true);
     $("#askNo").onclick = () => done(false);
   });
 }
+/* La misma ventana, con un campo de texto: devuelve el texto escrito, o null si tocó "Cancelar". */
+function askText(title, text, value) {
+  return new Promise((resolve) => {
+    $("#askT").textContent = title; $("#askX").textContent = text;
+    $("#askIn").hidden = false; $("#askIn").value = value;
+    $("#askNo").textContent = "Cancelar"; $("#askYes").textContent = "Guardar"; $("#askYes").className = "sb red";
+    $("#ask").hidden = false; $("#askIn").focus(); $("#askIn").select();
+    const done = (v) => { $("#ask").hidden = true; $("#askNo").textContent = "No"; $("#askYes").onclick = $("#askNo").onclick = $("#askIn").onkeydown = null; resolve(v); };
+    $("#askYes").onclick = () => done($("#askIn").value.trim() || null);
+    $("#askNo").onclick = () => done(null);
+    $("#askIn").onkeydown = (e) => { if (e.key === "Enter") done($("#askIn").value.trim() || null); };
+  });
+}
+const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4M13.5 6.5l4 4"/></svg>';
 const deleteMeasurement = (id) => api("/api/measurements/" + id, undefined, "DELETE");
 
 $("#btnCancel").onclick = async () => {
@@ -1304,12 +1320,24 @@ async function loadGpsTrials() {
     $("#gList").innerHTML = trials.map((t) => {
       const f = t.result.methods.filtered;
       const name = esc(t.place_name) + " #" + t.id;
-      return `<tr><td style="white-space:normal">${name}</td><td>${fmt(t.real_distance_m, 1)} m</td><td>${fmt(f.gps_distance_m, 1)} m</td><td>${fmt(f.error_m, 1)} m</td><td><button class="sb ico" data-gdel="${t.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
+      return `<tr data-name="${esc(t.place_name)}"><td style="white-space:normal">${name}</td><td>${fmt(t.real_distance_m, 1)} m</td><td>${fmt(f.gps_distance_m, 1)} m</td><td>${fmt(f.error_m, 1)} m</td><td style="display:flex;gap:6px;justify-content:flex-end"><button class="sb ico" data-gren="${t.id}" title="Cambiar nombre" aria-label="Cambiar nombre de ${name}">${PENCIL}</button><button class="sb ico" data-gdel="${t.id}" title="Borrar" aria-label="Borrar ${name}">${TRASH}</button></td></tr>`;
     }).join("") || `<tr><td colspan="5">Aún no hay pruebas.</td></tr>`;
   } catch { /* sin conexión */ }
   gSummary();
 }
 $("#gList").onclick = async (ev) => {
+  const r = ev.target.closest("button[data-gren]");
+  if (r) {
+    const old = r.closest("tr").dataset.name;
+    const name = await askText("Cambiar nombre", "Escribe el nombre correcto del lugar. Las lecturas y el error no cambian.", old);
+    if (!name || name === old) return;
+    try {
+      await api("/api/gps-trials/" + r.dataset.gren, { place_name: name }, "PATCH");
+      toast("Nombre cambiado ✔");
+      loadGpsTrials();
+    } catch (e) { msg("#gMsg", e.message, "err"); }
+    return;
+  }
   const b = ev.target.closest("button[data-gdel]");
   if (!b) return;
   const name = b.closest("tr").cells[0].textContent;

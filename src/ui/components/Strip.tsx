@@ -1,5 +1,6 @@
 // Franja superior de la consola (Protoripo.html): selector de robot con manifiesto, batería y
 // enlace simulados, tiempos de vuelta, fuente de datos (EN-05) y chip del perfil de reglamento.
+import { regChipLabel } from "@/domain/profileStatus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConsole } from "@/application/state/ConsoleContext";
 import { useOptionalConnection } from "@/application/state/ConnectionContext";
@@ -285,12 +286,16 @@ export function Strip() {
           type="button"
           className={`regchip ${ok ? "ok" : "bad"}`}
           title={`${c.profile.comp} · ${c.profile.cat}: ${c.robot.name} ${ok ? "cumple" : "no cumple"} el reglamento`}
+          aria-label={regChipLabel(c.profile, c.robot.name, ok)}
           onClick={() => c.goTab("rules")}
         >
           <Shield />
           <span>
             <b>{c.profile.tag}</b> · {c.profile.cat}
           </span>
+          <i className="regstate" aria-hidden="true">
+            {ok ? "✓" : "✕"}
+          </i>
         </button>
       </div>
     </header>

@@ -7,11 +7,9 @@ import { Hint, Kpis, Semaforo } from "@/ui/components/measurement/MeasurementUi"
 import { surface } from "@/ui/components/measurement/draw";
 import { useCanvas } from "@/application/hooks/useCanvas";
 import { deviceCode, errorText, fmtEs } from "@/domain/measurement/labels";
+import { gpsFits, TARGET_PCT } from "@/domain/measurement/gpsFit";
 import { gpsApi } from "@/infrastructure/http/measurements";
 import type { GpsSummaryApi, GpsTrialApi } from "@/infrastructure/contracts/measurements";
-
-/** Error máximo aceptado frente a lo medido para decir que el GPS «sirve» (lo usa el backend). */
-export const TARGET_PCT = 10;
 
 const ENV: Record<string, string> = {
   open: "Aire libre",
@@ -19,23 +17,6 @@ const ENV: Record<string, string> = {
   trees: "Bajo árboles",
   indoor: "Bajo techo",
 };
-
-/** Veredicto para un lugar cuyo lado más corto mide `side` metros. */
-export function gpsFits(side: number, minSide: number | null) {
-  if (minSide == null) return null;
-  if (!(side > 0)) return { tone: "warn" as const, title: "Escribe el lado más corto del lugar" };
-  if (side >= minSide)
-    return {
-      tone: "good" as const,
-      title: "Sí, el GPS sirve en este lugar",
-      sub: `Con un lado de ${fmtEs(side, 0)} m el error del GPS queda bajo el ${TARGET_PCT} %.`,
-    };
-  return {
-    tone: "bad" as const,
-    title: "No, el lugar es chico para el GPS",
-    sub: `Hace falta un lado de al menos ${fmtEs(minSide, 0)} m. Mide por pasos.`,
-  };
-}
 
 function drawChart(cv: HTMLCanvasElement, trials: GpsTrialApi[]) {
   const s = surface(cv);

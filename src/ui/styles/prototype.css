@@ -418,6 +418,13 @@ button {
 .regchip.bad svg {
   color: var(--red-hi);
 }
+/* Marca de cumplimiento sin depender del color: ✓ cumple, ✕ no cumple (HU-10) */
+.regchip .regstate {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink);
+}
 .ptitle {
   display: flex;
   flex-direction: column;
@@ -2535,6 +2542,62 @@ pre.json .n {
 }
 .slot.chg {
   background: linear-gradient(90deg, var(--red-soft), transparent 70%);
+}
+/* Bloqueos del Armador por reglamento (HU-10): solo tokens existentes; texto en --mid/--red-hi
+   (nunca --dim), con icono de candado y la palabra «no permitido» además del color. */
+.slot .blocknote {
+  grid-column: 1 / -1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--mid);
+  overflow-wrap: anywhere;
+}
+.slot .blocknote p {
+  margin: 2px 0;
+}
+.slot .blocknote ul {
+  margin: 2px 0 2px 16px;
+  padding: 0;
+}
+.slot .blocknote b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.slot .blocknote summary {
+  cursor: pointer;
+  color: var(--mid);
+}
+.slot .blocknote .blk-reason,
+.slot .blocknote .blk-mark {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.slot .blocknote .blk-reason svg,
+.slot .blocknote .blk-mark svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.slot .blocknote .blk-mark {
+  color: var(--red-hi);
+}
+.slot .blocknote .blk-mark b {
+  color: var(--red-hi);
+}
+.slot.blocked {
+  box-shadow: inset 3px 0 0 var(--red);
+  padding-left: 8px;
+}
+.slot.blocked select.inp {
+  border-color: var(--red);
+}
+.slot select.inp:disabled,
+.slot .q button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .slothead {
   display: grid;

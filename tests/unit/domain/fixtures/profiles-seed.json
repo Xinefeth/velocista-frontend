@@ -1,0 +1,122 @@
+[
+  {
+    "id": "club",
+    "competition": "Pruebas del club",
+    "label": "Club",
+    "category": "Libre",
+    "rules": {
+      "dimensions_mm": null,
+      "encoders": true,
+      "imu": true,
+      "allowed_mcus": null,
+      "mr4": false,
+      "wireless_start": false,
+      "chassis": "Libre",
+      "wheels": null,
+      "drivers": null,
+      "speed_map": true,
+      "mounting": "Libre",
+      "motors": null,
+      "max_sensors": null,
+      "turbine": true,
+      "start_mode": "Libre",
+      "motor_families": null,
+      "commercial_pcb": true
+    }
+  },
+  {
+    "id": "mr4a",
+    "competition": "Muchik Rumble 4",
+    "label": "MR4",
+    "category": "Amateur",
+    "rules": {
+      "dimensions_mm": [
+        200,
+        250
+      ],
+      "encoders": false,
+      "imu": false,
+      "allowed_mcus": [
+        "Arduino UNO",
+        "Arduino Nano",
+        "Raspberry Pi Pico",
+        "ESP32"
+      ],
+      "mr4": true,
+      "wireless_start": false,
+      "chassis": "Obligatorio: impresión 3D o MDF",
+      "wheels": 2,
+      "drivers": 1,
+      "speed_map": false,
+      "mounting": "Protoboard, cableado directo, shield genérico o PCB propia",
+      "motors": 2,
+      "max_sensors": 8,
+      "turbine": false,
+      "start_mode": "Interruptor, pulsador, IR o Bluetooth",
+      "motor_families": [
+        "TT amarillo"
+      ],
+      "chassis_materials": [
+        "3D",
+        "MDF"
+      ],
+      "commercial_pcb": false
+    }
+  },
+  {
+    "id": "mr4m",
+    "competition": "Muchik Rumble 4",
+    "label": "MR4",
+    "category": "Master",
+    "rules": {
+      "dimensions_mm": [
+        300,
+        300
+      ],
+      "encoders": false,
+      "imu": false,
+      "allowed_mcus": null,
+      "mr4": true,
+      "wireless_start": true,
+      "chassis": "Libre",
+      "wheels": null,
+      "drivers": null,
+      "speed_map": false,
+      "mounting": "Libre (se admiten robots comerciales)",
+      "motors": null,
+      "max_sensors": null,
+      "turbine": true,
+      "start_mode": "Inalámbrico",
+      "motor_families": null,
+      "commercial_pcb": true
+    }
+  },
+  {
+    "id": "mr4s",
+    "competition": "Muchik Rumble 4",
+    "label": "MR4",
+    "category": "Senior",
+    "rules": {
+      "dimensions_mm": [
+        200,
+        250
+      ],
+      "encoders": false,
+      "imu": false,
+      "allowed_mcus": null,
+      "mr4": true,
+      "wireless_start": true,
+      "chassis": "Libre",
+      "wheels": 2,
+      "drivers": null,
+      "speed_map": false,
+      "mounting": "Libre",
+      "motors": 2,
+      "max_sensors": null,
+      "turbine": false,
+      "start_mode": "Inalámbrico",
+      "motor_families": null,
+      "commercial_pcb": true
+    }
+  }
+]

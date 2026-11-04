@@ -690,6 +690,33 @@ select.inp {
   margin: 8px 0 0;
   min-height: 1.2em;
 }
+/* Mapa de pista solo para análisis y advertencia del giro (HU-30): texto en --mid / --yellow, nunca --dim */
+.analysis-only {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--mid);
+}
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--mid);
+}
+.rowwarn {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--yellow);
+  text-align: left;
+}
+.rowwarn svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
 .empty {
   color: var(--dim);
   font-size: 13px;

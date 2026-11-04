@@ -35,6 +35,8 @@ export interface ResultApi {
   closure_error_m: number;
   closure_error_pct: number;
   heading_drift_deg: number | null;
+  /** Giro acumulado de toda la vuelta en grados (positivo a la izquierda; ±360° si cierra). Opcional: el backend viejo no lo trae. */
+  turn_total_deg?: number | null;
   raw_perimeter_m: number;
   raw_area_m2: number;
   perimeter_m: number;

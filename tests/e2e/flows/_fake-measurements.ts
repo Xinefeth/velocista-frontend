@@ -63,6 +63,7 @@ function measurement(
       closure_error_m: (perimeter * closurePct) / 100,
       closure_error_pct: closurePct,
       heading_drift_deg: 4,
+      turn_total_deg: -356,
       raw_perimeter_m: perimeter + 0.4,
       raw_area_m2: area + 1,
       perimeter_m: perimeter,

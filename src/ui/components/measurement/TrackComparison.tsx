@@ -3,10 +3,21 @@
 // comparan largo, área, cierre y giro sobrante. Solo análisis: en competencia el robot no usa el mapa.
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/ui/components/Card";
+import { ICO } from "@/ui/components/UiIcons";
 import { Hint, Semaforo } from "@/ui/components/measurement/MeasurementUi";
 import { grid, line, start, surface } from "@/ui/components/measurement/draw";
 import { useCanvas } from "@/application/hooks/useCanvas";
-import { errorText, fmtEs, METHOD_LABEL, QUALITY, signedPct } from "@/domain/measurement/labels";
+import {
+  ANALYSIS_ONLY,
+  CAR_UNAVAILABLE,
+  errorText,
+  fmtEs,
+  METHOD_LABEL,
+  QUALITY,
+  SHOW_SIMULATOR,
+  signedPct,
+  TURN_WARNING_WORD,
+} from "@/domain/measurement/labels";
 import { boundsOf, fitView } from "@/domain/measurement/plot";
 import { alignTo, compareTrack, designPath, laps } from "@/domain/measurement/trackCompare";
 import { measurementsApi } from "@/infrastructure/http/measurements";
@@ -16,7 +27,8 @@ import type { Track } from "@/domain/track/types";
 
 export function TrackComparison() {
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [items, setItems] = useState<MeasurementApi[]>([]);
+  const [all, setAll] = useState<MeasurementApi[]>([]);
+  const [showSim, setShowSim] = useState(false); // local, no se guarda
   const [trackId, setTrackId] = useState<number | "">("");
   const [lapId, setLapId] = useState<number | "">("");
   const [lap, setLap] = useState<MeasurementApi | null>(null);
@@ -28,15 +40,20 @@ export function TrackComparison() {
       .then(([ts, page]) => {
         if (!alive) return;
         setTracks(ts);
-        setItems(laps(page.items));
+        setAll(page.items);
         setTrackId(ts[0]?.id ?? "");
-        setLapId(laps(page.items)[0]?.id ?? "");
       })
       .catch((e) => alive && setError(errorText(e)));
     return () => {
       alive = false;
     };
   }, []);
+
+  const items = useMemo(() => laps(all, showSim), [all, showSim]);
+  // Si la vuelta elegida ya no está en la lista (cambió el filtro), se pasa a la primera
+  useEffect(() => {
+    setLapId((cur) => (items.some((m) => m.id === cur) ? cur : (items[0]?.id ?? "")));
+  }, [items]);
 
   // El listado no trae los recorridos: se pide la vuelta elegida completa.
   useEffect(() => {
@@ -84,6 +101,7 @@ export function TrackComparison() {
           <h2>Pista diseñada frente a pista medida</h2>
           <span className="tag purple">Comparación</span>
         </div>
+        <p className="analysis-only">{ANALYSIS_ONLY}</p>
         <div className="cv h360">
           <canvas ref={ref} role="img" aria-label="Pista diseñada y pista medida" />
         </div>
@@ -141,6 +159,17 @@ export function TrackComparison() {
               </select>
             </label>
           </div>
+          <label className="chk">
+            <input
+              type="checkbox"
+              checked={showSim}
+              onChange={(e) => setShowSim(e.target.checked)}
+            />
+            {SHOW_SIMULATOR}
+          </label>
+          {!items.some((m) => m.method === "car") && (
+            <p className="analysis-only">{CAR_UNAVAILABLE}</p>
+          )}
           <ol className="steps" style={{ margin: "14px 0 0" }}>
             <li className="done">
               <span>1</span>Marca en el piso la pista diseñada en el Trazador.
@@ -192,12 +221,25 @@ export function TrackComparison() {
                 <tr key={r.label}>
                   <td className="l">{r.label}</td>
                   <td>
-                    {fmtEs(r.design, 2)} {r.unit}
+                    {r.designText ? `${r.designText} ${r.unit}` : `${fmtEs(r.design, 2)} ${r.unit}`}
                   </td>
                   <td>
-                    {fmtEs(r.measured, 2)} {r.unit}
+                    {r.measured == null
+                      ? "—"
+                      : (r.measuredText ?? `${fmtEs(r.measured, 2)} ${r.unit}`)}
                   </td>
-                  <td>{r.diffPct == null ? "—" : signedPct(r.diffPct)}</td>
+                  <td>
+                    {r.warn ? (
+                      <span className="rowwarn" role="status">
+                        {ICO.warn}
+                        <b>{TURN_WARNING_WORD}</b>: {r.warn}
+                      </span>
+                    ) : r.diffPct == null ? (
+                      "—"
+                    ) : (
+                      signedPct(r.diffPct)
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

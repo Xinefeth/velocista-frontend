@@ -142,6 +142,12 @@ export function signedPct(value: number | null | undefined, digits = 1): string 
 /** Código corto de un celular (los 8 primeros caracteres de su id, sin `cel-`). */
 export const deviceCode = (deviceId: string): string => deviceId.replace(/^cel-/, "").slice(0, 8);
 
+/** Mapa de pista (HU-30): el mapa sirve para analizar, no para correr. */
+export const ANALYSIS_ONLY = "Solo análisis: en competencia el robot no usa el mapa";
+export const SHOW_SIMULATOR = "Mostrar simulador (desarrollo)";
+export const CAR_UNAVAILABLE = "Con el carro: no disponible (sin modelo de velocidad)";
+export const TURN_WARNING_WORD = "Revisar";
+
 /** Estado de movimiento que se muestra mientras se mide (palabra + motivo si no hay datos). */
 export const MOTION_LABEL: Record<MotionState, string> = {
   walking: "Caminando",

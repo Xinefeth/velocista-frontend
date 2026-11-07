@@ -26,6 +26,8 @@ const INSUNITS: Record<number, DxfUnit> = { 1: "in", 4: "mm", 5: "cm", 6: "m" };
 export const DXF_MAX_BYTES = 5 * 1024 * 1024;
 /** Dos puntos más cerca que esto (m) son el mismo. */
 const TOL_M = 0.001;
+/** Capa que el propio export llama al contorno de la medición: si existe, se propone esa. */
+export const DXF_PREFERRED_LAYER = "CONTORNO";
 /** Capas del propio export (el trazo no es un contorno de plano). */
 const OWN_LAYERS = new Set(["TRAZO", "TRAZO_CRUDO"]);
 /** Tipos de entidad que se ignoran avisando al usuario. */
@@ -61,7 +63,7 @@ export interface DxfContour {
 
 export interface DxfPlan {
   contours: DxfContour[];
-  /** Índice en `contours` del de mayor área (el que se propone). */
+  /** Índice en `contours` del que se propone: el de la capa CONTORNO si existe; si no, el de mayor área. */
   chosen: number;
   unit: DxfUnit;
   /** `header` si la unidad sale de $INSUNITS; `asked` si la dio el usuario. */
@@ -420,13 +422,21 @@ export function parseDxfPlan(text: string, options: DxfOptions = {}): DxfPlan | 
   if (chained.loose) ignored.push(`LINE sueltas ×${chained.loose}`);
   if (openShapes.length) ignored.push(`polilíneas abiertas ×${openShapes.length}`);
 
-  const chosen = contours.reduce(
-    (best, c, i) => (c.area_m2 > contours[best].area_m2 ? i : best),
-    0,
+  // Con capa CONTORNO se propone esa (un export con plano de referencia trae dos contornos y el de
+  // mayor área puede ser el del plano); sin ella, el de mayor área.
+  const preferred = contours.flatMap((c, i) =>
+    c.layer.toUpperCase() === DXF_PREFERRED_LAYER ? [i] : [],
+  );
+  const pool = preferred.length ? preferred : contours.map((_, i) => i);
+  const chosen = pool.reduce(
+    (best, i) => (contours[i].area_m2 > contours[best].area_m2 ? i : best),
+    pool[0],
   );
   if (contours.length > 1)
     warnings.push(
-      `El dibujo tiene ${contours.length} contornos cerrados: se propone el de mayor área.`,
+      `El dibujo tiene ${contours.length} contornos cerrados: se propone ${
+        preferred.length ? `el de la capa ${DXF_PREFERRED_LAYER}` : "el de mayor área"
+      }.`,
     );
   return { contours, chosen, unit, unitSource, ignored, warnings };
 }

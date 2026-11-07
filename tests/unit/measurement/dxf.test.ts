@@ -89,6 +89,11 @@ const vertices = (e: Entity): PointApi[] => {
   const ys = e.pairs.filter((p) => p.code === 20).map((p) => Number(p.value));
   return xs.map((x, i) => ({ x, y: ys[i] }));
 };
+/** Cotas de los lados (terminan en « m»); los ángulos van en la misma capa y terminan en «°». */
+const sideTexts = (dxf: string) =>
+  onLayer(dxf, "COTAS", "TEXT").filter((e) => / m$/.test(get(e, 1)!));
+const angleTexts = (dxf: string) =>
+  onLayer(dxf, "COTAS", "TEXT").filter((e) => get(e, 1)!.endsWith("\\U+00B0"));
 const texts = (dxf: string, layer: string) => onLayer(dxf, layer, "TEXT").map((e) => get(e, 1)!);
 
 describe("estructura del archivo", () => {
@@ -298,7 +303,7 @@ describe("contorno, esquinas, inicio y cotas", () => {
 
   it("COTAS: un texto por lado con su largo, en el punto medio y legible (nunca boca abajo)", () => {
     const dxf = measurementToDxf(build(L_SHAPE));
-    const cotas = onLayer(dxf, "COTAS", "TEXT");
+    const cotas = sideTexts(dxf);
     expect(cotas.map((e) => get(e, 1))).toEqual([
       "10.00 m",
       "5.00 m",
@@ -325,13 +330,45 @@ describe("contorno, esquinas, inicio y cotas", () => {
     expect(cotas.map((e) => Number(get(e, 50)))).toEqual([0, 90, 0, 90, 0, 90]);
   });
 
+  it("COTAS lleva también el ángulo interior de cada vértice, dentro del contorno, con el 270° de la L", () => {
+    const dxf = measurementToDxf(build(L_SHAPE));
+    const angles = angleTexts(dxf);
+    expect(angles.map((e) => get(e, 1))).toEqual([
+      "90\\U+00B0",
+      "90\\U+00B0",
+      "90\\U+00B0",
+      "270\\U+00B0",
+      "90\\U+00B0",
+      "90\\U+00B0",
+    ]);
+    // cada ángulo está dentro de la L (a la vez que su vértice), con rotación 0 y centrado
+    const inside = (x: number, y: number) =>
+      x > 0 && x < 10 && y > 0 && y < 10 && !(x > 5 && y > 5);
+    for (const e of angles) {
+      expect(inside(Number(get(e, 11)), Number(get(e, 21)))).toBe(true);
+      expect(Number(get(e, 50))).toBe(0);
+    }
+    // y los ángulos de un cuadrado son cuatro de 90°
+    expect(angleTexts(measurementToDxf(build(SQUARE)))).toHaveLength(4);
+  });
+
+  it("un ángulo que no es entero lleva un decimal", () => {
+    const tri: PointApi[] = [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 0, y: 3 },
+    ];
+    const t = angleTexts(measurementToDxf(build(tri))).map((e) => get(e, 1));
+    expect(t.sort()).toEqual(["36.9\\U+00B0", "53.1\\U+00B0", "90\\U+00B0"]);
+  });
+
   it("un lado inclinado que baja hacia la izquierda se gira 180° para quedar legible", () => {
     const tri: PointApi[] = [
       { x: 0, y: 0 },
       { x: 10, y: 5 },
       { x: 0, y: 8 },
     ];
-    const cotas = onLayer(measurementToDxf(build(tri)), "COTAS", "TEXT");
+    const cotas = sideTexts(measurementToDxf(build(tri)));
     const raw = [Math.atan2(5, 10), Math.atan2(3, -10), Math.atan2(-8, 0)].map(
       (a) => (a * 180) / Math.PI,
     );
@@ -400,7 +437,7 @@ describe("casos límite", () => {
   it("un terreno grande o pequeño ajusta el alto del texto y no deja «-0.000»", () => {
     const tiny = measurementToDxf(build(SQUARE.map((p) => ({ x: p.x / 100, y: p.y / 100 }))));
     const huge = measurementToDxf(build(SQUARE.map((p) => ({ x: p.x * 100, y: p.y * 100 }))));
-    const h = (dxf: string) => Number(get(onLayer(dxf, "COTAS", "TEXT")[0], 40));
+    const h = (dxf: string) => Number(get(sideTexts(dxf)[0], 40));
     expect(h(tiny)).toBeCloseTo(0.1, 3);
     expect(h(huge)).toBeCloseTo(3, 3);
     expect(tiny + huge).not.toContain("-0.000");

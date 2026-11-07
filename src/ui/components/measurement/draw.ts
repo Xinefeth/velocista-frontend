@@ -1,5 +1,11 @@
 // Dibujo en lienzo para las vistas de Medición: prepara el lienzo (alta densidad), cuadrícula,
 // líneas y puntos en metros con la proyección de `domain/measurement/plot`.
+import {
+  placeLabels,
+  type LabelRequest,
+  type PlacedLabel,
+  type PolygonDims,
+} from "@/domain/measurement/dimensions";
 import { gridStep, type Pt, type View } from "@/domain/measurement/plot";
 
 export interface Surface {
@@ -110,4 +116,94 @@ export function start(s: Surface, view: View, p: Pt) {
   ctx.font = `600 8px ${s.color("--mono")}`;
   ctx.textAlign = "center";
   ctx.fillText("INI", x, y + 3);
+}
+
+/** Etiqueta pedida al dibujo: texto, punto del plano y hacia dónde va (hacia afuera del contorno). */
+export interface DimLabel {
+  id: string;
+  text: string;
+  at: Pt;
+  /** Dirección unitaria hacia afuera, en metros del plano (el eje y sube). */
+  outward: Pt;
+  /** Color del texto; por defecto --ink. */
+  color?: string;
+}
+
+const LABEL_FONT_PX = 11;
+const LABEL_PAD_PX = 4;
+
+/** Rectángulo de un texto con su fondo, en píxeles del lienzo. */
+function labelSize(s: Surface, text: string) {
+  s.ctx.font = `600 ${LABEL_FONT_PX}px ${s.color("--mono")}`;
+  return {
+    w: s.ctx.measureText(text).width + 2 * LABEL_PAD_PX,
+    h: LABEL_FONT_PX + 2 * LABEL_PAD_PX,
+  };
+}
+
+/** Dibuja un texto centrado en (x, y) sobre el fondo de la consola. */
+function paintLabel(s: Surface, p: PlacedLabel, text: string, color: string) {
+  const { ctx } = s;
+  ctx.font = `600 ${LABEL_FONT_PX}px ${s.color("--mono")}`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = s.color("--panel3");
+  ctx.fillRect(p.x - p.w / 2, p.y - p.h / 2, p.w, p.h);
+  ctx.fillStyle = color;
+  ctx.fillText(text, p.x, p.y + LABEL_FONT_PX / 2 - 1);
+}
+
+/** Resumen en la esquina superior izquierda del lienzo; devuelve el hueco que ocupa. */
+export function summaryBox(s: Surface, lines: readonly string[], color?: string): PlacedLabel[] {
+  const out: PlacedLabel[] = [];
+  let y = 6;
+  for (const text of lines) {
+    const { w, h } = labelSize(s, text);
+    const p: PlacedLabel = { id: text, x: 6 + w / 2, y: y + h / 2, w, h, free: true };
+    paintLabel(s, p, text, color ?? s.color("--ink"));
+    out.push(p);
+    y += h + 2;
+  }
+  return out;
+}
+
+/**
+ * Pone las etiquetas sin que se pisen ni se salgan del lienzo, hacia afuera del contorno.
+ * `taken` son huecos ya ocupados (por ejemplo el resumen).
+ */
+export function drawLabels(
+  s: Surface,
+  view: View,
+  labels: readonly DimLabel[],
+  taken: readonly PlacedLabel[] = [],
+) {
+  const requests: LabelRequest[] = labels.map((l) => {
+    const [x, y] = view.P(l.at);
+    const [ox, oy] = view.P({ x: l.at.x + l.outward.x, y: l.at.y + l.outward.y });
+    const d = Math.hypot(ox - x, oy - y) || 1;
+    return { id: l.id, x, y, ...labelSize(s, l.text), dx: (ox - x) / d, dy: (oy - y) / d };
+  });
+  const placed = placeLabels(requests, s.w, s.h, 2, taken);
+  placed.forEach((p, i) => paintLabel(s, p, labels[i].text, labels[i].color ?? s.color("--ink")));
+}
+
+/** Etiquetas de un contorno: largo de cada lado y, si se pide, nombre y ángulo de cada vértice. */
+export function dimensionLabels(
+  dims: PolygonDims,
+  opts: { angles?: boolean; sideText?: (i: number) => string } = {},
+): DimLabel[] {
+  const labels: DimLabel[] = dims.sides.map((side) => ({
+    id: `side-${side.index}`,
+    text: opts.sideText ? opts.sideText(side.index) : side.label,
+    at: side.mid,
+    outward: side.outward,
+  }));
+  if (opts.angles)
+    for (const v of dims.vertices)
+      labels.push({
+        id: `vertex-${v.index}`,
+        text: `${v.name} ${v.label}`,
+        at: v.point,
+        outward: v.outward,
+      });
+  return labels;
 }

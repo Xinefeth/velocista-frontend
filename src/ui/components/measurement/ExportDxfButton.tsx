@@ -16,9 +16,11 @@ interface Props {
   measurement: MeasurementApi;
   /** Clases del botón: `sb wide` en el celular, `sb` en la consola. */
   className?: string;
+  /** Clase de los textos de ayuda: `note` en la consola (donde `hint` es el aviso de error) y `hint` en el celular. */
+  textClass?: string;
 }
 
-export function ExportDxfButton({ measurement, className = "sb" }: Props) {
+export function ExportDxfButton({ measurement, className = "sb", textClass = "note" }: Props) {
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   if (!measurement.result) return null;
 
@@ -48,11 +50,11 @@ export function ExportDxfButton({ measurement, className = "sb" }: Props) {
         </svg>
         {EXPORT_DXF}
       </button>
-      <p className="hint" id="dxf-hint">
+      <p className={textClass} id="dxf-hint">
         {EXPORT_DXF_HINT}
       </p>
       {status && (
-        <p className="hint" role="status">
+        <p className={textClass} role="status">
           {status.text}
         </p>
       )}

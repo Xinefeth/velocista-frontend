@@ -5,7 +5,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Msg, NO_MSG, usePhone, type MsgState } from "@/celular/context";
 import { sensors, vibrate } from "@/celular/sensors";
 import {
+  dimensionLabels,
+  type DimLabel,
   dots,
+  drawLabels,
   grid,
   line,
   start as startMark,
@@ -28,6 +31,7 @@ import {
   signedPct,
   WARNINGS,
 } from "@/domain/measurement/labels";
+import { chainSides, polygonDims, type PlacedLabel } from "@/domain/measurement/dimensions";
 import { boundsOf, fitView, rectangle } from "@/domain/measurement/plot";
 import {
   DEFAULT_STEP_M,
@@ -144,10 +148,14 @@ function drawResult(cv: HTMLCanvasElement | null, m: MeasurementApi | null) {
   if (!s || !r) return;
   const b = boundsOf(r.raw_path, r.corrected_path, r.polygon);
   if (!b) return;
-  const view = fitView(b, s.w, s.h, 14);
+  const dims = r.polygon.length <= 12 ? polygonDims(r.polygon) : null;
+  // margen amplio si hay cotas: se dibujan hacia afuera del contorno
+  const view = fitView(b, s.w, s.h, dims ? 40 : 14);
   line(s, view, r.raw_path, { color: s.color("--dim"), width: 1.2 });
   line(s, view, r.corrected_path, { color: s.color("--red"), width: 2.4 });
   if (r.polygon.length <= 12) dots(s, view, r.polygon, s.color("--ink"), 4);
+  // En el celular solo se muestran los lados (sin ángulos), para no saturar la pantalla
+  if (dims) drawLabels(s, view, dimensionLabels(dims));
 }
 
 export function Measure({
@@ -308,10 +316,29 @@ export function Measure({
       s.ctx.fill();
     }
     const side = r.walk.dist - r.walk.sideFrom;
+    const [hereX, hereY] = v.P(here);
+    // huecos que ya ocupa el largo del tramo actual y el círculo de «tú»
+    const taken: PlacedLabel[] = [{ id: "here", x: hereX, y: hereY, w: 16, h: 16, free: true }];
     if (side >= 0.3) {
-      const [x, y] = v.P(here);
-      tag(s, x, y - 8, `${fmtEs(side, 1)} m`, s.color("--red-hi"));
+      tag(s, hereX, hereY - 8, `${fmtEs(side, 1)} m`, s.color("--red-hi"));
+      taken.push({ id: "side", x: hereX, y: hereY - 12.5, w: 70, h: 17, free: true });
     }
+    // Cotas en vivo: largo de cada lado ya cerrado (entre esquinas) y distancia al inicio
+    const labels: DimLabel[] = chainSides([pts[0], ...r.marks], r.walk.sides).map((c) => ({
+      id: `side-${c.index}`,
+      text: c.label,
+      at: c.mid,
+      outward: c.outward,
+    }));
+    const toStart = Math.hypot(here.x - pts[0].x, here.y - pts[0].y);
+    if (toStart >= 0.3)
+      labels.push({
+        id: "to-start",
+        text: `Inicio ${fmtEs(toStart, 1)} m`,
+        at: { x: (here.x + pts[0].x) / 2, y: (here.y + pts[0].y) / 2 },
+        outward: { x: -(here.y - pts[0].y) / toStart, y: (here.x - pts[0].x) / toStart },
+      });
+    drawLabels(s, v, labels, taken);
     startMark(s, v, pts[0]);
     const [hx, hy] = v.P(here);
     s.ctx.strokeStyle = s.color("--ink");
@@ -719,8 +746,19 @@ export function Measure({
             </b>
             <span>Pasos</span>
             <b>{r.method === "gps" ? "—" : r.walk.steps}</b>
-            <span>Perímetro hasta ahora</span>
+            <span>Distancia recorrida</span>
             <b>{fmtEs(r.walk.dist, 1)} m</b>
+            <span>Distancia al inicio</span>
+            <b>
+              {fmtEs(
+                Math.hypot(
+                  r.walk.path[r.walk.path.length - 1].x - r.walk.path[0].x,
+                  r.walk.path[r.walk.path.length - 1].y - r.walk.path[0].y,
+                ),
+                1,
+              )}{" "}
+              m
+            </b>
             <span>Esquinas marcadas</span>
             <b>{view.corners}</b>
             <span>Tiempo</span>
@@ -814,7 +852,7 @@ export function Measure({
           <canvas ref={resultCv} aria-label="Mapa del resultado" />
           <p className="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
           <div className="row">
-            <ExportDxfButton measurement={result} className="sb wide" />
+            <ExportDxfButton measurement={result} className="sb wide" textClass="hint" />
           </div>
           <div className="row">
             <button type="button" className="sb red wide" onClick={() => setScreen("setup")}>

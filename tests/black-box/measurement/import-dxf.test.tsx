@@ -130,21 +130,24 @@ describe("ImportDxfPlan", () => {
     expect(summary()).toContain("0.28 m");
   });
 
-  it("con varios contornos los lista, propone el de mayor área y deja elegir otro", async () => {
+  it("con varios contornos los lista, propone el de la capa CONTORNO aunque otro tenga más área, y deja elegir otro", async () => {
     render(<Harness />);
     choose(file(fixture("export-terreno-en-L.dxf")));
     await screen.findByLabelText("Contorno leído del archivo");
     const radios = screen.getAllByRole("radio");
     expect(radios).toHaveLength(2);
     const labels = radios.map((r) => r.closest("label")!.textContent!);
-    expect(labels.some((l) => l.includes("PLANO_REF") && l.includes("(mayor área)"))).toBe(true);
+    // CONTORNO (L, 75 m²) se propone aunque PLANO_REF (cuadrado, 100 m²) tenga más área
+    expect(labels.some((l) => l.includes("CONTORNO") && l.includes("(propuesto)"))).toBe(true);
+    expect(labels.some((l) => l.includes("PLANO_REF") && l.includes("(propuesto)"))).toBe(false);
     expect(
-      (radios[labels.findIndex((l) => l.includes("PLANO_REF"))] as HTMLInputElement).checked,
+      (radios[labels.findIndex((l) => l.includes("CONTORNO"))] as HTMLInputElement).checked,
     ).toBe(true);
-    expect(summary()).toContain("100.00 m²");
-    fireEvent.click(radios[labels.findIndex((l) => l.includes("CONTORNO"))]);
-    await waitFor(() => expect(summary()).toContain("75.00 m²"));
-    expect(summary()).toContain("CONTORNO");
+    expect(summary()).toContain("75.00 m²");
+    expect(summary()).toContain("40.00 m");
+    fireEvent.click(radios[labels.findIndex((l) => l.includes("PLANO_REF"))]);
+    await waitFor(() => expect(summary()).toContain("100.00 m²"));
+    expect(summary()).toContain("PLANO_REF");
   });
 
   it("lista lo que ignoró del archivo, sin molestar", async () => {

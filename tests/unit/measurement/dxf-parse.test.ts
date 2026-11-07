@@ -273,6 +273,52 @@ describe("contornos", () => {
     expect(p.warnings.join(" ")).toContain("2 contornos");
   });
 
+  it("sin capa CONTORNO se mantiene la regla del mayor área, y la capa se reconoce sin mayúsculas", () => {
+    const small: [number, number][] = [
+      [2, 2],
+      [4, 2],
+      [4, 4],
+      [2, 4],
+    ];
+    const none = ok(
+      parseDxfPlan(dxf([lw(small, { layer: "A" }), lw(SQUARE10, { layer: "B" })], 6)),
+    );
+    expect(none.contours[none.chosen].layer).toBe("B");
+    expect(none.warnings.join(" ")).toContain("el de mayor área");
+    const lower = ok(
+      parseDxfPlan(dxf([lw(SQUARE10, { layer: "Mayor" }), lw(small, { layer: "contorno" })], 6)),
+    );
+    expect(lower.contours[lower.chosen].layer).toBe("contorno");
+  });
+
+  it("con varias capas CONTORNO se propone la de mayor área entre ellas", () => {
+    const small: [number, number][] = [
+      [2, 2],
+      [4, 2],
+      [4, 4],
+      [2, 4],
+    ];
+    const mid: [number, number][] = [
+      [0, 0],
+      [6, 0],
+      [6, 6],
+      [0, 6],
+    ];
+    const p = ok(
+      parseDxfPlan(
+        dxf(
+          [
+            lw(small, { layer: "CONTORNO" }),
+            lw(mid, { layer: "CONTORNO" }),
+            lw(SQUARE10, { layer: "OTRA" }),
+          ],
+          6,
+        ),
+      ),
+    );
+    expect(p.chosen).toBe(1);
+  });
+
   it("un contorno cóncavo (L) conserva su área y perímetro", () => {
     const L: [number, number][] = [
       [0, 0],
@@ -570,6 +616,20 @@ describe("ida y vuelta con el escritor de F1", () => {
     expect(byLayer.CONTORNO.area_m2).toBeCloseTo(75, 3);
     expect(byLayer.CONTORNO.perimeter_m).toBeCloseTo(40, 3);
     expect(byLayer.PLANO_REF.area_m2).toBeCloseTo(100, 3);
-    expect(p.contours[p.chosen].layer).toBe("PLANO_REF");
+    // PLANO_REF (100 m²) tiene más área que CONTORNO (75 m²), pero se propone CONTORNO
+    expect(p.contours[p.chosen].layer).toBe("CONTORNO");
+    expect(p.warnings.join(" ")).toContain("se propone el de la capa CONTORNO");
+  });
+
+  it("aunque el plano de referencia sea más grande, el contorno de la medición es el propuesto", () => {
+    const big: PointApi[] = [
+      { x: 0, y: 0 },
+      { x: 30, y: 0 },
+      { x: 30, y: 30 },
+      { x: 0, y: 30 },
+    ];
+    const p = ok(parseDxfPlan(exported(SQUARE, big)));
+    expect(p.contours.find((c) => c.layer === "PLANO_REF")!.area_m2).toBeCloseTo(900, 3);
+    expect(p.contours[p.chosen].layer).toBe("CONTORNO");
   });
 });

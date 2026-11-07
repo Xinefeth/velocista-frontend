@@ -25,8 +25,18 @@ import {
   IMPORT_DXF_UNIT_ASK,
   IMPORT_DXF_UNIT_SOURCE,
 } from "@/domain/measurement/labels";
+import { lengthLabel, polygonDims } from "@/domain/measurement/dimensions";
 import { boundsOf, fitView, type Pt } from "@/domain/measurement/plot";
-import { dots, grid, line, start, surface } from "@/ui/components/measurement/draw";
+import {
+  dimensionLabels,
+  drawLabels,
+  dots,
+  grid,
+  line,
+  start,
+  summaryBox,
+  surface,
+} from "@/ui/components/measurement/draw";
 import { Hint } from "@/ui/components/measurement/MeasurementUi";
 
 interface Props {
@@ -40,14 +50,22 @@ function Preview({ points }: { points: Pt[] }) {
     const s = surface(cv);
     const b = boundsOf(points);
     if (!s || !b) return;
-    const view = fitView(b, s.w, s.h, 24, 2);
+    // margen amplio: las cotas y los ángulos se dibujan hacia afuera del contorno
+    const view = fitView(b, s.w, s.h, 52, 2);
     grid(s, view);
     line(s, view, points, { color: s.color("--mid"), width: 2, closed: true });
     dots(s, view, points, s.color("--ink"), 3);
     start(s, view, points[0]);
+    const dims = polygonDims(points);
+    if (!dims) return;
+    const box = summaryBox(s, [
+      `Perímetro ${lengthLabel(dims.perimeter)}`,
+      `Área ${fmtEs(dims.area, 2)} m²`,
+    ]);
+    drawLabels(s, view, dimensionLabels(dims, { angles: true }), box);
   });
   return (
-    <div className="cv" style={{ height: 200 }}>
+    <div className="cv" style={{ height: 280 }}>
       <canvas ref={ref} role="img" aria-label="Vista previa del contorno del plano" />
     </div>
   );
@@ -138,7 +156,7 @@ export function ImportDxfPlan({ value, onChange }: Props) {
                   />
                   <span>
                     {c.layer} · {fmtEs(c.perimeter_m, 2)} m · {fmtEs(c.area_m2, 2)} m²
-                    {i === plan.chosen ? " (mayor área)" : ""}
+                    {i === plan.chosen ? " (propuesto)" : ""}
                   </span>
                 </label>
               ))}

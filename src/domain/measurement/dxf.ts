@@ -7,6 +7,7 @@
 // R2000 exige handles únicos (grupo 5) y marcadores de subclase (grupo 100). Los handles se reparten
 // con un solo contador, en el orden en que se escriben, así que son únicos y crecientes. Los acentos
 // y la ñ de los TEXT se escriben como \U+00XX para que se vean bien en cualquier programa de CAD.
+import { polygonDims } from "@/domain/measurement/dimensions";
 import { METHOD_LABEL, QUALITY } from "@/domain/measurement/labels";
 import type { MeasurementApi, PointApi } from "@/infrastructure/contracts/measurements";
 
@@ -370,20 +371,32 @@ export function measurementToDxf(m: MeasurementApi, options: DxfOptions = {}): s
   circleEntity(d, owner, "INICIO", { x: 0, y: 0 }, h * 0.8);
   textEntity(d, owner, { layer: "INICIO", text: "Inicio", x: h * 1.0, y: -h * 1.6, height: h });
 
-  // Cotas: el largo de cada lado en su punto medio, rotado a lo largo del lado y legible
-  if (ring.length >= 3)
-    ring.forEach((a, i) => {
-      const b = ring[(i + 1) % ring.length];
+  // Cotas: el largo de cada lado en su punto medio, rotado a lo largo del lado y legible, y el ángulo
+  // interior de cada vértice dentro del contorno (lo que se ve en pantalla va también al plano)
+  const dims = polygonDims(ring);
+  if (dims) {
+    for (const side of dims.sides)
       textEntity(d, owner, {
         layer: "COTAS",
-        text: `${Math.hypot(b.x - a.x, b.y - a.y).toFixed(2)} m`,
-        x: (a.x + b.x) / 2,
-        y: (a.y + b.y) / 2,
+        text: `${side.length.toFixed(2)} m`,
+        x: side.mid.x,
+        y: side.mid.y,
         height: h,
-        rotation: uprightAngle(a, b),
+        rotation: uprightAngle(side.from, side.to),
         center: true,
       });
-    });
+    for (const v of dims.vertices) {
+      const whole = Math.abs(v.interior - Math.round(v.interior)) < 0.05;
+      textEntity(d, owner, {
+        layer: "COTAS",
+        text: `${v.interior.toFixed(whole ? 0 : 1)}°`,
+        x: v.point.x - v.outward.x * h * 2.6,
+        y: v.point.y - v.outward.y * h * 2.6,
+        height: h,
+        center: true,
+      });
+    }
+  }
 
   // Resumen a la izquierda del dibujo
   const lines = summaryLines(m);

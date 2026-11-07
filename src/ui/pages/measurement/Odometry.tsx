@@ -27,7 +27,14 @@ import {
   QUALITY,
   signedPct,
 } from "@/domain/measurement/labels";
-import { diffLabel, lengthLabel, polygonDims, sideDiffs } from "@/domain/measurement/dimensions";
+import {
+  diffLabel,
+  lengthLabel,
+  MAX_ANGLE_CORNERS,
+  polygonDims,
+  realCorners,
+  sideDiffs,
+} from "@/domain/measurement/dimensions";
 import { importedPlanOf, type DxfSource } from "@/domain/measurement/dxfParse";
 import { area, boundsOf, fitView, perimeter, type Pt } from "@/domain/measurement/plot";
 import {
@@ -78,20 +85,22 @@ function MapCanvas({
     const b = boundsOf(ref0, raw, corrected ? corr : []);
     if (!b) return;
     // margen amplio: las cotas y los ángulos se dibujan hacia afuera del contorno medido
-    const view = fitView(b, s.w, s.h, r && r.polygon.length <= 12 ? 56 : 30, 2);
+    // las esquinas reales (un recorrido GPS trae cientos de puntos; rotular cada uno no se lee)
+    const corners = r ? realCorners(r.polygon).points : [];
+    const view = fitView(b, s.w, s.h, corners.length >= 3 ? 56 : 30, 2);
     grid(s, view);
     if (ref0)
       line(s, view, ref0, { color: s.color("--mid"), width: 1.4, dash: [6, 5], closed: true });
     line(s, view, raw, { color: s.color("--red"), width: 2.4 });
     if (corrected) line(s, view, corr, { color: s.color("--green"), width: 2.4 });
     line(s, view, closureSegment(raw), { color: s.color("--yellow"), width: 2, dash: [3, 3] });
-    if (r && r.polygon.length <= 12) dots(s, view, r.polygon, s.color("--ink"), 4);
+    if (r && corners.length <= MAX_ANGLE_CORNERS) dots(s, view, corners, s.color("--ink"), 4);
     if (raw.length) start(s, view, raw[0]);
     // Cotas: largo de cada lado del contorno medido (con la diferencia frente al plano si es
     // comparable), nombre y ángulo de cada vértice, y perímetro y área del recorrido
-    const dims = r && r.polygon.length <= 12 ? polygonDims(r.polygon) : null;
+    const dims = r ? polygonDims(corners) : null;
     if (r && dims) {
-      const diffs = ref0 ? sideDiffs(ref0, r.polygon) : null;
+      const diffs = ref0 ? sideDiffs(realCorners(ref0).points, corners) : null;
       const lines = [
         `Medido ${lengthLabel(corrected ? r.perimeter_m : r.raw_perimeter_m)} · ${fmtEs(corrected ? r.area_m2 : r.raw_area_m2, 2)} m²`,
       ];
@@ -104,7 +113,7 @@ function MapCanvas({
         s,
         view,
         dimensionLabels(dims, {
-          angles: true,
+          angles: corners.length <= MAX_ANGLE_CORNERS,
           sideText: (i) =>
             diffs ? `${dims.sides[i].label} ${diffLabel(diffs[i].diff)}` : dims.sides[i].label,
         }),
@@ -614,9 +623,7 @@ export function Odometry() {
                     },
               ]}
             />
-            {r.polygon.length <= 12 && (
-              <SidesTable polygon={r.polygon} plan={referencePoints(selected, plan)} />
-            )}
+            <SidesTable polygon={r.polygon} plan={referencePoints(selected, plan)} />
             <div className="corr">
               <button
                 type="button"

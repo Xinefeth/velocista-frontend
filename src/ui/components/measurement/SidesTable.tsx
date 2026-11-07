@@ -1,7 +1,13 @@
 // Tabla de los lados y ángulos del contorno medido (la misma información que las cotas del dibujo,
 // en texto para lectores de pantalla). Con un plano de referencia de los mismos vértices añade el
 // largo del plano y la diferencia por lado.
-import { diffLabel, lengthLabel, polygonDims, sideDiffs } from "@/domain/measurement/dimensions";
+import {
+  diffLabel,
+  lengthLabel,
+  polygonDims,
+  realCorners,
+  sideDiffs,
+} from "@/domain/measurement/dimensions";
 import type { Pt } from "@/domain/measurement/plot";
 
 interface Props {
@@ -12,9 +18,11 @@ interface Props {
 }
 
 export function SidesTable({ polygon, plan }: Props) {
-  const dims = polygonDims(polygon);
+  // la tabla usa las esquinas reales (un recorrido GPS trae cientos de puntos)
+  const corners = realCorners(polygon).points;
+  const dims = polygonDims(corners);
   if (!dims) return null;
-  const diffs = plan ? sideDiffs(plan, polygon) : null;
+  const diffs = plan ? sideDiffs(realCorners(plan).points, corners) : null;
   return (
     <>
       <div className="tw">

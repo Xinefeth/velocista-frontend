@@ -4,7 +4,9 @@
 // al backend) y analiza el resultado frente al plano. Todo con datos reales de la API.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/ui/components/Card";
+import { ExportDxfButton } from "@/ui/components/measurement/ExportDxfButton";
 import { Hint, Kpis, Semaforo } from "@/ui/components/measurement/MeasurementUi";
+import { ImportDxfPlan } from "@/ui/components/measurement/ImportDxfPlan";
 import { dots, grid, line, start, surface } from "@/ui/components/measurement/draw";
 import { useCanvas } from "@/application/hooks/useCanvas";
 import {
@@ -15,6 +17,7 @@ import {
   QUALITY,
   signedPct,
 } from "@/domain/measurement/labels";
+import { importedPlanOf, type DxfSource } from "@/domain/measurement/dxfParse";
 import { area, boundsOf, fitView, perimeter, type Pt } from "@/domain/measurement/plot";
 import {
   closureSegment,
@@ -99,7 +102,11 @@ export function Odometry() {
   const [corrected, setCorrected] = useState(true);
   const [msg, setMsg] = useState("");
 
-  const place = planOf(form);
+  // Plano leído de un archivo DXF (solo cuenta cuando se elige «Plano desde archivo»)
+  const [dxfSource, setDxfSource] = useState<DxfSource | null>(null);
+  const imported = useMemo(() => importedPlanOf(dxfSource), [dxfSource]);
+
+  const place = planOf(form, imported);
   const tape = tapeSideOf(form);
   const plan = typeof place === "string" ? null : place.plan;
   const devices = useMemo(() => [...new Set(all.map((m) => m.device_id))], [all]);
@@ -302,6 +309,7 @@ export function Odometry() {
               </label>
             </div>
           )}
+          {form.contour === "dxf" && <ImportDxfPlan value={dxfSource} onChange={setDxfSource} />}
           {form.contour === "otro" && (
             <>
               <label className="fld">
@@ -609,6 +617,11 @@ export function Odometry() {
                   </li>
                 ))}
             </ul>
+            {selected && (
+              <div style={{ marginTop: 14 }}>
+                <ExportDxfButton measurement={selected} />
+              </div>
+            )}
             <div className="navb">
               <button type="button" className="sb" onClick={() => next(3)}>
                 Repetir medición

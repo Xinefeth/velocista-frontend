@@ -4,7 +4,7 @@ import { area, perimeter, rectangle, type Pt } from "@/domain/measurement/plot";
 import { GREEN_MAX_PCT, WARNINGS } from "@/domain/measurement/labels";
 import type { MeasurementApi, MethodApi } from "@/infrastructure/contracts/measurements";
 
-export type ContourId = "aula" | "patio" | "cancha" | "escala" | "otro";
+export type ContourId = "aula" | "patio" | "cancha" | "escala" | "dxf" | "otro";
 
 export interface PlaceForm {
   contour: ContourId;
@@ -32,8 +32,12 @@ export const CONTOURS: Record<ContourId, { label: string; plan?: Pt[]; method: M
   },
   cancha: { label: "Cancha · plano 40 × 20 m", plan: rectangle(40, 20), method: "gps" },
   escala: { label: "Plano a escala (dibujo en papel)", method: "steps" },
+  dxf: { label: "Plano desde archivo (.dxf)", method: "steps" },
   otro: { label: "Otro (casa, calle, terreno…)", method: "steps" },
 };
+
+/** Mensaje cuando se eligió «Plano desde archivo» y aún no hay archivo válido. */
+export const DXF_PLAN_MISSING = "Elige un archivo .dxf.";
 
 const num = (v: string): number | null => {
   const n = Number(v.trim().replace(",", "."));
@@ -44,7 +48,13 @@ const num = (v: string): number | null => {
  * Plano real (en metros) del lugar elegido, o el error de la entrada. En «escala» el dibujo está
  * en cm y se lleva a tamaño real con 1:N; en «otro» largo y ancho son opcionales.
  */
-export function planOf(form: PlaceForm): { plan: Pt[] | null; name: string } | string {
+export function planOf(
+  form: PlaceForm,
+  imported: { name: string; points: Pt[] } | null = null,
+): { plan: Pt[] | null; name: string } | string {
+  // Plano de un archivo DXF (ya en metros): se usa tal cual, o se pide elegir el archivo
+  if (form.contour === "dxf")
+    return imported ? { plan: imported.points, name: imported.name } : DXF_PLAN_MISSING;
   const preset = CONTOURS[form.contour];
   if (preset.plan) return { plan: preset.plan, name: preset.label.split(" · ")[0] };
   const L = num(form.length);

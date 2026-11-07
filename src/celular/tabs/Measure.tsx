@@ -47,6 +47,7 @@ import {
   type WalkState,
 } from "@/domain/measurement/phone";
 import { smallField, TARGET_PCT } from "@/domain/measurement/gpsFit";
+import { ExportDxfButton } from "@/ui/components/measurement/ExportDxfButton";
 import { gpsApi, measurementsApi, READINGS_BATCH } from "@/infrastructure/http/measurements";
 import type {
   MeasurementApi,
@@ -812,6 +813,9 @@ export function Measure({
           )}
           <canvas ref={resultCv} aria-label="Mapa del resultado" />
           <p className="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
+          <div className="row">
+            <ExportDxfButton measurement={result} className="sb wide" />
+          </div>
           <div className="row">
             <button type="button" className="sb red wide" onClick={() => setScreen("setup")}>
               Nueva medición

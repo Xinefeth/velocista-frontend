@@ -166,3 +166,27 @@ export const GPS_TOO_SMALL_RESULT = (side: string, min: string) =>
   `Tu terreno mide unos ${side} m por lado y, con el error de tu GPS, el lado mínimo es ${min} m: es chico para el GPS. Mide por pasos.`;
 export const MEASURE_BY_STEPS = "Medir por pasos";
 export const OPEN_GPS_TAB = "Ver el error del GPS (pestaña 4)";
+
+/** Exportar el resultado como plano DXF (F1 del spec de exportar e importar DXF). */
+export const EXPORT_DXF = "Exportar DXF";
+export const EXPORT_DXF_HINT =
+  "Descarga el plano en metros, a tamaño real, para abrirlo en un programa de CAD.";
+export const EXPORT_DXF_DONE = (fileName: string) => `Plano descargado: ${fileName}`;
+export const EXPORT_DXF_ERROR = "No se pudo generar el plano DXF. Vuelve a intentarlo.";
+
+/** Importar un plano DXF como plano de referencia (F2 del spec de exportar e importar DXF). */
+export const IMPORT_DXF_CHOOSE = "Elegir archivo .dxf";
+export const IMPORT_DXF_CHANGE = "Elegir otro archivo";
+export const IMPORT_DXF_REMOVE = "Quitar archivo";
+export const IMPORT_DXF_HINT =
+  "El dibujo se toma a tamaño real. El archivo se lee en tu navegador y no se envía a ningún servidor.";
+export const IMPORT_DXF_UNIT = "Unidad del archivo";
+export const IMPORT_DXF_UNIT_ASK =
+  "El archivo no dice en qué unidad está dibujado. Elige la unidad (se propone metros).";
+export const IMPORT_DXF_CONTOURS = "Contornos cerrados del dibujo";
+export const IMPORT_DXF_TOO_BIG = "El archivo pesa más de 5 MB: usa un plano más liviano.";
+export const IMPORT_DXF_READ_ERROR = "No se pudo leer el archivo. Vuelve a elegirlo.";
+export const IMPORT_DXF_UNIT_SOURCE = {
+  header: "del archivo",
+  asked: "elegida por ti",
+} as const;

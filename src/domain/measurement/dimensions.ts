@@ -314,3 +314,205 @@ export function placeLabels(
   }
   return placed;
 }
+
+// ---- esquinas reales de un contorno con muchos puntos (por ejemplo un recorrido GPS) ----
+
+export interface CornerOptions {
+  /** Esquinas marcadas por el usuario: si hay 3 o más, son las esquinas y no se simplifica nada. */
+  marked?: readonly Pt[];
+  /** Un contorno con tantos vértices o menos ya se considera hecho de esquinas reales. */
+  keepAsIs?: number;
+  /** Tolerancia de Ramer-Douglas-Peucker en metros; por defecto, proporcional al tamaño. */
+  tolerance?: number;
+  /** Lados más cortos que esto (m) se funden con su vecino; por defecto, proporcional al tamaño. */
+  minSide?: number;
+  /** Un vértice cuyo ángulo interior queda a menos de estos grados de 180° es llano y se quita. */
+  flatDeg?: number;
+  /** Tope de esquinas: si quedan más, se sube la tolerancia hasta cumplirlo. */
+  maxCorners?: number;
+}
+
+export interface RealCorners {
+  points: Pt[];
+  /** `marked` si vienen de esquinas marcadas, `original` si el contorno ya era pequeño, `simplified` si se calcularon. */
+  source: "marked" | "original" | "simplified";
+  /** Tolerancia final usada (m); 0 si no se simplificó. */
+  tolerance: number;
+}
+
+/** Un contorno con hasta este número de vértices se toma tal cual (esquinas marcadas o recorrido por pasos). */
+export const KEEP_AS_IS = 24;
+/** La tolerancia es este porcentaje de la diagonal del contorno, acotada entre TOL_MIN_M y TOL_MAX_M. */
+export const TOL_RATIO = 0.02;
+export const TOL_MIN_M = 0.3;
+export const TOL_MAX_M = 4;
+/** La tolerancia no baja de este múltiplo del ruido estimado del recorrido (el ruido se ve en cada punto). */
+export const NOISE_FACTOR = 5;
+/** Un lado más corto que este porcentaje de la diagonal (y 0.3 m como mínimo) no es un lado real. */
+export const MIN_SIDE_RATIO = 0.04;
+export const MIN_SIDE_FLOOR_M = 0.3;
+/** Un ángulo a menos de estos grados de 180° se considera llano. */
+export const FLAT_DEG = 5;
+/** Más esquinas que esto no se rotulan con ángulos en el dibujo ni en el DXF. */
+export const MAX_ANGLE_CORNERS = 40;
+/** Tope de esquinas rotuladas: por encima se sube la tolerancia. */
+export const MAX_CORNERS = 60;
+
+/** Distancia de un punto a un segmento. */
+function distToSegment(p: Pt, a: Pt, b: Pt): number {
+  const ab = sub(b, a);
+  const l2 = dot(ab, ab);
+  if (l2 < SAME_M) return len(sub(p, a));
+  const t = Math.max(0, Math.min(1, dot(sub(p, a), ab) / l2));
+  return len(sub(p, { x: a.x + ab.x * t, y: a.y + ab.y * t }));
+}
+
+/** Ramer-Douglas-Peucker sobre una cadena abierta; devuelve los índices que se conservan. */
+function rdpKeep(chain: readonly Pt[], tol: number): number[] {
+  const keep = new Set<number>([0, chain.length - 1]);
+  const stack: [number, number][] = [[0, chain.length - 1]];
+  while (stack.length) {
+    const [i, j] = stack.pop()!;
+    let far = -1;
+    let worst = tol;
+    for (let k = i + 1; k < j; k++) {
+      const d = distToSegment(chain[k], chain[i], chain[j]);
+      if (d > worst) {
+        worst = d;
+        far = k;
+      }
+    }
+    if (far >= 0) {
+      keep.add(far);
+      stack.push([i, far], [far, j]);
+    }
+  }
+  return [...keep].sort((a, b) => a - b);
+}
+
+/**
+ * Ruido típico del recorrido (m): mediana de la distancia de cada punto a la recta que une los puntos
+ * 3 lugares antes y 3 después. En un recorrido limpio (por pasos, o muy suave) sale casi 0; en uno de
+ * GPS con ruido de ±1 m sale cerca de 0.8 m. La mediana no se deja engañar por las esquinas.
+ */
+export function estimateNoise(ring: readonly Pt[], k = 3): number {
+  const n = ring.length;
+  if (n < 2 * k + 3) return 0;
+  const d = ring.map((p, i) => distToSegment(p, ring[(i + n - k) % n], ring[(i + k) % n]));
+  d.sort((a, b) => a - b);
+  return d[Math.floor(d.length / 2)];
+}
+
+/** Simplifica un contorno cerrado: se parte en el punto más lejano del primero y se simplifican las dos mitades. */
+function simplifyRing(ring: readonly Pt[], tol: number): Pt[] {
+  let far = 0;
+  let best = -1;
+  ring.forEach((p, i) => {
+    const d = len(sub(p, ring[0]));
+    if (d > best) {
+      best = d;
+      far = i;
+    }
+  });
+  const first = ring.slice(0, far + 1);
+  const second = [...ring.slice(far), ring[0]];
+  const a = rdpKeep(first, tol).map((i) => first[i]);
+  const b = rdpKeep(second, tol).map((i) => second[i]);
+  return [...a, ...b.slice(1, -1)];
+}
+
+/** Ángulo interior de un vértice de un contorno de 3 o más puntos (grados, 0 a 360). */
+function interiorAt(ring: readonly Pt[], i: number, orientation: 1 | -1): number {
+  const n = ring.length;
+  const toPrev = unit(sub(ring[(i + n - 1) % n], ring[i]));
+  const toNext = unit(sub(ring[(i + 1) % n], ring[i]));
+  const from = orientation === 1 ? toNext : toPrev;
+  const to = orientation === 1 ? toPrev : toNext;
+  const a = (Math.atan2(cross(from, to), dot(from, to)) * 180) / Math.PI;
+  return a < 0 ? a + 360 : a;
+}
+
+/** Quita vértices llanos y funde los lados demasiado cortos, de uno en uno, hasta que no quede ninguno. */
+function prune(points: Pt[], minSide: number, flatDeg: number): Pt[] {
+  const ring = [...points];
+  for (let guard = 0; guard < 10000 && ring.length > 3; guard++) {
+    let twice = 0;
+    for (let i = 0; i < ring.length; i++) twice += cross(ring[i], ring[(i + 1) % ring.length]);
+    const orientation: 1 | -1 = twice >= 0 ? 1 : -1;
+    // 1) el vértice más llano, si está a menos de flatDeg de 180°
+    let flat = -1;
+    let flatGap = flatDeg;
+    ring.forEach((_, i) => {
+      const gap = Math.abs(interiorAt(ring, i, orientation) - 180);
+      if (gap <= flatGap) {
+        flatGap = gap;
+        flat = i;
+      }
+    });
+    if (flat >= 0) {
+      ring.splice(flat, 1);
+      continue;
+    }
+    // 2) el lado más corto, si no llega a minSide: se quita el extremo que menos cambia la forma
+    let short = -1;
+    let shortLen = minSide;
+    ring.forEach((p, i) => {
+      const l = len(sub(ring[(i + 1) % ring.length], p));
+      if (l < shortLen) {
+        shortLen = l;
+        short = i;
+      }
+    });
+    if (short < 0) break;
+    const tri = (i: number) => {
+      const n = ring.length;
+      return Math.abs(cross(sub(ring[i], ring[(i + n - 1) % n]), sub(ring[(i + 1) % n], ring[i])));
+    };
+    const a = short;
+    const b = (short + 1) % ring.length;
+    ring.splice(tri(a) <= tri(b) ? a : b, 1);
+  }
+  return ring;
+}
+
+/**
+ * Esquinas reales de un contorno. Un recorrido GPS trae cientos de puntos y rotular cada uno vuelve el
+ * plano ilegible; aquí se queda solo con las esquinas:
+ * 1) si el usuario marcó esquinas, son esas;
+ * 2) si el contorno ya es pequeño (por pasos o con esquinas marcadas), se usa tal cual;
+ * 3) si no, Ramer-Douglas-Peucker con una tolerancia que es lo mayor de: 2 % de la diagonal y 5 veces
+ *    el ruido estimado del recorrido, entre 0.3 y 4 m (supera el ruido del GPS sin comerse esquinas de
+ *    verdad: el ruido es absoluto, no depende del tamaño del terreno), y después se quitan los
+ *    vértices llanos (ángulo a 5° o menos de 180°) y se funden los lados muy cortos (menos del 4 % de la
+ *    diagonal). Si aun así hay demasiadas, se sube la tolerancia hasta el tope.
+ * El contorno sigue cerrado y conserva su sentido.
+ */
+export function realCorners(points: readonly Pt[], options: CornerOptions = {}): RealCorners {
+  const ring = cleanRing(points);
+  if (options.marked && cleanRing(options.marked).length >= 3)
+    return { points: cleanRing(options.marked), source: "marked", tolerance: 0 };
+  if (ring.length <= (options.keepAsIs ?? KEEP_AS_IS))
+    return { points: ring, source: "original", tolerance: 0 };
+
+  const xs = ring.map((p) => p.x);
+  const ys = ring.map((p) => p.y);
+  const diag = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const base =
+    options.tolerance ??
+    Math.min(TOL_MAX_M, Math.max(TOL_MIN_M, diag * TOL_RATIO, NOISE_FACTOR * estimateNoise(ring)));
+  const minSide = options.minSide ?? Math.max(MIN_SIDE_FLOOR_M, diag * MIN_SIDE_RATIO);
+  const flatDeg = options.flatDeg ?? FLAT_DEG;
+  const cap = options.maxCorners ?? MAX_CORNERS;
+
+  let tol = base;
+  let out = prune(simplifyRing(ring, tol), minSide, flatDeg);
+  // si el contorno es muy enredado se sube la tolerancia (hasta 8 veces) hasta cumplir el tope
+  for (let k = 0; k < 8 && out.length > cap; k++) {
+    tol *= 1.5;
+    out = prune(simplifyRing(ring, tol), minSide, flatDeg);
+  }
+  // un contorno que se simplifica por debajo de 3 puntos no sirve: se deja el original
+  if (out.length < 3 || !polygonDims(out))
+    return { points: ring, source: "original", tolerance: 0 };
+  return { points: out, source: "simplified", tolerance: tol };
+}

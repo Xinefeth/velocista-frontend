@@ -31,7 +31,13 @@ import {
   signedPct,
   WARNINGS,
 } from "@/domain/measurement/labels";
-import { chainSides, polygonDims, type PlacedLabel } from "@/domain/measurement/dimensions";
+import {
+  chainSides,
+  MAX_ANGLE_CORNERS,
+  polygonDims,
+  realCorners,
+  type PlacedLabel,
+} from "@/domain/measurement/dimensions";
 import { boundsOf, fitView, rectangle } from "@/domain/measurement/plot";
 import {
   DEFAULT_STEP_M,
@@ -148,12 +154,14 @@ function drawResult(cv: HTMLCanvasElement | null, m: MeasurementApi | null) {
   if (!s || !r) return;
   const b = boundsOf(r.raw_path, r.corrected_path, r.polygon);
   if (!b) return;
-  const dims = r.polygon.length <= 12 ? polygonDims(r.polygon) : null;
+  // solo las esquinas reales: un recorrido GPS trae cientos de puntos y no se rotulan todos
+  const corners = realCorners(r.polygon).points;
+  const dims = polygonDims(corners);
   // margen amplio si hay cotas: se dibujan hacia afuera del contorno
   const view = fitView(b, s.w, s.h, dims ? 40 : 14);
   line(s, view, r.raw_path, { color: s.color("--dim"), width: 1.2 });
   line(s, view, r.corrected_path, { color: s.color("--red"), width: 2.4 });
-  if (r.polygon.length <= 12) dots(s, view, r.polygon, s.color("--ink"), 4);
+  if (corners.length <= MAX_ANGLE_CORNERS) dots(s, view, corners, s.color("--ink"), 4);
   // En el celular solo se muestran los lados (sin ángulos), para no saturar la pantalla
   if (dims) drawLabels(s, view, dimensionLabels(dims));
 }

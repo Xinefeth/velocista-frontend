@@ -7,7 +7,12 @@
 // R2000 exige handles únicos (grupo 5) y marcadores de subclase (grupo 100). Los handles se reparten
 // con un solo contador, en el orden en que se escriben, así que son únicos y crecientes. Los acentos
 // y la ñ de los TEXT se escriben como \U+00XX para que se vean bien en cualquier programa de CAD.
-import { polygonDims } from "@/domain/measurement/dimensions";
+import {
+  MAX_ANGLE_CORNERS,
+  polygonDims,
+  realCorners,
+  type CornerOptions,
+} from "@/domain/measurement/dimensions";
 import { METHOD_LABEL, QUALITY } from "@/domain/measurement/labels";
 import type { MeasurementApi, PointApi } from "@/infrastructure/contracts/measurements";
 
@@ -26,6 +31,8 @@ export const DXF_LAYERS = [
 export interface DxfOptions {
   /** Alto del texto en metros; por defecto se calcula según el tamaño del terreno. */
   textHeight?: number;
+  /** Ajustes para hallar las esquinas reales del contorno (por defecto, los del dominio). */
+  corners?: CornerOptions;
 }
 
 const EOL = "\r\n";
@@ -187,7 +194,7 @@ const axesText = (m: MeasurementApi) =>
     : "Ejes: +X dirección inicial del recorrido (origen en el inicio)";
 
 /** Líneas del bloque TEXTOS: resumen de la medición y unidades. */
-function summaryLines(m: MeasurementApi): string[] {
+function summaryLines(m: MeasurementApi, cornerNote: string[]): string[] {
   const r = m.result!;
   const lines = [
     `Lugar: ${m.place_name || "sin nombre"}`,
@@ -202,7 +209,7 @@ function summaryLines(m: MeasurementApi): string[] {
     lines.push(
       `Frente al plano: perímetro ${r.perimeter_error_pct.toFixed(1)} % · área ${r.area_error_pct.toFixed(1)} %`,
     );
-  lines.push(axesText(m), "Unidades: metros (dibujo a tamaño real)");
+  lines.push(...cornerNote, axesText(m), "Unidades: metros (dibujo a tamaño real)");
   return lines;
 }
 
@@ -353,9 +360,15 @@ export function measurementToDxf(m: MeasurementApi, options: DxfOptions = {}): s
   polyline(d, owner, "TRAZO_CRUDO", raw, false);
   polyline(d, owner, "PLANO_REF", ref, true);
 
-  // Esquinas: los vértices del polígono salvo el que coincide con el inicio
+  // Esquinas reales: un recorrido GPS trae cientos de vértices y rotular cada uno vuelve el plano
+  // ilegible. CONTORNO, TRAZO y TRAZO_CRUDO llevan todos los puntos; ESQUINAS y COTAS solo estas.
+  const found = realCorners(ring, options.corners);
+  const corners = found.points;
+  const withAngles = corners.length <= MAX_ANGLE_CORNERS;
+
+  // Esquinas: los vértices simplificados salvo el que coincide con el inicio
   let n = 0;
-  for (const p of ring) {
+  for (const p of corners) {
     if (same(p, { x: 0, y: 0 })) continue;
     n++;
     pointEntity(d, owner, "ESQUINAS", p);
@@ -373,7 +386,7 @@ export function measurementToDxf(m: MeasurementApi, options: DxfOptions = {}): s
 
   // Cotas: el largo de cada lado en su punto medio, rotado a lo largo del lado y legible, y el ángulo
   // interior de cada vértice dentro del contorno (lo que se ve en pantalla va también al plano)
-  const dims = polygonDims(ring);
+  const dims = polygonDims(corners);
   if (dims) {
     for (const side of dims.sides)
       textEntity(d, owner, {
@@ -385,7 +398,7 @@ export function measurementToDxf(m: MeasurementApi, options: DxfOptions = {}): s
         rotation: uprightAngle(side.from, side.to),
         center: true,
       });
-    for (const v of dims.vertices) {
+    for (const v of withAngles ? dims.vertices : []) {
       const whole = Math.abs(v.interior - Math.round(v.interior)) < 0.05;
       textEntity(d, owner, {
         layer: "COTAS",
@@ -399,7 +412,11 @@ export function measurementToDxf(m: MeasurementApi, options: DxfOptions = {}): s
   }
 
   // Resumen a la izquierda del dibujo
-  const lines = summaryLines(m);
+  const cornerNote = [
+    `Cotas: ${corners.length} esquinas ${found.source === "simplified" ? "detectadas" : "marcadas"}`,
+    ...(withAngles ? [] : [`Ángulos no rotulados (más de ${MAX_ANGLE_CORNERS} esquinas)`]),
+  ];
+  const lines = summaryLines(m, cornerNote);
   const width = Math.max(...lines.map((l) => l.length)) * h * 0.7;
   lines.forEach((text, i) =>
     textEntity(d, owner, {

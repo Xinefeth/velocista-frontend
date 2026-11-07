@@ -25,7 +25,12 @@ import {
   IMPORT_DXF_UNIT_ASK,
   IMPORT_DXF_UNIT_SOURCE,
 } from "@/domain/measurement/labels";
-import { lengthLabel, polygonDims } from "@/domain/measurement/dimensions";
+import {
+  lengthLabel,
+  MAX_ANGLE_CORNERS,
+  polygonDims,
+  realCorners,
+} from "@/domain/measurement/dimensions";
 import { boundsOf, fitView, type Pt } from "@/domain/measurement/plot";
 import {
   dimensionLabels,
@@ -54,15 +59,23 @@ function Preview({ points }: { points: Pt[] }) {
     const view = fitView(b, s.w, s.h, 52, 2);
     grid(s, view);
     line(s, view, points, { color: s.color("--mid"), width: 2, closed: true });
-    dots(s, view, points, s.color("--ink"), 3);
+    // las cotas van en las esquinas reales; el resumen es el del contorno completo
+    const corners = realCorners(points).points;
+    dots(s, view, corners, s.color("--ink"), 3);
     start(s, view, points[0]);
-    const dims = polygonDims(points);
-    if (!dims) return;
+    const full = polygonDims(points);
+    const dims = polygonDims(corners);
+    if (!full || !dims) return;
     const box = summaryBox(s, [
-      `Perímetro ${lengthLabel(dims.perimeter)}`,
-      `Área ${fmtEs(dims.area, 2)} m²`,
+      `Perímetro ${lengthLabel(full.perimeter)}`,
+      `Área ${fmtEs(full.area, 2)} m²`,
     ]);
-    drawLabels(s, view, dimensionLabels(dims, { angles: true }), box);
+    drawLabels(
+      s,
+      view,
+      dimensionLabels(dims, { angles: corners.length <= MAX_ANGLE_CORNERS }),
+      box,
+    );
   });
   return (
     <div className="cv" style={{ height: 280 }}>

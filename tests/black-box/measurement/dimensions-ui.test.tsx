@@ -7,6 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { PhoneApp } from "@/celular/PhoneApp";
 import { PhoneProvider } from "@/celular/context";
+import { measurementToDxf } from "@/domain/measurement/dxf";
 import type { DxfSource } from "@/domain/measurement/dxfParse";
 import { ImportDxfPlan } from "@/ui/components/measurement/ImportDxfPlan";
 import { SidesTable } from "@/ui/components/measurement/SidesTable";
@@ -14,6 +15,7 @@ import { Odometry } from "@/ui/pages/measurement/Odometry";
 import { stubBrowser } from "../pages/_harness";
 import { expectClean, stubCanvas, type CanvasLog } from "./_canvas";
 import { measurement, mockApi, result } from "./_api";
+import { gpsMeasurement, realWalk } from "../../unit/measurement/_gps";
 
 const fixture = (name: string) =>
   readFileSync(join(process.cwd(), "tests/fixtures/dxf", name), "utf8");
@@ -218,6 +220,75 @@ describe("celular · resultado de una medición", () => {
     expect(log.texts).toContain("6.00 m");
     expect(log.texts.some((t) => t.includes("°"))).toBe(false);
     expect(log.texts.some((t) => /^[A-D]\b/.test(t))).toBe(false);
+    expectClean(log);
+  });
+});
+
+describe("recorrido GPS real (473 vértices): el dibujo rotula solo las esquinas", () => {
+  const real = realWalk();
+  const gps = gpsMeasurement(real.CONTORNO, real.TRAZO, real.TRAZO_CRUDO);
+  const sideLabels = (texts: string[]) =>
+    texts.filter((t) => / m$/.test(t) && !t.startsWith("Per"));
+
+  it.each([
+    ["1440 px", 700],
+    ["360 px", 300],
+  ])("vista previa del DXF exportado (%s): 4 lados y 4 vértices, sin mancha", async (_n, width) => {
+    const log = stubCanvas(width, 280);
+    render(<Harness />);
+    choose(file(measurementToDxf(gps), "Test-59.dxf"));
+    await screen.findByLabelText("Contorno leído del archivo");
+    await waitFor(() => expect(log.texts.some((t) => t.startsWith("Perímetro"))).toBe(true));
+    expect(log.texts).toContain("Perímetro 273.99 m"); // el contorno completo, no el simplificado
+    expect(sideLabels(log.texts)).toHaveLength(4);
+    expect(log.texts.filter((t) => /^[A-Z]+ \d+(\.\d)?°$/.test(t))).toHaveLength(4);
+    expect(log.rects.length).toBeLessThan(15);
+    expectClean(log);
+  });
+
+  it("Odometría paso 4 con el recorrido GPS: lados y vértices de las esquinas, y su tabla", async () => {
+    const log = stubCanvas(700, 360);
+    mockApi({
+      "GET /measurements": { items: [gps], total: 1, limit: 200, offset: 0 },
+      "GET /measurements/59": gps,
+    });
+    render(<Odometry />);
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir Test #59" }));
+    await waitFor(() =>
+      expect(document.querySelector(".odo-flow")?.getAttribute("data-step")).toBe("4"),
+    );
+    await waitFor(() => expect(log.texts.some((t) => t.startsWith("Medido "))).toBe(true));
+    expect(log.rects.length).toBeLessThan(20);
+    expectClean(log);
+    const table = await screen.findByRole("table", { name: "Lados del contorno medido" });
+    expect(within(table).getAllByRole("row").length).toBeLessThanOrEqual(9); // cabecera + ≤ 8 lados
+  });
+
+  it("celular, resultado: solo los 4 lados, sin ángulos", async () => {
+    const log = stubCanvas(300, 240);
+    const DEVICE = "cel-621b8d99-aaaa";
+    mockApi({
+      [`GET /calibrations/${DEVICE}`]: {
+        device_id: DEVICE,
+        calibration: { ...gps.calibration },
+        ready: { steps: true, car: false, gps: true },
+        records: {},
+      },
+      "GET /measurements": { items: [gps], total: 1, limit: 200, offset: 0 },
+      "GET /measurements/59": gps,
+    });
+    render(
+      <PhoneProvider initialDevice={DEVICE}>
+        <PhoneApp />
+      </PhoneProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "3. Medir" }));
+    const table = await screen.findByRole("table", { name: "Mis mediciones" });
+    fireEvent.click(await within(table).findByText("Test #59"));
+    await screen.findByRole("region", { name: "Resultado" });
+    await waitFor(() => expect(sideLabels(log.texts).length).toBeGreaterThan(0));
+    expect(sideLabels(log.texts)).toHaveLength(4);
+    expect(log.texts.some((t) => t.includes("°"))).toBe(false);
     expectClean(log);
   });
 });

@@ -163,7 +163,13 @@ export const GPS_MIN_SIDE_ADVICE = (min: string) =>
 export const GPS_NO_TRIALS_ADVICE =
   "Aún no hay pruebas de error del GPS de este celular (pestaña 4). Al terminar, el aviso del servidor sigue diciendo si el lugar es chico.";
 export const GPS_TOO_SMALL_RESULT = (side: string, min: string) =>
-  `Tu terreno mide unos ${side} m por lado y, con el error de tu GPS, el lado mínimo es ${min} m: es chico para el GPS. Mide por pasos.`;
+  `Tu terreno mide unos ${side} m en su lado corto y, con el error de tu GPS, el lado mínimo es ${min} m: es chico para el GPS. Mide por pasos.`;
+/** Medición confiable en un terreno menor que el mínimo: se avisa sin contradecir la calidad. */
+export const GPS_TOO_SMALL_RELIABLE = (pct: string, side: string, min: string) =>
+  `La medición salió confiable (error de cierre ${pct} %), pero tu terreno (lado corto ≈ ${side} m) es más chico que el mínimo recomendado para tu GPS (${min} m). Si quieres más precisión, mide por pasos.`;
+/** El mínimo de las pruebas SP-06 no es creíble (alguna prueba salió mal): no se usa para avisar. */
+export const GPS_MIN_SIDE_IMPLAUSIBLE = (min: string) =>
+  `Tus pruebas de error del GPS dan un lado mínimo de ${min} m, que no es creíble (probablemente alguna prueba salió mal). Repítelas o bórralas en la pestaña 4.`;
 export const MEASURE_BY_STEPS = "Medir por pasos";
 export const OPEN_GPS_TAB = "Ver el error del GPS (pestaña 4)";
 

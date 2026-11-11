@@ -19,7 +19,9 @@ import {
   errorText,
   fmtEs,
   GPS_MIN_SIDE_ADVICE,
+  GPS_MIN_SIDE_IMPLAUSIBLE,
   GPS_NO_TRIALS_ADVICE,
+  GPS_TOO_SMALL_RELIABLE,
   GPS_TOO_SMALL_RESULT,
   MEASURE_BY_STEPS,
   METHOD_LABEL,
@@ -56,7 +58,14 @@ import {
   type Fix,
   type WalkState,
 } from "@/domain/measurement/phone";
-import { smallField, TARGET_PCT } from "@/domain/measurement/gpsFit";
+import {
+  isPlausibleSize,
+  RELIABLE_CLOSURE_PCT,
+  shortSide,
+  smallField,
+  TARGET_PCT,
+  visibleWarnings,
+} from "@/domain/measurement/gpsFit";
 import { ExportDxfButton } from "@/ui/components/measurement/ExportDxfButton";
 import { gpsApi, measurementsApi, READINGS_BATCH } from "@/infrastructure/http/measurements";
 import type {
@@ -224,7 +233,10 @@ export function Measure({
     setMinSide(undefined);
     gpsApi
       .summary(device, TARGET_PCT)
-      .then((s) => setMinSide(s.min_side_m ?? null))
+      // un mínimo 0, negativo o NaN no es una medición: se trata como «sin pruebas»
+      .then((s) =>
+        setMinSide(Number.isFinite(s.min_side_m) && (s.min_side_m ?? 0) > 0 ? s.min_side_m : null),
+      )
       .catch(() => {
         // sin conexión: no se avisa antes; el aviso del servidor al terminar sigue
         minSideFor.current = null;
@@ -562,10 +574,16 @@ export function Measure({
   const q = res ? QUALITY[res.quality] : null;
   const gps = form.method === "gps";
   const side = r ? r.walk.dist - r.walk.sideFrom : 0;
+  const gpsDone = !!(result?.closed && res && result.method === "gps");
+  // Mínimo de SP-06 absurdo (alguna prueba salió mal): no se usa para decir «es chico»
+  const implausible = minSide != null && !isPlausibleSize(minSide);
+  // Lado corto del trazo corregido (no perímetro / 4 ni el lado largo, que fallan en un terreno alargado)
   const tooSmall =
-    result?.closed && res && result.method === "gps" && minSide != null
-      ? smallField(res.perimeter_m, minSide)
+    gpsDone && res && minSide != null
+      ? smallField(shortSide(res.polygon.length >= 3 ? res.polygon : res.corrected_path), minSide)
       : null;
+  const reliable =
+    !!res && (res.quality === "green" || res.closure_error_pct < RELIABLE_CLOSURE_PCT);
 
   return (
     <>
@@ -596,11 +614,15 @@ export function Measure({
           </p>
           {gps && minSide !== undefined && (
             <div className="gpsadvice" role="status">
-              {minSide != null ? (
+              {minSide != null && !implausible ? (
                 <p>{GPS_MIN_SIDE_ADVICE(fmtEs(minSide, 1))}</p>
               ) : (
                 <>
-                  <p>{GPS_NO_TRIALS_ADVICE}</p>
+                  <p>
+                    {minSide != null
+                      ? GPS_MIN_SIDE_IMPLAUSIBLE(fmtEs(minSide, 1))
+                      : GPS_NO_TRIALS_ADVICE}
+                  </p>
                   {onOpenGpsTab && (
                     <button type="button" className="sb wide" onClick={onOpenGpsTab}>
                       {OPEN_GPS_TAB}
@@ -834,19 +856,37 @@ export function Measure({
                 : `${signedPct(res.perimeter_error_pct)} / ${signedPct(res.area_error_pct)}`}
             </b>
           </div>
-          {res.warnings.length > 0 && (
+          {visibleWarnings(res.warnings, res.min_gps_size_m).length > 0 && (
             <ul className="warns">
-              {res.warnings.map((w) => (
+              {visibleWarnings(res.warnings, res.min_gps_size_m).map((w) => (
                 <li key={w}>{WARNINGS[w] ?? w}</li>
               ))}
             </ul>
           )}
+          {gpsDone && implausible && minSide != null && (
+            <div className="gpsadvice" role="status">
+              <p>{GPS_MIN_SIDE_IMPLAUSIBLE(fmtEs(minSide, 1))}</p>
+              {onOpenGpsTab && (
+                <button type="button" className="sb wide" onClick={onOpenGpsTab}>
+                  {OPEN_GPS_TAB}
+                </button>
+              )}
+            </div>
+          )}
           {tooSmall && (
-            <div className="gpsadvice warn" role="status">
-              <p>{GPS_TOO_SMALL_RESULT(fmtEs(tooSmall.side, 1), fmtEs(tooSmall.minSide, 1))}</p>
+            <div className={reliable ? "gpsadvice" : "gpsadvice warn"} role="status">
+              <p>
+                {reliable
+                  ? GPS_TOO_SMALL_RELIABLE(
+                      fmtEs(res.closure_error_pct, 1),
+                      fmtEs(tooSmall.side, 1),
+                      fmtEs(tooSmall.minSide, 1),
+                    )
+                  : GPS_TOO_SMALL_RESULT(fmtEs(tooSmall.side, 1), fmtEs(tooSmall.minSide, 1))}
+              </p>
               <button
                 type="button"
-                className="sb red wide"
+                className={reliable ? "sb wide" : "sb red wide"}
                 onClick={() => {
                   // vuelve al formulario con el mismo lugar y el método por pasos
                   setForm((f) => ({ ...f, method: "steps", place: result.place_name }));

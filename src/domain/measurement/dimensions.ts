@@ -359,7 +359,7 @@ export const MAX_ANGLE_CORNERS = 40;
 export const MAX_CORNERS = 60;
 
 /** Distancia de un punto a un segmento. */
-function distToSegment(p: Pt, a: Pt, b: Pt): number {
+export function distToSegment(p: Pt, a: Pt, b: Pt): number {
   const ab = sub(b, a);
   const l2 = dot(ab, ab);
   if (l2 < SAME_M) return len(sub(p, a));
@@ -368,7 +368,7 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 }
 
 /** Ramer-Douglas-Peucker sobre una cadena abierta; devuelve los índices que se conservan. */
-function rdpKeep(chain: readonly Pt[], tol: number): number[] {
+export function rdpKeep(chain: readonly Pt[], tol: number): number[] {
   const keep = new Set<number>([0, chain.length - 1]);
   const stack: [number, number][] = [[0, chain.length - 1]];
   while (stack.length) {

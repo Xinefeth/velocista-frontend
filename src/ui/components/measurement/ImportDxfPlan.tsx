@@ -3,7 +3,6 @@
 // no envía nada a ningún servidor. El componente es controlado: `value` es lo que se eligió y
 // `onChange` avisa cuando cambia el archivo, la unidad o el contorno.
 import { useId, useMemo, useState } from "react";
-import { useCanvas } from "@/application/hooks/useCanvas";
 import {
   DXF_MAX_BYTES,
   DXF_UNIT_LABEL,
@@ -25,63 +24,12 @@ import {
   IMPORT_DXF_UNIT_ASK,
   IMPORT_DXF_UNIT_SOURCE,
 } from "@/domain/measurement/labels";
-import {
-  lengthLabel,
-  MAX_ANGLE_CORNERS,
-  polygonDims,
-  realCorners,
-} from "@/domain/measurement/dimensions";
-import { boundsOf, fitView, type Pt } from "@/domain/measurement/plot";
-import {
-  dimensionLabels,
-  drawLabels,
-  dots,
-  grid,
-  line,
-  start,
-  summaryBox,
-  surface,
-} from "@/ui/components/measurement/draw";
 import { Hint } from "@/ui/components/measurement/MeasurementUi";
+import { PlanPreview } from "@/ui/components/measurement/PlanPreview";
 
 interface Props {
   value: DxfSource | null;
   onChange: (next: DxfSource | null) => void;
-}
-
-/** Vista previa del contorno con los colores de la consola. */
-function Preview({ points }: { points: Pt[] }) {
-  const ref = useCanvas((cv) => {
-    const s = surface(cv);
-    const b = boundsOf(points);
-    if (!s || !b) return;
-    // margen amplio: las cotas y los ángulos se dibujan hacia afuera del contorno
-    const view = fitView(b, s.w, s.h, 52, 2);
-    grid(s, view);
-    line(s, view, points, { color: s.color("--mid"), width: 2, closed: true });
-    // las cotas van en las esquinas reales; el resumen es el del contorno completo
-    const corners = realCorners(points).points;
-    dots(s, view, corners, s.color("--ink"), 3);
-    start(s, view, points[0]);
-    const full = polygonDims(points);
-    const dims = polygonDims(corners);
-    if (!full || !dims) return;
-    const box = summaryBox(s, [
-      `Perímetro ${lengthLabel(full.perimeter)}`,
-      `Área ${fmtEs(full.area, 2)} m²`,
-    ]);
-    drawLabels(
-      s,
-      view,
-      dimensionLabels(dims, { angles: corners.length <= MAX_ANGLE_CORNERS }),
-      box,
-    );
-  });
-  return (
-    <div className="cv" style={{ height: 280 }}>
-      <canvas ref={ref} role="img" aria-label="Vista previa del contorno del plano" />
-    </div>
-  );
 }
 
 export function ImportDxfPlan({ value, onChange }: Props) {
@@ -175,7 +123,7 @@ export function ImportDxfPlan({ value, onChange }: Props) {
               ))}
             </fieldset>
           )}
-          <Preview points={contour.points} />
+          <PlanPreview points={contour.points} />
           <dl className="specs" aria-label="Contorno leído del archivo">
             <dt>Archivo</dt>
             <dd>{value.fileName}</dd>

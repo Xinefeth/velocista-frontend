@@ -1,8 +1,10 @@
 // Vista Áreas y planos (CU-3 y CU-5): el área de una figura de cualquier forma marcando puntos
 // (HU-41) y el plano desde los lados y ángulos que se conocen (HU-43). Los cálculos son del
 // backend (EN-42: /polygons/from-points y /polygons/solve); la vista dibuja y compara con el plano.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/ui/components/Card";
+import { ImportDxfPlan } from "@/ui/components/measurement/ImportDxfPlan";
+import { importedPlanOf, type DxfSource } from "@/domain/measurement/dxfParse";
 import { Hint, Kpis, PageHead, Semaforo } from "@/ui/components/measurement/MeasurementUi";
 import { dots, grid, line, surface, tag } from "@/ui/components/measurement/draw";
 import { useCanvas } from "@/application/hooks/useCanvas";
@@ -164,7 +166,7 @@ function ShapeResult({ shape }: { shape: PolygonApi | null }) {
         )}
       </ul>
       <div className="tw" style={{ marginTop: 8 }}>
-        <table className="t" aria-label="Lados y ángulos de la figura">
+        <table className="t compact" aria-label="Lados y ángulos de la figura">
           <thead>
             <tr>
               <th className="l">#</th>
@@ -201,20 +203,41 @@ function PlanCompare({ shape }: { shape: PolygonApi | null }) {
   const [scale, setScale] = useState("1");
   const L = Number(length) * Number(scale);
   const W = Number(width) * Number(scale);
-  const valid = L > 0 && W > 0;
-  const plan = valid ? rectangle(L, W) : null;
+  // el plano se escribe (largo × ancho a escala) o se toma de un archivo .dxf, que ya viene a tamaño real
+  const [source, setSource] = useState<"rect" | "dxf">("rect");
+  const [dxf, setDxf] = useState<DxfSource | null>(null);
+  const imported = useMemo(() => importedPlanOf(dxf), [dxf]);
+  const fromFile = source === "dxf";
+  const valid = fromFile ? !!imported : L > 0 && W > 0;
+  const plan = fromFile ? (imported?.points ?? null) : valid ? rectangle(L, W) : null;
   const pct = (a: number, b: number) => ((a - b) / b) * 100;
   return (
     <Card pbi="HU-38 · HU-43" sprint="2">
       <div className="hd">
         <h2>Comparar con el plano</h2>
-        <span className="tag purple">Plano 1:{scale || "—"}</span>
+        <span className="tag purple">{fromFile ? "Plano DXF" : `Plano 1:${scale || "—"}`}</span>
       </div>
-      <p className="note" style={{ margin: "0 0 8px" }}>
-        Medidas del plano dibujado (largo × ancho) y su escala: se llevan a tamaño real y se
-        comparan con la figura calculada.
-      </p>
-      <div className="g3">
+      <label className="fld">
+        <span className="lbl">Plano</span>
+        <select
+          className="inp"
+          aria-label="Fuente del plano"
+          value={source}
+          onChange={(e) => setSource(e.target.value as "rect" | "dxf")}
+        >
+          <option value="rect">Rectángulo (largo × ancho y escala)</option>
+          <option value="dxf">Archivo .dxf</option>
+        </select>
+      </label>
+      {fromFile ? (
+        <ImportDxfPlan value={dxf} onChange={setDxf} />
+      ) : (
+        <p className="note" style={{ margin: "0 0 8px" }}>
+          Medidas del plano dibujado (largo × ancho) y su escala: se llevan a tamaño real y se
+          comparan con la figura calculada.
+        </p>
+      )}
+      <div className="g3" style={fromFile ? { display: "none" } : undefined}>
         <label className="fld">
           <span className="lbl">Largo (m)</span>
           <input
@@ -243,14 +266,15 @@ function PlanCompare({ shape }: { shape: PolygonApi | null }) {
           />
         </label>
       </div>
-      {!valid && <Hint text="Escribe largo, ancho y escala mayores que 0." error />}
+      {!valid && !fromFile && <Hint text="Escribe largo, ancho y escala mayores que 0." error />}
+      {!valid && fromFile && !dxf && <Hint text="Elige un archivo .dxf." />}
       {valid && plan && shape && (
         <div className="tw" style={{ marginTop: 10 }}>
-          <table className="t" aria-label="Plano frente a figura">
+          <table className="t compact" aria-label="Plano frente a figura">
             <thead>
               <tr>
                 <th className="l">Dato</th>
-                <th>Plano (real)</th>
+                <th>Plano</th>
                 <th>Figura</th>
                 <th>Diferencia</th>
               </tr>
@@ -421,7 +445,7 @@ export function Areas() {
         ) : (
           <>
             <div className="tw" style={{ marginTop: 10 }}>
-              <table className="t" aria-label="Datos conocidos">
+              <table className="t compact" aria-label="Datos conocidos">
                 <thead>
                   <tr>
                     <th className="l">#</th>

@@ -342,3 +342,59 @@
     grid-column: span 12;
   }
 }
+
+/* Selector de archivo .dxf: el botón nativo toma el estilo de los botones de la consola (.sb), solo con tokens */
+.importdxf input[type="file"]::file-selector-button {
+  height: 32px;
+  margin-right: 10px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line2);
+  background: var(--panel3);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.importdxf input[type="file"]:hover::file-selector-button {
+  border-color: var(--line3);
+}
+.importdxf input[type="file"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Tablas de pocas columnas (comparar con el plano, lados): sin el ancho mínimo de 820 px de table.t,
+   así que las columnas caben sin desplazamiento a 1440 y a 360 px; cabeceras en --mid */
+table.t.compact {
+  min-width: 0;
+  table-layout: auto;
+}
+table.t.compact th,
+table.t.compact td {
+  padding: 8px 6px;
+}
+table.t.compact th {
+  color: var(--mid);
+  white-space: normal;
+  letter-spacing: 0.04em;
+}
+table.t.compact td {
+  font-size: 12px;
+}
+/* la primera columna (lugar, nombre) envuelve en vez de ensanchar la tabla */
+table.t.compact td:first-child,
+table.t.compact td.l {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  table.t.compact th,
+  table.t.compact td {
+    padding: 7px 4px;
+  }
+  /* en pantallas angostas también las cifras con su unidad pueden pasar a otra línea */
+  table.t.compact td {
+    white-space: normal;
+  }
+}

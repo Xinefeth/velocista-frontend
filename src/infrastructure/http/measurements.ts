@@ -77,9 +77,10 @@ export const gpsApi = {
       body: JSON.stringify({ place_name: placeName }),
     }),
   remove: (id: number) => request<null>(`/gps-trials/${id}`, { method: "DELETE" }),
-  summary: (deviceId?: string, targetPct?: number) =>
+  /** `targetPct` y `minTrials` son configurables; sin ellos manda el servidor (`config` del resumen). */
+  summary: (deviceId?: string, targetPct?: number, minTrials?: number) =>
     request<GpsSummaryApi>(
-      `/gps-trials/summary${query({ device_id: deviceId, target_pct: targetPct })}`,
+      `/gps-trials/summary${query({ device_id: deviceId, target_pct: targetPct, min_trials: minTrials })}`,
     ),
 };
 

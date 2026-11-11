@@ -16,15 +16,24 @@ import {
 import { METHOD_LABEL, QUALITY } from "@/domain/measurement/labels";
 import type { MeasurementApi, PointApi } from "@/infrastructure/contracts/measurements";
 
-/** Capas del plano: color ACI (7 blanco, 1 rojo, 3 verde, 5 azul, 8 gris) y si nace congelada. */
+/**
+ * Capas del plano: color ACI (1 rojo, 3 verde, 5 azul, 8 gris, 30 naranja, 200 violeta) y si nace congelada.
+ * Ninguna usa el 7: ese color lo dibuja cada programa según su fondo y en algunos (LibreCAD con fondo
+ * negro) sale negro sobre negro. COTAS y TEXTOS usan el violeta 200 (191, 0, 255), que tiene casi la
+ * misma luminancia que la media entre negro y blanco: contraste ≈ 4.7:1 sobre negro y ≈ 4.5:1 sobre
+ * blanco, o sea legible en los dos fondos, y no se parece a las demás capas.
+ * CONTORNO usa el naranja 30 (255, 127, 0), un color fijo: el 7 se dibuja negro sobre fondo blanco y en
+ * algunos programas (LibreCAD con fondo negro) también negro, o sea invisible. El naranja se ve sobre
+ * fondo negro (contraste ≈ 8:1) y sobre blanco (≈ 2.5:1), y no se confunde con las otras capas.
+ */
 export const DXF_LAYERS = [
-  { name: "CONTORNO", color: 7, frozen: false },
+  { name: "CONTORNO", color: 30, frozen: false },
   { name: "TRAZO", color: 3, frozen: false },
   { name: "TRAZO_CRUDO", color: 8, frozen: true }, // apagada por defecto
   { name: "ESQUINAS", color: 1, frozen: false },
   { name: "INICIO", color: 5, frozen: false },
-  { name: "COTAS", color: 7, frozen: false },
-  { name: "TEXTOS", color: 7, frozen: false },
+  { name: "COTAS", color: 200, frozen: false },
+  { name: "TEXTOS", color: 200, frozen: false },
   { name: "PLANO_REF", color: 5, frozen: false },
 ] as const;
 

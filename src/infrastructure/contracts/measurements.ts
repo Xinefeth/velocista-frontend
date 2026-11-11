@@ -168,8 +168,24 @@ export interface GpsTrialApi {
   result: {
     methods: Record<GpsMethodApi, GpsMethodErrorApi>;
     reported_accuracy_m: number;
+    /** CU-4: error usando solo los primeros N segundos quieto en cada punto (clave = segundos). */
+    by_wait?: Record<string, GpsWaitErrorApi | null>;
+    /** CU-4: error usando solo lecturas con precisión ≤ umbral (clave = umbral en m). */
+    by_accuracy?: Record<string, GpsAccuracyErrorApi | null>;
   };
   created_at: string;
+}
+
+/** CU-4: error de una prueba con una sola configuración de espera o de umbral de precisión. */
+export interface GpsWaitErrorApi {
+  /** `false` si no había lecturas suficientes con esa espera. */
+  usable: boolean;
+  error_m: number | null;
+}
+export interface GpsAccuracyErrorApi extends GpsWaitErrorApi {
+  /** Lecturas que cumplen el umbral y lecturas totales. */
+  kept: number;
+  total: number;
 }
 
 export interface GpsTrialBodyApi {
@@ -194,6 +210,86 @@ export interface GpsSummaryApi {
   mean_reported_accuracy_m?: number;
   target_pct?: number;
   min_side_m: number | null;
+  /** CU-4: todo lo siguiente es aditivo; un backend anterior no lo manda. */
+  config?: GpsConfigApi;
+  environments?: Partial<Record<EnvironmentApi, GpsEnvironmentApi>>;
+  by_distance?: GpsDistanceBandApi[];
+  error_trend?: "flat" | "grows" | null;
+  by_accuracy?: GpsAccuracyBandApi[];
+  recommended_accuracy_m?: number | null;
+  by_wait?: GpsWaitBandApi[];
+  reported_vs_real?: GpsReportedVsRealApi | null;
+  warnings?: GpsWarningApi[];
+  conclusion?: GpsConclusionApi;
+}
+
+export interface GpsConfigApi {
+  target_pct: number;
+  min_trials: number;
+  accuracy_thresholds_m: number[];
+  wait_seconds: number[];
+  distance_bands_m: number[];
+}
+
+export interface GpsEnvironmentApi {
+  trials: number;
+  enough_data: boolean;
+  missing_trials: number;
+  best_method: GpsMethodApi | null;
+  mean_error_m: number | null;
+  max_error_m: number | null;
+  /** Lado mínimo recomendado para ese entorno. */
+  min_side_m: number | null;
+}
+
+export interface GpsDistanceBandApi {
+  from_m: number;
+  /** `null` en la última banda (sin tope). */
+  to_m: number | null;
+  trials: number;
+  mean_error_m: number | null;
+  max_error_m: number | null;
+  mean_error_pct: number | null;
+}
+
+export interface GpsAccuracyBandApi {
+  max_accuracy_m: number;
+  usable_trials: number;
+  mean_error_m: number | null;
+  max_error_m: number | null;
+  mean_kept_pct: number | null;
+}
+
+export interface GpsWaitBandApi {
+  seconds: number;
+  usable_trials: number;
+  mean_error_m: number | null;
+  max_error_m: number | null;
+}
+
+export interface GpsReportedVsRealApi {
+  trials: number;
+  mean_reported_accuracy_m: number;
+  mean_expected_error_m: number;
+  mean_real_error_m: number;
+  /** > 1: el celular es optimista (el error real supera lo que informa). */
+  ratio: number | null;
+  optimistic: boolean;
+}
+
+export interface GpsWarningApi {
+  code: string;
+  environment: EnvironmentApi | null;
+  message: string;
+}
+
+export interface GpsConclusionApi {
+  code: "no_data" | "insufficient_data" | "ok";
+  best_method: GpsMethodApi | null;
+  min_side_m: number | null;
+  trials: number;
+  ready_environments?: string[];
+  text: string;
 }
 
 export interface ModelErrorsApi {

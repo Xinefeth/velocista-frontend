@@ -151,7 +151,7 @@ export function Model({ active }: { active: boolean }) {
         </p>
         {items.length > 0 && (
           <div className="tw">
-            <table className="t" aria-label="Mediciones para el modelo">
+            <table className="t compact" aria-label="Mediciones para el modelo">
               <thead>
                 <tr>
                   <th>Usar</th>
@@ -253,7 +253,7 @@ export function Model({ active }: { active: boolean }) {
             </b>
           </div>
           <div className="tw" style={{ marginTop: 10 }}>
-            <table className="t">
+            <table className="t compact">
               <thead>
                 <tr>
                   <th>Medición</th>

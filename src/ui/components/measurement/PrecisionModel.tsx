@@ -187,7 +187,7 @@ export function PrecisionModel() {
             </select>
           </label>
           <div className="tw" style={{ maxHeight: 240, overflow: "auto", marginTop: 10 }}>
-            <table className="t">
+            <table className="t compact">
               <thead>
                 <tr>
                   <th className="l">Usar</th>
@@ -321,7 +321,7 @@ export function PrecisionModel() {
                 : "No: en la medición de validación no mejoró."}
           </p>
           <div className="tw">
-            <table className="t" aria-label="Error antes y después del modelo">
+            <table className="t compact" aria-label="Error antes y después del modelo">
               <thead>
                 <tr>
                   <th className="l">Medición</th>

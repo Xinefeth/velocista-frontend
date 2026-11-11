@@ -150,7 +150,27 @@ describe("estructura del archivo", () => {
     expect(flags.TRAZO_CRUDO.flag & 1).toBe(1);
     for (const l of DXF_LAYERS.filter((x) => x.name !== "TRAZO_CRUDO"))
       expect(flags[l.name].flag & 1).toBe(0);
-    for (const l of DXF_LAYERS) expect([1, 3, 5, 7, 8]).toContain(flags[l.name].color);
+    // colores ACI fijos: CONTORNO en naranja (30) y COTAS y TEXTOS en violeta (200), legibles sobre negro y blanco
+    expect(Object.fromEntries(DXF_LAYERS.map((l) => [l.name, flags[l.name].color]))).toEqual({
+      CONTORNO: 30,
+      TRAZO: 3,
+      TRAZO_CRUDO: 8,
+      ESQUINAS: 1,
+      INICIO: 5,
+      COTAS: 200,
+      TEXTOS: 200,
+      PLANO_REF: 5,
+    });
+    // el 7 lo dibuja cada programa según su fondo (en LibreCAD con fondo negro sale negro sobre negro)
+    for (const l of DXF_LAYERS) expect(flags[l.name].color, l.name).not.toBe(7);
+    // el violeta 200 (191, 0, 255) se lee en negro y en blanco: contraste ≥ 4.5:1 en los dos
+    const lum = (r: number, g: number, b: number) => {
+      const c = [r, g, b].map((v) => (v / 255) ** 2.4); // aproximación de la curva sRGB
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const L = lum(191, 0, 255);
+    expect((L + 0.05) / 0.05).toBeGreaterThanOrEqual(4.5); // sobre negro
+    expect(1.05 / (L + 0.05)).toBeGreaterThanOrEqual(4.45); // sobre blanco (≈ 4.5)
   });
 
   it("los handles son hexadecimales únicos y crecientes, y $HANDSEED es mayor que todos", () => {

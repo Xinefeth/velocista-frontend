@@ -200,7 +200,7 @@ export function TrackComparison() {
       </div>
       <Card className="s12" pbi="HU-30" sprint="2">
         <div className="tw">
-          <table className="t" aria-label="Diseño frente a medido">
+          <table className="t compact" aria-label="Diseño frente a medido">
             <thead>
               <tr>
                 <th className="l">Dato</th>

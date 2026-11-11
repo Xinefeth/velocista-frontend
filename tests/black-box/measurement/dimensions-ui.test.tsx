@@ -199,7 +199,7 @@ describe("celular · resultado de una medición", () => {
     records: {},
   };
 
-  it("dibuja solo los lados (sin ángulos ni nombres de vértice)", async () => {
+  it("dibuja los lados y los ángulos de cada esquina", async () => {
     const log = stubCanvas(300, 240);
     const m = measurement(3);
     mockApi({
@@ -218,8 +218,7 @@ describe("celular · resultado de una medición", () => {
     await screen.findByRole("region", { name: "Resultado" });
     await waitFor(() => expect(log.texts).toContain("10.00 m"));
     expect(log.texts).toContain("6.00 m");
-    expect(log.texts.some((t) => t.includes("°"))).toBe(false);
-    expect(log.texts.some((t) => /^[A-D]\b/.test(t))).toBe(false);
+    for (const v of ["A", "B", "C", "D"]) expect(log.texts).toContain(`${v} 90°`);
     expectClean(log);
   });
 });
@@ -264,7 +263,7 @@ describe("recorrido GPS real (473 vértices): el dibujo rotula solo las esquinas
     expect(within(table).getAllByRole("row").length).toBeLessThanOrEqual(9); // cabecera + ≤ 8 lados
   });
 
-  it("celular, resultado: solo los 4 lados, sin ángulos", async () => {
+  it("celular, resultado: los 4 lados y los 4 ángulos de las esquinas", async () => {
     const log = stubCanvas(300, 240);
     const DEVICE = "cel-621b8d99-aaaa";
     mockApi({
@@ -288,7 +287,7 @@ describe("recorrido GPS real (473 vértices): el dibujo rotula solo las esquinas
     await screen.findByRole("region", { name: "Resultado" });
     await waitFor(() => expect(sideLabels(log.texts).length).toBeGreaterThan(0));
     expect(sideLabels(log.texts)).toHaveLength(4);
-    expect(log.texts.some((t) => t.includes("°"))).toBe(false);
+    expect(log.texts.filter((t) => /^[A-D] \d+(\.\d)?°$/.test(t))).toHaveLength(4);
     expectClean(log);
   });
 });

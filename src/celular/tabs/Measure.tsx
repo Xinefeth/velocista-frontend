@@ -33,11 +33,19 @@ import {
 } from "@/domain/measurement/labels";
 import {
   chainSides,
-  MAX_ANGLE_CORNERS,
   polygonDims,
   realCorners,
   type PlacedLabel,
 } from "@/domain/measurement/dimensions";
+import {
+  closeRadius,
+  LIVE_MAX_ANGLE_SIDES,
+  liveView,
+  newLiveState,
+  stepLive,
+  type LiveState,
+  type LiveView,
+} from "@/domain/measurement/liveCorners";
 import { boundsOf, fitView, rectangle } from "@/domain/measurement/plot";
 import {
   DEFAULT_STEP_M,
@@ -138,6 +146,8 @@ interface Run {
   t0: number;
   walk: WalkState;
   marks: { x: number; y: number }[];
+  /** Esquinas detectadas sobre la marcha en el camino abierto (método GPS, sin esquinas marcadas). */
+  live: LiveState;
   gps0: Fix | null;
   lastT: number | null;
   lastCorner: number;
@@ -157,13 +167,14 @@ function drawResult(cv: HTMLCanvasElement | null, m: MeasurementApi | null) {
   // solo las esquinas reales: un recorrido GPS trae cientos de puntos y no se rotulan todos
   const corners = realCorners(r.polygon).points;
   const dims = polygonDims(corners);
+  // con más de 12 lados solo longitudes, sin ángulos (como en la consola)
+  const withAngles = corners.length <= LIVE_MAX_ANGLE_SIDES;
   // margen amplio si hay cotas: se dibujan hacia afuera del contorno
   const view = fitView(b, s.w, s.h, dims ? 40 : 14);
   line(s, view, r.raw_path, { color: s.color("--dim"), width: 1.2 });
   line(s, view, r.corrected_path, { color: s.color("--red"), width: 2.4 });
-  if (corners.length <= MAX_ANGLE_CORNERS) dots(s, view, corners, s.color("--ink"), 4);
-  // En el celular solo se muestran los lados (sin ángulos), para no saturar la pantalla
-  if (dims) drawLabels(s, view, dimensionLabels(dims));
+  if (corners.length <= LIVE_MAX_ANGLE_SIDES) dots(s, view, corners, s.color("--ink"), 4);
+  if (dims) drawLabels(s, view, dimensionLabels(dims, { angles: withAngles }));
 }
 
 export function Measure({
@@ -301,6 +312,27 @@ export function Measure({
     vibrate(auto ? [120, 80, 120] : 120);
   }
 
+  /**
+   * Esquinas, lados y ángulos del trazo en vivo. Con esquinas marcadas (por pasos, o 3 o más) mandan
+   * esas, con lo caminado en cada lado. Si no (método GPS), se detectan sobre el camino abierto: el
+   * seguimiento se recalcula como máximo cada segundo y solo con un punto nuevo, y lo confirmado no se
+   * mueve. Para el mismo recorrido el resultado final usa `realCorners` sobre el contorno suavizado del
+   * servidor, así que el número de esquinas puede diferir en una por el ruido del camino crudo.
+   */
+  function liveModel(r: Run, advance: boolean): { view: LiveView; detected: number } {
+    const pts = r.walk.path;
+    const here = pts[pts.length - 1];
+    const marked = r.method !== "gps" || r.marks.length >= 3;
+    if (!marked && advance) r.live = stepLive(r.live, pts, Date.now());
+    const corners = marked ? r.marks : r.live.corners.map((c) => c.p);
+    const v = liveView(pts[0], corners, here, {
+      walked: marked ? r.walk.sides : undefined,
+      currentWalked: marked ? r.walk.dist - r.walk.sideFrom : undefined,
+      closeWithin: closeRadius(marked ? 0 : r.live.tol),
+    });
+    return { view: v, detected: marked ? 0 : r.live.corners.length };
+  }
+
   function drawLive() {
     const r = run.current;
     const s = surface(liveCv.current);
@@ -309,7 +341,8 @@ export function Measure({
     const pts = r.walk.path;
     const here = pts[pts.length - 1];
     const b = boundsOf(pts)!;
-    const v = fitView(b, s.w, s.h, Math.min(s.w, s.h) * 0.1, 4);
+    const v = fitView(b, s.w, s.h, Math.min(s.w, s.h) * 0.14, 4);
+    const model = liveModel(r, true).view;
     grid(s, v);
     line(s, v, [here, pts[0]], { color: s.color("--dim"), width: 1, dash: [4, 5] });
     line(s, v, pts, { color: s.color("--red"), width: 2.6 });
@@ -323,23 +356,38 @@ export function Measure({
       s.ctx.lineTo(x - 5, y);
       s.ctx.fill();
     }
-    const side = r.walk.dist - r.walk.sideFrom;
+    // esquinas detectadas (GPS): un punto blanco, como las esquinas del resultado
+    if (r.method === "gps")
+      dots(
+        s,
+        v,
+        r.live.corners.map((c) => c.p),
+        s.color("--ink"),
+        4,
+      );
+    const side = model.current?.length ?? 0;
     const [hereX, hereY] = v.P(here);
-    // huecos que ya ocupa el largo del tramo actual y el círculo de «tú»
-    const taken: PlacedLabel[] = [{ id: "here", x: hereX, y: hereY, w: 16, h: 16, free: true }];
-    if (side >= 0.3) {
+    const [startX, startY] = v.P(pts[0]);
+    // huecos que ya ocupan el círculo de «tú», el marcador INI y el largo del tramo actual
+    const taken: PlacedLabel[] = [
+      { id: "here", x: hereX, y: hereY, w: 18, h: 18, free: true },
+      { id: "start", x: startX, y: startY, w: 22, h: 22, free: true },
+    ];
+    if (!model.closed && side >= 0.3) {
       tag(s, hereX, hereY - 8, `${fmtEs(side, 1)} m`, s.color("--red-hi"));
       taken.push({ id: "side", x: hereX, y: hereY - 12.5, w: 70, h: 17, free: true });
     }
-    // Cotas en vivo: largo de cada lado ya cerrado (entre esquinas) y distancia al inicio
-    const labels: DimLabel[] = chainSides([pts[0], ...r.marks], r.walk.sides).map((c) => ({
-      id: `side-${c.index}`,
-      text: c.label,
-      at: c.mid,
-      outward: c.outward,
-    }));
+    // Largo de cada lado terminado, sobre el lado (hacia afuera del recorrido)
+    const verts = model.sides.length ? [model.sides[0].from, ...model.sides.map((x) => x.to)] : [];
+    const labels: DimLabel[] = chainSides(
+      verts,
+      model.sides.map((x) => x.length),
+    ).map((c) => ({ id: `side-${c.index}`, text: c.label, at: c.mid, outward: c.outward }));
+    // Ángulo en cada esquina, en grados enteros; no pisa a los largos porque van en la misma colocación
+    for (const [i, a] of model.angles.entries())
+      labels.push({ id: `angle-${i}`, text: `${a.deg}°`, at: a.at, outward: a.outward });
     const toStart = Math.hypot(here.x - pts[0].x, here.y - pts[0].y);
-    if (toStart >= 0.3)
+    if (!model.closed && toStart >= 0.3)
       labels.push({
         id: "to-start",
         text: `Inicio ${fmtEs(toStart, 1)} m`,
@@ -381,6 +429,7 @@ export function Measure({
         t0: Date.now(),
         walk: newWalk(),
         marks: [],
+        live: newLiveState(),
         gps0: null,
         lastT: null,
         lastCorner: 0,
@@ -561,6 +610,17 @@ export function Measure({
   const res = result?.result ?? null;
   const q = res ? QUALITY[res.quality] : null;
   const gps = form.method === "gps";
+  // filas del panel en vivo: lados terminados y ángulos de las mismas esquinas que el lienzo
+  const liveRows = (() => {
+    if (!r)
+      return { sides: [] as number[], angles: [] as { name: string; deg: number }[], detected: 0 };
+    const m = liveModel(r, false);
+    return {
+      sides: m.view.sides.map((x) => x.length),
+      angles: m.view.angles.map((a) => ({ name: a.name, deg: a.deg })),
+      detected: m.detected,
+    };
+  })();
   const side = r ? r.walk.dist - r.walk.sideFrom : 0;
   const tooSmall =
     result?.closed && res && result.method === "gps" && minSide != null
@@ -747,10 +807,22 @@ export function Measure({
           </p>
           <div className="kv" style={{ marginTop: 10 }}>
             <span>Lados terminados</span>
-            <b>
-              {r.walk.sides.length
-                ? r.walk.sides.map((s, i) => `${i + 1}) ${fmtEs(s, 1)} m`).join(" · ")
-                : "—"}
+            <b className="list">
+              {liveRows.sides.length ? (
+                liveRows.sides.map((len, i) => (
+                  <span key={i}>{`${i + 1}) ${fmtEs(len, 1)} m`}</span>
+                ))
+              ) : (
+                <span>—</span>
+              )}
+            </b>
+            <span>Ángulos</span>
+            <b className="list">
+              {liveRows.angles.length ? (
+                liveRows.angles.map((a) => <span key={a.name}>{`${a.name} ${a.deg}°`}</span>)
+              ) : (
+                <span>—</span>
+              )}
             </b>
             <span>Pasos</span>
             <b>{r.method === "gps" ? "—" : r.walk.steps}</b>
@@ -767,6 +839,8 @@ export function Measure({
               )}{" "}
               m
             </b>
+            <span>Esquinas detectadas</span>
+            <b>{r.method === "gps" ? liveRows.detected : "—"}</b>
             <span>Esquinas marcadas</span>
             <b>{view.corners}</b>
             <span>Tiempo</span>

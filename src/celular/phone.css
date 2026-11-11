@@ -327,6 +327,18 @@ select.inp {
   font-size: 13px;
   color: var(--mid);
 }
+/* lista de valores que envuelve por valor completo (lados, ángulos): nunca parte «3) 8.9 m» en dos */
+.kv b.list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 10px;
+}
+.kv b.list span {
+  white-space: nowrap;
+  color: inherit;
+  font-size: inherit;
+}
 .kv b {
   font-family: var(--mono);
   font-weight: 400;

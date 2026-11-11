@@ -8,6 +8,13 @@ import { surface } from "@/ui/components/measurement/draw";
 import { useCanvas } from "@/application/hooks/useCanvas";
 import { deviceCode, errorText, fmtEs } from "@/domain/measurement/labels";
 import { gpsFits, TARGET_PCT } from "@/domain/measurement/gpsFit";
+import {
+  DistanceTable,
+  EnvironmentTable,
+  GpsConclusion,
+  ReportedVsReal,
+  WaitTables,
+} from "@/ui/components/measurement/GpsSizePanels";
 import { gpsApi } from "@/infrastructure/http/measurements";
 import type { GpsSummaryApi, GpsTrialApi } from "@/infrastructure/contracts/measurements";
 
@@ -67,15 +74,21 @@ export function GpsTrials() {
   const [device, setDevice] = useState("");
   const [devices, setDevices] = useState<string[]>([]);
   const [side, setSide] = useState("6");
+  // CU-4: objetivo y mínimo de pruebas configurables; vacío = lo que diga el servidor
+  const [target, setTarget] = useState(String(TARGET_PCT));
+  const [minTrials, setMinTrials] = useState("");
   const [state, setState] = useState<"loading" | "ok" | "error">("loading");
   const [error, setError] = useState("");
 
-  const load = useCallback(async (deviceId: string) => {
+  const targetN = positive(target);
+  const minN = positive(minTrials, true);
+
+  const load = useCallback(async (deviceId: string, targetPct?: number, minCount?: number) => {
     setState("loading");
     try {
       const [list, sum] = await Promise.all([
         gpsApi.list(deviceId || undefined),
-        gpsApi.summary(deviceId || undefined, TARGET_PCT),
+        gpsApi.summary(deviceId || undefined, targetPct, minCount),
       ]);
       setTrials(list);
       setSummary(sum);
@@ -88,13 +101,14 @@ export function GpsTrials() {
   }, []);
 
   useEffect(() => {
-    void load(device);
-  }, [device, load]);
+    void load(device, targetN, minN);
+  }, [device, targetN, minN, load]);
 
   const ordered = useMemo(() => [...trials].sort((a, b) => a.id - b.id), [trials]);
   const chart = useCanvas((cv) => drawChart(cv, ordered));
   const single = summary?.methods.single;
   const best = summary?.best_method ? summary.methods[summary.best_method] : undefined;
+  const targetShown = summary?.config?.target_pct ?? summary?.target_pct ?? targetN ?? TARGET_PCT;
   const verdict = gpsFits(Number(side), summary?.min_side_m ?? null);
 
   return (
@@ -133,8 +147,31 @@ export function GpsTrials() {
             ))}
           </select>
         </label>
+        <div className="g2" style={{ marginTop: 10 }}>
+          <label className="fld">
+            <span className="lbl">Error objetivo (%)</span>
+            <input
+              className="inp m"
+              inputMode="decimal"
+              aria-label="Error objetivo del GPS (%)"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+            />
+          </label>
+          <label className="fld">
+            <span className="lbl">Mínimo de pruebas por entorno</span>
+            <input
+              className="inp m"
+              inputMode="numeric"
+              aria-label="Mínimo de pruebas por entorno"
+              placeholder={summary?.config ? String(summary.config.min_trials) : ""}
+              value={minTrials}
+              onChange={(e) => setMinTrials(e.target.value)}
+            />
+          </label>
+        </div>
         <div className="acts" style={{ marginTop: 10 }}>
-          <button type="button" className="sb" onClick={() => void load(device)}>
+          <button type="button" className="sb" onClick={() => void load(device, targetN, minN)}>
             Actualizar
           </button>
         </div>
@@ -177,7 +214,7 @@ export function GpsTrials() {
           </span>
         </div>
         <div className="tw" style={{ marginTop: 10 }}>
-          <table className="t">
+          <table className="t compact">
             <thead>
               <tr>
                 <th className="l">Lugar</th>
@@ -265,7 +302,8 @@ export function GpsTrials() {
             <span>
               <b>Regla del equipo</b>
               <small>
-                El GPS sirve si su error máximo es menor al {TARGET_PCT} % del lado más corto:{" "}
+                El GPS sirve si su error máximo es menor al {fmtEs(targetShown, 0)} % del lado más
+                corto:{" "}
                 {summary?.min_side_m != null
                   ? `lado mínimo ${fmtEs(summary.min_side_m, 0)} m.`
                   : "falta la primera prueba."}
@@ -274,6 +312,43 @@ export function GpsTrials() {
           </li>
         </ul>
       </Card>
+
+      <Card className="s7" pbi="CU-4" sprint="2">
+        <div className="hd">
+          <h2>Lado mínimo por entorno</h2>
+        </div>
+        <EnvironmentTable summary={summary} />
+        <GpsConclusion summary={summary} />
+      </Card>
+
+      <Card className="s5" pbi="CU-4" sprint="2">
+        <div className="hd">
+          <h2>Error según la distancia</h2>
+        </div>
+        <DistanceTable summary={summary} />
+      </Card>
+
+      <Card className="s7" pbi="CU-4" sprint="2">
+        <div className="hd">
+          <h2>Esperar a la precisión antes de medir</h2>
+        </div>
+        <WaitTables summary={summary} />
+      </Card>
+
+      <Card className="s5" pbi="CU-4" sprint="2">
+        <div className="hd">
+          <h2>Precisión informada frente a la real</h2>
+        </div>
+        <ReportedVsReal summary={summary} />
+      </Card>
     </>
   );
+}
+
+/** Número mayor que 0 escrito en un campo (coma o punto), o `undefined` si está vacío o no sirve. */
+function positive(v: string, integer = false): number | undefined {
+  const n = Number(v.trim().replace(",", "."));
+  return v.trim() && Number.isFinite(n) && n > 0 && (!integer || Number.isInteger(n))
+    ? n
+    : undefined;
 }

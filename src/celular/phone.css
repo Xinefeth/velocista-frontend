@@ -539,6 +539,24 @@ table.t td:first-child {
   text-align: left;
   font-family: var(--sans);
 }
+/* tablas de pocas columnas del celular: sin desplazamiento horizontal a 360 px; cabeceras en --mid */
+table.t.compact th,
+table.t.compact td {
+  padding: 8px 5px;
+}
+table.t.compact th {
+  color: var(--mid);
+  white-space: normal;
+  letter-spacing: 0.04em;
+}
+table.t.compact td {
+  font-size: 12px;
+  white-space: normal;
+}
+table.t.compact td:first-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 #histBody tr[data-open] {
   cursor: pointer;
 }

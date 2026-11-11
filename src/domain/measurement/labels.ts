@@ -196,3 +196,19 @@ export const IMPORT_DXF_UNIT_SOURCE = {
   header: "del archivo",
   asked: "elegida por ti",
 } as const;
+
+// ---- CU-1 · Plano desde una pista guardada del Trazador (Odometría, paso 1)
+export const TRACK_PLAN_CHOOSE = "Pista guardada";
+export const TRACK_PLAN_PLACEHOLDER = "Elige una pista…";
+export const TRACK_PLAN_EMPTY = "No hay pistas guardadas. Dibuja y guarda una pista en el Trazador.";
+export const TRACK_PLAN_HINT =
+  "El dibujo del Trazador está en centímetros sobre el tablero: di cómo se relaciona con el lugar real.";
+export const TRACK_PLAN_SCALE_LEGEND = "Escala del dibujo";
+export const TRACK_PLAN_BY_RATIO = "Escala 1:N";
+export const TRACK_PLAN_BY_SIDE = "Largo real de un lado (m)";
+export const TRACK_PLAN_SIDE = "Lado medido en el lugar";
+export const TRACK_PLAN_REAL_SIDE = "Largo real del lado";
+export const TRACK_PLAN_ROUNDED =
+  "Esquinas redondeadas: el perímetro y el área incluyen las curvas; los lados y ángulos son entre los vértices dibujados.";
+export const TRACK_PLAN_RETRY = "Reintentar";
+export const TRACK_PLAN_PREVIEW = "Vista previa de la pista a tamaño real";

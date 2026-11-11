@@ -994,7 +994,7 @@ export function Measure({
           <h2>Mis mediciones</h2>
         </div>
         <div className="tw">
-          <table className="t" aria-label="Mis mediciones">
+          <table className="t compact" aria-label="Mis mediciones">
             <thead>
               <tr>
                 <th>Lugar</th>

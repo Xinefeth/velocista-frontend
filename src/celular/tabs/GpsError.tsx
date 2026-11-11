@@ -8,6 +8,14 @@ import { line, start as startMark, surface } from "@/ui/components/measurement/d
 import { errorText, fmtEs } from "@/domain/measurement/labels";
 import { fitView } from "@/domain/measurement/plot";
 import { stepCounter, stillPoint, toLocal, type Fix } from "@/domain/measurement/phone";
+import { recommendedAccuracy, waitText } from "@/domain/measurement/gpsSize";
+import {
+  DistanceTable,
+  EnvironmentTable,
+  GpsConclusion,
+  ReportedVsReal,
+  WaitTables,
+} from "@/ui/components/measurement/GpsSizePanels";
 import { gpsApi } from "@/infrastructure/http/measurements";
 import type {
   EnvironmentApi,
@@ -46,13 +54,24 @@ interface Trial {
   offs: (() => void)[];
 }
 
+/** Precisión a esperar: la escrita, 0 = no esperar, o la recomendada (null si no hay ninguna). */
+export function neededAccuracy(typed: string, recommended: number | null): number | null {
+  const t = typed.trim().replace(",", ".");
+  if (t === "") return recommended;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function GpsError({ active }: { active: boolean }) {
   const { device, cal, notify } = usePhone();
   const [place, setPlace] = useState("");
   const [env, setEnv] = useState<EnvironmentApi>("open");
   const [mode, setMode] = useState<RefMode>("known");
   const [real, setReal] = useState("30");
-  const [stage, setStage] = useState<"idle" | "start" | "walk" | "end" | "done">("idle");
+  const [stage, setStage] = useState<"idle" | "wait" | "start" | "walk" | "end" | "done">("idle");
+  // CU-4: precisión que se espera antes de medir; vacío = la recomendada por las pruebas, 0 = no esperar
+  const [waitAcc, setWaitAcc] = useState("");
+  const skipWait = useRef(false);
   const [left, setLeft] = useState(0);
   const [live, setLive] = useState({ steps: 0, dist: 0, acc: 0 });
   const [res, setRes] = useState<GpsTrialApi | null>(null);
@@ -62,6 +81,7 @@ export function GpsError({ active }: { active: boolean }) {
   const trial = useRef<Trial | null>(null);
   const cv = useRef<HTMLCanvasElement>(null);
   const stepM = cal?.step_length_m ?? null;
+  const needed = neededAccuracy(waitAcc, recommendedAccuracy(summary));
 
   const load = useCallback(async () => {
     try {
@@ -108,12 +128,37 @@ export function GpsError({ active }: { active: boolean }) {
     setStage("idle");
   }
 
+  /** Espera a que el GPS informe `needed` m o menos; el botón «Medir sin esperar» la salta. */
+  function waitForAccuracy(t: Trial, limit: number) {
+    skipWait.current = false;
+    return new Promise<void>((done) => {
+      const finish = () => {
+        window.clearInterval(timer);
+        off();
+        done();
+      };
+      const off = sensors.onFix((f) => {
+        setLive((l) => ({ ...l, acc: f.accuracy_m }));
+        if (f.accuracy_m <= limit) finish();
+      });
+      const timer = window.setInterval(() => {
+        if (t.cancelled || skipWait.current) finish();
+      }, 250);
+      t.offs.push(finish);
+    });
+  }
+
   async function still(t: Trial) {
     return sensors.collectFixes(STILL_S, setLeft, () => t.cancelled);
   }
 
   async function onButton() {
     try {
+      // durante la espera de precisión el botón mide sin esperar
+      if (stage === "wait") {
+        skipWait.current = true;
+        return;
+      }
       if (stage === "idle") {
         setMsg(NO_MSG);
         setRes(null);
@@ -134,6 +179,12 @@ export function GpsError({ active }: { active: boolean }) {
           offs: [],
         };
         trial.current = t;
+        if (needed != null && !(sensors.fix && sensors.fix.accuracy_m <= needed)) {
+          setLive((l) => ({ ...l, acc: sensors.fix?.accuracy_m ?? 0 }));
+          setStage("wait");
+          await waitForAccuracy(t, needed);
+          if (t.cancelled) return;
+        }
         setStage("start");
         t.start = await still(t);
         if (t.cancelled) return;
@@ -248,6 +299,12 @@ export function GpsError({ active }: { active: boolean }) {
       "Cuando estés ahí, toca el botón. Tendrás que quedarte quieta unos segundos.",
       "Paso 1 de 3",
     ],
+    wait: [
+      "warn",
+      "Espera a que el GPS se afine",
+      waitText(live.acc || null, needed ?? 0),
+      "Paso 1 de 3",
+    ],
     start: [
       "warn",
       "Quédate quieta en el inicio",
@@ -274,16 +331,21 @@ export function GpsError({ active }: { active: boolean }) {
     ],
   }[stage];
   const best = res?.result.methods.filtered;
+  // avisos de pocas pruebas (el backend los manda ya en español)
+  const globalWarning = summary?.warnings?.find((w) => w.environment == null);
+  const envWarning = summary?.warnings?.find((w) => w.environment === env);
   const button =
     stage === "idle"
       ? "Estoy en el inicio"
-      : stage === "start"
-        ? `Midiendo el inicio · ${left} s`
-        : stage === "walk"
-          ? mode === "loop"
-            ? "Volví al inicio"
-            : "Llegué al final"
-          : `Midiendo el final · ${left} s`;
+      : stage === "wait"
+        ? "Medir sin esperar"
+        : stage === "start"
+          ? `Midiendo el inicio · ${left} s`
+          : stage === "walk"
+            ? mode === "loop"
+              ? "Volví al inicio"
+              : "Llegué al final"
+            : `Midiendo el final · ${left} s`;
 
   return (
     <>
@@ -322,6 +384,24 @@ export function GpsError({ active }: { active: boolean }) {
               <option value="trees">Bajo árboles</option>
               <option value="indoor">Bajo techo</option>
             </select>
+            {globalWarning && <p className="hint">{globalWarning.message}</p>}
+            {envWarning && <p className="hint">{envWarning.message}</p>}
+            <label className="lbl" htmlFor="gWait">
+              Esperar precisión de (m)
+            </label>
+            <input
+              id="gWait"
+              className="inp"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              placeholder={needed != null ? String(needed) : "sin recomendación aún"}
+              value={waitAcc}
+              onChange={(e) => setWaitAcc(e.target.value)}
+            />
+            <p className="hint">
+              Antes de medir espero a que el GPS informe esa precisión o mejor. Con 0 no espero.
+            </p>
             <label className="lbl" htmlFor="gRef">
               ¿Cómo sabes la distancia real?
             </label>
@@ -411,7 +491,7 @@ export function GpsError({ active }: { active: boolean }) {
               </div>
             </div>
             <div className="tw">
-              <table className="t">
+              <table className="t compact">
                 <thead>
                   <tr>
                     <th>Cómo se calculó</th>
@@ -468,8 +548,21 @@ export function GpsError({ active }: { active: boolean }) {
             </>
           ) : null}
         </div>
+        <GpsConclusion summary={summary} noteClass="hint" />
+        {summary?.trials ? (
+          <>
+            <p className="lbl">Lado mínimo por entorno</p>
+            <EnvironmentTable summary={summary} noteClass="hint" />
+            <p className="lbl">Error según la distancia</p>
+            <DistanceTable summary={summary} noteClass="hint" />
+            <p className="lbl">Esperar a la precisión antes de medir</p>
+            <WaitTables summary={summary} noteClass="hint" />
+            <p className="lbl">Precisión informada frente a la real</p>
+            <ReportedVsReal summary={summary} noteClass="hint" />
+          </>
+        ) : null}
         <div className="tw" style={{ marginTop: 10 }}>
-          <table className="t">
+          <table className="t compact">
             <thead>
               <tr>
                 <th>Prueba</th>

@@ -26,7 +26,7 @@ export function SidesTable({ polygon, plan }: Props) {
   return (
     <>
       <div className="tw">
-        <table className="t" aria-label="Lados del contorno medido">
+        <table className="t compact" aria-label="Lados del contorno medido">
           <thead>
             <tr>
               <th className="l">Lado</th>

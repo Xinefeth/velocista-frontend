@@ -212,6 +212,7 @@ describe("vista Odometría · plano desde archivo", () => {
       "Cancha · plano 40 × 20 m",
       "Plano a escala (dibujo en papel)",
       "Plano desde archivo (.dxf)",
+      "Pista guardada del Trazador",
       "Otro (casa, calle, terreno…)",
     ]);
   });

@@ -7,6 +7,7 @@ import { Card } from "@/ui/components/Card";
 import { ExportDxfButton } from "@/ui/components/measurement/ExportDxfButton";
 import { Hint, Kpis, Semaforo } from "@/ui/components/measurement/MeasurementUi";
 import { ImportDxfPlan } from "@/ui/components/measurement/ImportDxfPlan";
+import { TrackPlanPicker } from "@/ui/components/measurement/TrackPlanPicker";
 import { SidesTable } from "@/ui/components/measurement/SidesTable";
 import {
   dimensionLabels,
@@ -36,15 +37,25 @@ import {
   sideDiffs,
 } from "@/domain/measurement/dimensions";
 import { importedPlanOf, type DxfSource } from "@/domain/measurement/dxfParse";
+import {
+  EMPTY_PICK,
+  isTrackPlanError,
+  planOfPick,
+  TRACK_PLAN_SCALE_ERROR,
+  type TrackPick,
+} from "@/domain/measurement/trackPlan";
+import type { Track } from "@/domain/track/types";
 import { area, boundsOf, fitView, perimeter, type Pt } from "@/domain/measurement/plot";
 import {
   closureSegment,
   compareWithPlan,
   CONTOURS,
+  DXF_PLAN_MISSING,
   planOf,
   recommendations,
   referencePoints,
   tapeSideOf,
+  TRACK_PLAN_MISSING,
   type ContourId,
   type PlaceForm,
 } from "@/domain/measurement/odometry";
@@ -151,7 +162,28 @@ export function Odometry() {
   const [dxfSource, setDxfSource] = useState<DxfSource | null>(null);
   const imported = useMemo(() => importedPlanOf(dxfSource), [dxfSource]);
 
-  const place = planOf(form, imported);
+  // Pista guardada del Trazador (CU-1): la elección vive solo mientras la vista está abierta
+  const [pick, setPick] = useState<TrackPick>(EMPTY_PICK);
+  // las pistas las carga el selector (una sola vez, solo al elegir esta fuente) y las comparte aquí
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const trackResult = useMemo(
+    () => (form.contour === "pista" ? planOfPick(tracks, pick) : null),
+    [form.contour, tracks, pick],
+  );
+  const trackPlan = trackResult && !isTrackPlanError(trackResult) ? trackResult : null;
+
+  const place =
+    trackResult && isTrackPlanError(trackResult)
+      ? trackResult.error
+      : planOf(form, imported, trackPlan);
+  const placeError = typeof place === "string" ? place : "";
+  // «Elige un archivo .dxf.» y «Elige una pista guardada.» se quitan en cuanto hay un plano válido
+  // o se cambia de lugar; el error de escala, en cuanto la escala es válida
+  useEffect(() => {
+    if (msg === DXF_PLAN_MISSING && (form.contour !== "dxf" || imported)) setMsg("");
+    if ((msg === TRACK_PLAN_MISSING || msg === TRACK_PLAN_SCALE_ERROR) && msg !== placeError)
+      setMsg("");
+  }, [msg, form.contour, imported, placeError]);
   const tape = tapeSideOf(form);
   const plan = typeof place === "string" ? null : place.plan;
   const devices = useMemo(() => [...new Set(all.map((m) => m.device_id))], [all]);
@@ -355,6 +387,9 @@ export function Odometry() {
             </div>
           )}
           {form.contour === "dxf" && <ImportDxfPlan value={dxfSource} onChange={setDxfSource} />}
+          {form.contour === "pista" && (
+            <TrackPlanPicker value={pick} onChange={setPick} onTracks={setTracks} />
+          )}
           {form.contour === "otro" && (
             <>
               <label className="fld">
@@ -691,7 +726,7 @@ export function Odometry() {
           <span className="tag">{mine.length}</span>
         </div>
         <div className="tw">
-          <table className="t" aria-label="Mediciones guardadas">
+          <table className="t compact" aria-label="Mediciones guardadas">
             <thead>
               <tr>
                 <th className="l">#</th>
@@ -757,7 +792,7 @@ export function Odometry() {
           <span className="tag">{live?.reading_count ?? 0}</span>
         </div>
         <div className="tw" style={{ maxHeight: 220, overflow: "auto" }}>
-          <table className="t" aria-label="Lecturas del celular">
+          <table className="t compact" aria-label="Lecturas del celular">
             <thead>
               <tr>
                 <th>t (s)</th>

@@ -15,6 +15,9 @@ export interface ReferenceApi {
   points: PointApi[];
   scale_n: number;
   name: string;
+  /** Recorrido guiado: vértice de partida (0..n-1) y sentido; opcionales (el backend los devuelve tal cual). */
+  start_index?: number;
+  direction?: "cw" | "ccw";
 }
 
 export interface CalibrationApi {

@@ -31,7 +31,9 @@ import {
   QUALITY,
   SESSION_EXPIRED_TEXT,
   signedPct,
-  WARNINGS,
+  SELF_CROSSING_ADVICE,
+  SELF_CROSSING_TITLE,
+  warningText,
 } from "@/domain/measurement/labels";
 import {
   chainSides,
@@ -930,11 +932,22 @@ export function Measure({
                 : `${signedPct(res.perimeter_error_pct)} / ${signedPct(res.area_error_pct)}`}
             </b>
           </div>
-          {visibleWarnings(res.warnings, res.min_gps_size_m).length > 0 && (
+          {res.self_crossing && (
+            <div className="gpsadvice warn" role="alert">
+              <p>
+                <b>{SELF_CROSSING_TITLE}</b>
+              </p>
+              <p>{SELF_CROSSING_ADVICE}</p>
+            </div>
+          )}
+          {visibleWarnings(res.warnings, res.min_gps_size_m).filter((w) => w !== "self_crossing")
+            .length > 0 && (
             <ul className="warns">
-              {visibleWarnings(res.warnings, res.min_gps_size_m).map((w) => (
-                <li key={w}>{WARNINGS[w] ?? w}</li>
-              ))}
+              {visibleWarnings(res.warnings, res.min_gps_size_m)
+                .filter((w) => w !== "self_crossing")
+                .map((w) => (
+                  <li key={w}>{warningText(w)}</li>
+                ))}
             </ul>
           )}
           {gpsDone && implausible && minSide != null && (

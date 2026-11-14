@@ -26,6 +26,8 @@ import {
   fmtEs,
   METHOD_LABEL,
   QUALITY,
+  SELF_CROSSING_ADVICE,
+  SELF_CROSSING_TITLE,
   signedPct,
 } from "@/domain/measurement/labels";
 import {
@@ -626,6 +628,11 @@ export function Odometry() {
               title={q.label}
               sub={`Error de cierre ${fmtEs(r.closure_error_pct, 1)} % (bueno: menos de 3 %)`}
             />
+            {r.self_crossing && (
+              <div role="alert">
+                <Semaforo tone="bad" title={`${SELF_CROSSING_TITLE}. ${SELF_CROSSING_ADVICE}`} />
+              </div>
+            )}
             <Kpis
               label="Medidas del resultado"
               items={[

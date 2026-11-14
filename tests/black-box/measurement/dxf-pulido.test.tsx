@@ -9,7 +9,7 @@ import { Areas, PRESETS } from "@/ui/pages/measurement/Areas";
 import { Odometry } from "@/ui/pages/measurement/Odometry";
 import type { PolygonApi } from "@/infrastructure/contracts/measurements";
 import { stubBrowser } from "../pages/_harness";
-import { measurement, mockApi } from "./_api";
+import { measurement, mockApi, result } from "./_api";
 
 const fixture = (name: string) =>
   readFileSync(join(process.cwd(), "tests/fixtures/dxf", name), "utf8");
@@ -304,5 +304,36 @@ describe("tablas de medición: sin columnas tapadas por el ancho mínimo de 820 
         .getAllByRole("columnheader")
         .map((h) => h.textContent),
     ).toEqual(["#", "Lado (m)", "Ángulo interior (°)"]);
+  });
+});
+
+describe("Odometría: resultado con el contorno corregido cruzado", () => {
+  const open = async (res: Parameters<typeof result>[0]) => {
+    const m = measurement(3, { result: result(res) });
+    mockApi({
+      "GET /measurements": { items: [m], total: 1, limit: 200, offset: 0 },
+      "GET /measurements/3": m,
+    });
+    render(<Odometry />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Abrir .* #3$/ }));
+    await waitFor(() =>
+      expect(document.querySelector(".odo-flow")?.getAttribute("data-step")).toBe("4"),
+    );
+  };
+
+  it("muestra una alerta visible con el motivo y los avisos nuevos con su texto", async () => {
+    await open({
+      self_crossing: true,
+      warnings: ["self_crossing", "gps_narrow_section", "constructor"],
+    });
+    expect(screen.getByRole("alert").textContent).toMatch(/El contorno corregido se cruza/);
+    expect(screen.getByText(/zona muy angosta/)).toBeTruthy();
+    expect(screen.getByText("constructor")).toBeTruthy();
+  });
+
+  it("sin cruce no hay alerta", async () => {
+    await open({ self_crossing: false, warnings: ["gps_smoothing_adjusted"] });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText(/suavizado más fuerte/)).toBeTruthy();
   });
 });

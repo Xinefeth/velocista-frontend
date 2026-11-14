@@ -3,6 +3,11 @@
 // aproximado; al terminar, el backend calcula perímetro, área y error de cierre con correcciones.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Msg, NO_MSG, usePhone, type MsgState } from "@/celular/context";
+import { GuidedLive } from "@/celular/GuidedLive";
+import { GuidedPlanPicker } from "@/celular/GuidedPlanPicker";
+import { GuidedResult } from "@/ui/components/measurement/GuidedResult";
+import type { Direction, GuidedPlan } from "@/domain/measurement/guidedPlan";
+import { EMPTY_GUIDE, guidePlanOf, type GuideSetup } from "@/domain/measurement/guidedSetup";
 import { sensors, vibrate } from "@/celular/sensors";
 import {
   dimensionLabels,
@@ -122,7 +127,11 @@ const num = (v: string) => {
 };
 
 /** Cuerpo de POST /measurements a partir del formulario, o el error de la entrada. */
-export function measurementBody(f: SetupForm, deviceId: string): MeasurementBodyApi | string {
+export function measurementBody(
+  f: SetupForm,
+  deviceId: string,
+  guided: GuidedPlan | null = null,
+): MeasurementBodyApi | string {
   const place = f.place.trim();
   if (!place) return "Escribe el nombre del lugar.";
   const body: MeasurementBodyApi = {
@@ -132,6 +141,17 @@ export function measurementBody(f: SetupForm, deviceId: string): MeasurementBody
     place_name: place,
     device_id: deviceId,
   };
+  // plano guía (archivo .dxf o pista): va a tamaño real, con el vértice de inicio y el sentido
+  if (guided) {
+    body.reference = {
+      points: guided.points,
+      scale_n: 1,
+      name: guided.name,
+      start_index: guided.startIndex,
+      direction: guided.direction,
+    };
+    return body;
+  }
   if (f.method === "gps" || !f.hasRef) return body;
   const L = num(f.length);
   const W = num(f.width);
@@ -157,6 +177,8 @@ interface Run {
   t0: number;
   walk: WalkState;
   marks: { x: number; y: number }[];
+  /** Plano que guía este recorrido (null = sin plano guía). */
+  guide: GuidedPlan | null;
   /** Esquinas detectadas sobre la marcha en el camino abierto (método GPS, sin esquinas marcadas). */
   live: LiveState;
   gps0: Fix | null;
@@ -206,6 +228,9 @@ export function Measure({
     tape: "",
     scaleN: "1",
   });
+  const [guide, setGuide] = useState<GuideSetup>(EMPTY_GUIDE);
+  // inicio y sentido del último recorrido guiado, para dibujar su resultado aunque el servidor no los devuelva
+  const lastGuide = useRef<{ id: number; startIndex: number; direction: Direction } | null>(null);
   const [screen, setScreen] = useState<"setup" | "run" | "result">("setup");
   const [startMsg, setStartMsg] = useState<MsgState>(NO_MSG);
   const [runMsg, setRunMsg] = useState<MsgState>(NO_MSG);
@@ -424,7 +449,9 @@ export function Measure({
       if (form.method !== "gps") sensors.needMotion();
       if (form.method === "gps" && !sensors.fix)
         throw new Error("Espera a que el GPS tenga señal (pestaña 1).");
-      const body = measurementBody(form, device);
+      const planned = guidePlanOf(guide);
+      if (typeof planned === "string") throw new Error(planned);
+      const body = measurementBody(form, device, planned);
       if (typeof body === "string") throw new Error(body);
       setBusy(true);
       const m = await measurementsApi.start(body);
@@ -443,6 +470,7 @@ export function Measure({
         t0: Date.now(),
         walk: newWalk(),
         marks: [],
+        guide: planned,
         live: newLiveState(),
         gps0: null,
         lastT: null,
@@ -453,6 +481,9 @@ export function Measure({
         timers: [],
       };
       run.current = r;
+      lastGuide.current = planned
+        ? { id: m.id, startIndex: planned.startIndex, direction: planned.direction }
+        : null;
       r.offs.push(
         sensors.onMotion((t, gz, acc) => {
           if (acc) {
@@ -704,7 +735,8 @@ export function Measure({
             value={form.place}
             onChange={(e) => set("place", e.target.value)}
           />
-          {!gps && (
+          <GuidedPlanPicker value={guide} onChange={setGuide} />
+          {!gps && guide.source === "none" && (
             <label
               style={{
                 display: "flex",
@@ -724,7 +756,7 @@ export function Measure({
               Tengo las medidas reales (solo para comprobar cuánto se equivoca)
             </label>
           )}
-          {!gps && form.hasRef && (
+          {!gps && guide.source === "none" && form.hasRef && (
             <>
               <div className="row">
                 <div>
@@ -820,6 +852,9 @@ export function Measure({
           </div>
           <canvas ref={liveCv} aria-label="Mapa en vivo" />
           <p className="legend">● Inicio · Rojo: tu camino · ○ tú · ◆ esquinas</p>
+          {r.guide && (
+            <GuidedLive plan={r.guide} path={r.walk.path} marks={r.marks} walked={r.walk.dist} />
+          )}
           <p className={`motion ${view.motion}`} role="status" aria-live="polite">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               {MOTION_ICON[view.motion]}
@@ -985,6 +1020,10 @@ export function Measure({
             </div>
           )}
           <canvas ref={resultCv} aria-label="Mapa del resultado" />
+          <GuidedResult
+            m={result}
+            saved={lastGuide.current?.id === result.id ? lastGuide.current : null}
+          />
           <p className="legend">Gris: medido · Rojo: corregido · ● esquinas</p>
           <div className="row">
             <ExportDxfButton measurement={result} className="sb wide" textClass="hint" />

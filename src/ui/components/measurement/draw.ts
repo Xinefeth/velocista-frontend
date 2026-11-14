@@ -25,8 +25,9 @@ export function surface(cv: HTMLCanvasElement | null): Surface | null {
   const ctx = cv.getContext("2d");
   if (!ctx) return null;
   const dpr = window.devicePixelRatio || 1;
-  cv.width = w * dpr;
-  cv.height = h * dpr;
+  // asignar el tamaño reasigna la memoria del lienzo: solo si cambió (se dibuja varias veces por segundo)
+  if (cv.width !== Math.floor(w * dpr)) cv.width = w * dpr;
+  if (cv.height !== Math.floor(h * dpr)) cv.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
   const css = getComputedStyle(document.documentElement);
@@ -127,6 +128,8 @@ export interface DimLabel {
   outward: Pt;
   /** Color del texto; por defecto --ink. */
   color?: string;
+  /** Si no hay hueco libre se omite en vez de dibujarse encima de otra etiqueta. */
+  optional?: boolean;
 }
 
 const LABEL_FONT_PX = 11;
@@ -183,7 +186,10 @@ export function drawLabels(
     return { id: l.id, x, y, ...labelSize(s, l.text), dx: (ox - x) / d, dy: (oy - y) / d };
   });
   const placed = placeLabels(requests, s.w, s.h, 2, taken);
-  placed.forEach((p, i) => paintLabel(s, p, labels[i].text, labels[i].color ?? s.color("--ink")));
+  placed.forEach((p, i) => {
+    if (!p.free && labels[i].optional) return;
+    paintLabel(s, p, labels[i].text, labels[i].color ?? s.color("--ink"));
+  });
 }
 
 /** Etiquetas de un contorno: largo de cada lado y, si se pide, nombre y ángulo de cada vértice. */

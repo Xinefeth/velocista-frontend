@@ -48,6 +48,7 @@ import {
 } from "@/domain/measurement/dimensions";
 import {
   closeRadius,
+  dropFlatCorners,
   LIVE_MAX_ANGLE_SIDES,
   liveView,
   newLiveState,
@@ -109,7 +110,8 @@ const MOTION_ICON: Record<MotionState, ReactNode> = {
 };
 
 const FLUSH_MS = 500;
-const DRAW_MS = 300;
+// el mapa en vivo cambia con cada paso (unos 2 por segundo): dibujarlo más seguido solo gasta CPU
+const DRAW_MS = 500;
 
 export interface SetupForm {
   method: MethodApi;
@@ -198,7 +200,7 @@ function drawResult(cv: HTMLCanvasElement | null, m: MeasurementApi | null) {
   const b = boundsOf(r.raw_path, r.corrected_path, r.polygon);
   if (!b) return;
   // solo las esquinas reales: un recorrido GPS trae cientos de puntos y no se rotulan todos
-  const corners = realCorners(r.polygon).points;
+  const corners = dropFlatCorners(realCorners(r.polygon).points);
   const dims = polygonDims(corners);
   // con más de 12 lados solo longitudes, sin ángulos (como en la consola)
   const withAngles = corners.length <= LIVE_MAX_ANGLE_SIDES;
@@ -424,7 +426,13 @@ export function Measure({
     ).map((c) => ({ id: `side-${c.index}`, text: c.label, at: c.mid, outward: c.outward }));
     // Ángulo en cada esquina, en grados enteros; no pisa a los largos porque van en la misma colocación
     for (const [i, a] of model.angles.entries())
-      labels.push({ id: `angle-${i}`, text: `${a.deg}°`, at: a.at, outward: a.outward });
+      labels.push({
+        id: `angle-${i}`,
+        text: `${a.deg}°`,
+        at: a.at,
+        outward: a.outward,
+        optional: true,
+      });
     const toStart = Math.hypot(here.x - pts[0].x, here.y - pts[0].y);
     if (!model.closed && toStart >= 0.3)
       labels.push({
@@ -432,6 +440,7 @@ export function Measure({
         text: `Inicio ${fmtEs(toStart, 1)} m`,
         at: { x: (here.x + pts[0].x) / 2, y: (here.y + pts[0].y) / 2 },
         outward: { x: -(here.y - pts[0].y) / toStart, y: (here.x - pts[0].x) / toStart },
+        optional: true,
       });
     drawLabels(s, v, labels, taken);
     startMark(s, v, pts[0]);

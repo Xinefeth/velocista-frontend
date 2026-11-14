@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/ui/components/Card";
 import { ExportDxfButton } from "@/ui/components/measurement/ExportDxfButton";
 import { Hint, Kpis, Semaforo } from "@/ui/components/measurement/MeasurementUi";
+import { dropFlatCorners } from "@/domain/measurement/liveCorners";
 import { GuidedResult } from "@/ui/components/measurement/GuidedResult";
 import { alignResult, applyAlignAll, openRing } from "@/domain/measurement/guidedPlan";
 import { ImportDxfPlan } from "@/ui/components/measurement/ImportDxfPlan";
@@ -110,7 +111,7 @@ function MapCanvas({
     if (!b) return;
     // margen amplio: las cotas y los ángulos se dibujan hacia afuera del contorno medido
     // las esquinas reales (un recorrido GPS trae cientos de puntos; rotular cada uno no se lee)
-    const corners = r ? applyAlignAll(al, realCorners(r.polygon).points) : [];
+    const corners = r ? applyAlignAll(al, dropFlatCorners(realCorners(r.polygon).points)) : [];
     const view = fitView(b, s.w, s.h, corners.length >= 3 ? 56 : 30, 2);
     grid(s, view);
     if (ref0)

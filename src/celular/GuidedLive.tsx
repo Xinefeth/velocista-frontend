@@ -3,6 +3,7 @@
 // conversión de escala en vivo y qué esquina toca (avisando de las interiores).
 import {
   alignByStart,
+  extraMarksWarning,
   applyAlignAll,
   guideStep,
   guideText,
@@ -48,11 +49,17 @@ export function GuidedLive({ plan, path, marks, walked }: Props) {
         startIndex={plan.startIndex}
         nextIndex={step.nextIndex ?? order[0]}
         height={250}
+        drawKey={`${path.length}:${marks.length}:${plan.startIndex}:${plan.direction}`}
         label="Plano de referencia con tu recorrido y las esquinas marcadas"
       />
       <GuidedLegend path milestones />
       <p>{scaleSentence(plan.scaleN)}</p>
       <p aria-live="polite">{walkedSentence(walked, plan.scaleN)}</p>
+      {extraMarksWarning(plan, marks.length) && (
+        <p className="warn" role="alert">
+          {extraMarksWarning(plan, marks.length)}
+        </p>
+      )}
       <p className={step.nextIsInterior ? "warn" : undefined} role="status">
         {align ? guideText(step) : "Empieza a caminar hacia la siguiente esquina del plano."}
       </p>

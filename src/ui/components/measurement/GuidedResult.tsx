@@ -7,12 +7,14 @@ import {
   alignResult,
   applyAlignAll,
   compareTotals,
+  extraMarksWarning,
   unmatchedWarning,
   openRing,
   type Direction,
 } from "@/domain/measurement/guidedPlan";
 import { fmtEs, signedPct } from "@/domain/measurement/labels";
 import type { MeasurementApi } from "@/infrastructure/contracts/measurements";
+import { dropFlatCorners } from "@/domain/measurement/liveCorners";
 import { GuidedLegend, GuidedOverlay } from "@/ui/components/measurement/GuidedOverlay";
 
 interface Props {
@@ -42,7 +44,10 @@ export function GuidedResult({ m, saved = null, height = 280 }: Props) {
     );
     const contour = applyAlignAll(a, poly);
     // hitos: las esquinas del contorno medido (un recorrido GPS trae cientos de puntos)
-    const corners = poly.length <= 12 ? contour : applyAlignAll(a, realCorners(poly).points);
+    // un giro casi recto no es una esquina (no suma hitos)
+    const corners = dropFlatCorners(
+      poly.length <= 12 ? contour : applyAlignAll(a, realCorners(poly).points),
+    );
     const marks = corners.slice(1);
     const guide = { points: plan, startIndex: startIndex ?? 0, direction: direction ?? "ccw" };
     return {
@@ -52,7 +57,10 @@ export function GuidedResult({ m, saved = null, height = 280 }: Props) {
       startIndex: guide.startIndex,
       cmp: compareTotals(m.result.perimeter_m, m.result.area_m2, plan),
       warning:
-        m.method === "gps" ? null : unmatchedWarning({ ...guide, name: "", scaleN: 1 }, marks),
+        m.method === "gps"
+          ? null
+          : (unmatchedWarning({ ...guide, name: "", scaleN: 1 }, marks) ??
+            extraMarksWarning(guide, corners.length)),
     };
   }, [m, saved]);
   if (!view) return null;

@@ -343,6 +343,12 @@ export function unmatchedVertices(plan: GuidedPlan, marks: readonly Pt[]): numbe
     );
 }
 
+/** Aviso cuando se marcaron más esquinas que vértices tiene el plano (giros falsos o ruido). */
+export function extraMarksWarning(plan: Pick<GuidedPlan, "points">, marked: number): string | null {
+  const m = plan.points.length;
+  return marked > m ? `Marcaste ${marked} esquinas; el plano tiene ${m}. Sobran ${marked - m}: revisa los giros.` : null;
+}
+
 /** Aviso al terminar: qué esquinas del plano no tienen hito (con la interior destacada); `null` si están todas. */
 export function unmatchedWarning(plan: GuidedPlan, marks: readonly Pt[]): string | null {
   const missing = unmatchedVertices(plan, marks);

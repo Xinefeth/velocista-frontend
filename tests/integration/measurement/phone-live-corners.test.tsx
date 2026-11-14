@@ -150,7 +150,7 @@ describe("celular · medición GPS en vivo con un rectángulo de 78 × 55 m", ()
     expect(row("Lados terminados")).toMatch(/^1\) 7[0-9]\.\d m$/);
     expect(row("Ángulos")).toMatch(/^B (8|9|10)\d°$/);
     log.reset();
-    await tick(300);
+    await tick(500);
     expect(log.texts.some((t) => /^(8|9|10)\d°$/.test(t))).toBe(true); // el ángulo en el lienzo
     expect(log.texts.some((t) => /^7\d\.\d\d m$/.test(t))).toBe(true); // el largo del lado terminado
     expect(log.texts.some((t) => t.startsWith("Inicio"))).toBe(true);
@@ -184,7 +184,7 @@ describe("celular · medición GPS en vivo con un rectángulo de 78 × 55 m", ()
     for (const a of angles) expect(Math.abs(parseInt(a.slice(2)) - 90)).toBeLessThan(15);
     expect(row("Esquinas marcadas")).toBe("0"); // lo marcado por el usuario no cambia
     log.reset();
-    await tick(300);
+    await tick(500);
     expect(log.texts.filter((t) => /^\d+°$/.test(t))).toHaveLength(4);
     expect(log.texts.some((t) => t.startsWith("Inicio"))).toBe(false); // ya volvió al inicio
     expectClean(log);

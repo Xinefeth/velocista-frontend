@@ -2,7 +2,7 @@
 // y los hitos numerados en el orden en que se marcaron, todo en un mismo gráfico. Lo usan el celular
 // (durante el recorrido y en el resultado) y la consola (paso 4). Colores: plano --mid, recorrido
 // medido --red, contorno medido --green, esquina interior --yellow; la leyenda va en texto --ink.
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useCanvas } from "@/application/hooks/useCanvas";
 import { concaveIndices, vertexLetter } from "@/domain/measurement/guidedPlan";
 import { boundsOf, fitView, type Pt, type View } from "@/domain/measurement/plot";
@@ -27,6 +27,12 @@ export interface GuidedOverlayProps {
   height?: number;
   /** Si se da, tocar el gráfico elige el vértice más cercano del plano. */
   onPickVertex?: (index: number) => void;
+  /**
+   * Si se da, el gráfico solo se redibuja cuando cambia esta clave (y al cambiar el tamaño de la
+   * ventana), no en cada render del padre: durante el recorrido el padre se renderiza varias veces
+   * por segundo y el gráfico solo cambia con cada paso.
+   */
+  drawKey?: string;
 }
 
 /** Dibuja el gráfico sobre un lienzo (separado para probarlo sin React). */
@@ -140,9 +146,29 @@ export function GuidedLegend({
 
 export function GuidedOverlay(props: GuidedOverlayProps) {
   const viewRef = useRef<View | null>(null);
-  const ref = useCanvas((cv) => {
-    viewRef.current = drawGuided(cv, props);
+  const propsRef = useRef(props);
+  propsRef.current = props;
+  const always = useCanvas((cv) => {
+    if (props.drawKey === undefined) viewRef.current = drawGuided(cv, props);
   });
+  const keyed = useRef<HTMLCanvasElement | null>(null);
+  const ref = (cv: HTMLCanvasElement | null) => {
+    keyed.current = cv;
+    (always as { current: HTMLCanvasElement | null }).current = cv;
+  };
+  useEffect(() => {
+    if (props.drawKey === undefined || !keyed.current) return;
+    viewRef.current = drawGuided(keyed.current, propsRef.current);
+  }, [props.drawKey]);
+  const keyedMode = props.drawKey !== undefined;
+  useEffect(() => {
+    if (!keyedMode) return;
+    const h = () => {
+      if (keyed.current) viewRef.current = drawGuided(keyed.current, propsRef.current);
+    };
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [keyedMode]);
   return (
     <canvas
       ref={ref}

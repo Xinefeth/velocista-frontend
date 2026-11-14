@@ -321,19 +321,21 @@ export function liveView(
   here: Pt,
   options: LiveViewOptions = {},
 ): LiveView {
-  const verts = [start, ...corners];
-  const k = corners.length;
+  const k0 = corners.length;
+  const verts0 = [start, ...corners];
   const closed =
-    k >= 2 && dist(here, start) <= (options.closeWithin ?? 0) && dist(verts[k], start) >= 1;
+    k0 >= 2 && dist(here, start) <= (options.closeWithin ?? 0) && dist(verts0[k0], start) >= 1;
+  // largo de cada lado: lo caminado si se conoce; el último es el que cierra (o el tramo actual)
+  const lens0 = verts0.slice(0, k0).map((v, i) => options.walked?.[i] ?? dist(v, verts0[i + 1]));
+  lens0.push(closed ? dist(verts0[k0], start) : (options.currentWalked ?? dist(verts0[k0], here)));
+  // un giro casi recto no es una esquina: se une con el lado siguiente (solo para dibujar; lo
+  // enviado al servidor no cambia)
+  const { verts, lens } = mergeFlat(verts0, lens0, closed ? start : null, here);
+  const k = verts.length - 1;
   const sides: LiveSide[] = [];
-  for (let i = 0; i < k; i++)
-    sides.push({
-      from: verts[i],
-      to: verts[i + 1],
-      length: options.walked?.[i] ?? dist(verts[i], verts[i + 1]),
-    });
+  for (let i = 0; i < k; i++) sides.push({ from: verts[i], to: verts[i + 1], length: lens[i] });
   if (closed) {
-    sides.push({ from: verts[k], to: start, length: dist(verts[k], start) });
+    sides.push({ from: verts[k], to: start, length: lens[k] });
     const dims = polygonDims(verts);
     const angles: LiveAngle[] = dims
       ? dims.vertices.map((v) => ({
@@ -346,13 +348,7 @@ export function liveView(
     return { sides, current: null, angles, closed: true };
   }
   const current: LiveSide | null =
-    k === 0 && dist(here, start) < 0.3
-      ? null
-      : {
-          from: verts[k],
-          to: here,
-          length: options.currentWalked ?? dist(verts[k], here),
-        };
+    k === 0 && dist(here, start) < 0.3 ? null : { from: verts[k], to: here, length: lens[k] };
   const angles: LiveAngle[] = [];
   if (k + 1 <= LIVE_MAX_ANGLE_SIDES)
     for (let j = 1; j <= k; j++) {
@@ -372,6 +368,56 @@ export function liveView(
       });
     }
   return { sides, current, angles, closed: false };
+}
+
+/** Giro (grados) por debajo del cual un vértice no cuenta como esquina: un ángulo interior mayor que 165°. */
+export const FLAT_TURN_DEG = 15;
+
+/**
+ * Une los lados de cada vértice casi recto (giro menor que FLAT_TURN_DEG) sumando sus largos. El inicio
+ * nunca se quita. En un camino abierto solo se evalúa un vértice cuando el lado siguiente ya mide
+ * LIVE_MIN_NEXT_SIDE_M o más (recién marcada, la esquina aún no tiene rumbo fiable). Con `ring` (el
+ * inicio) el contorno es cerrado y el último vértice se une con el inicio.
+ */
+function mergeFlat(
+  verts: readonly Pt[],
+  lens: readonly number[],
+  ring: Pt | null,
+  here: Pt,
+): { verts: Pt[]; lens: number[] } {
+  const v = [...verts];
+  const l = [...lens];
+  let changed = true;
+  while (changed && v.length > 2) {
+    changed = false;
+    for (let j = 1; j < v.length; j++) {
+      const nxt = j + 1 < v.length ? v[j + 1] : (ring ?? here);
+      if (!ring && dist(v[j], nxt) < LIVE_MIN_NEXT_SIDE_M) continue;
+      if (turnDeg(v[j - 1], v[j], nxt) >= FLAT_TURN_DEG) continue;
+      v.splice(j, 1);
+      l[j - 1] += l[j];
+      l.splice(j, 1);
+      changed = true;
+      break;
+    }
+  }
+  return { verts: v, lens: l };
+}
+
+/** Quita los vértices casi rectos de un contorno cerrado (el primero se conserva). */
+export function dropFlatCorners(points: readonly Pt[]): Pt[] {
+  const v = [...points];
+  let changed = true;
+  while (changed && v.length > 3) {
+    changed = false;
+    for (let j = 1; j < v.length; j++) {
+      if (turnDeg(v[j - 1], v[j], v[(j + 1) % v.length]) >= FLAT_TURN_DEG) continue;
+      v.splice(j, 1);
+      changed = true;
+      break;
+    }
+  }
+  return v;
 }
 
 /** Distancia al inicio (m) por debajo de la cual el camino se considera cerrado: de 3 a 8 m según el ruido. */

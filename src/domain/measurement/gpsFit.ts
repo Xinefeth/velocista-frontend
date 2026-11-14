@@ -1,6 +1,6 @@
 // ¿Sirve el GPS en un lugar de este tamaño? (SP-06, HU-37): lo comparten la consola (error del GPS)
 // y la página del celular (aviso de lugar chico), para que haya una sola regla.
-import { fmtEs } from "@/domain/measurement/labels";
+import { fmtEs, withoutSuperseded } from "@/domain/measurement/labels";
 
 /** Error máximo aceptado frente a lo medido para decir que el GPS «sirve» (lo usa el backend). */
 export const TARGET_PCT = 10;
@@ -43,7 +43,9 @@ export function visibleWarnings(
   warnings: readonly string[],
   minGpsSizeM: number | null | undefined,
 ): string[] {
-  return warnings.filter((w) => w !== "gps_space_too_small" || isPlausibleSize(minGpsSizeM));
+  return withoutSuperseded(warnings).filter(
+    (w) => w !== "gps_space_too_small" || isPlausibleSize(minGpsSizeM),
+  );
 }
 
 interface XY {

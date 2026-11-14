@@ -105,6 +105,7 @@ export const WARNINGS: Record<string, string> = {
   does_not_close: "Con esos lados la figura no vuelve al inicio.",
   self_crossing: "Dos lados se cruzan: el área no es válida.",
   // figuras cóncavas con GPS (textos del backend)
+  gyro_calibration_suspect: "El giroscopio parece mal calibrado: recalibra y repite.",
   gps_narrow_section:
     "Hay una zona muy angosta (menos de 2 veces el error del GPS). El GPS no puede medirla bien: el área puede salir deformada. Mide esa parte con pasos.",
   gps_smoothing_adjusted:
@@ -112,6 +113,16 @@ export const WARNINGS: Record<string, string> = {
   corner_area_mismatch:
     "El área con tus esquinas no coincide con la del recorrido completo: puede faltar marcar una esquina interior.",
 };
+
+/**
+ * Avisos que se muestran: si el giroscopio parece mal calibrado, ese aviso explica mejor lo que pasó
+ * y «no volviste a mirar hacia donde empezaste» se omite.
+ */
+export function withoutSuperseded(warnings: readonly string[]): string[] {
+  return warnings.includes("gyro_calibration_suspect")
+    ? warnings.filter((w) => w !== "end_heading_unknown")
+    : [...warnings];
+}
 
 /** Texto de un aviso del servidor; un código desconocido se muestra tal cual y nunca rompe la pantalla. */
 export function warningText(code: unknown): string {

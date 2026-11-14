@@ -30,6 +30,7 @@ const L = [
   { x: 0, y: 10 },
 ];
 const PLAN: GuidedPlan = { name: "L", points: L, scaleN: 100, startIndex: 0, direction: "ccw" };
+const P = (x: number, y: number) => ({ x, y });
 const rot = (p: { x: number; y: number }, deg: number) => {
   const a = (deg * Math.PI) / 180;
   return { x: p.x * Math.cos(a) - p.y * Math.sin(a), y: p.x * Math.sin(a) + p.y * Math.cos(a) };
@@ -264,5 +265,22 @@ describe("consola · Odometría paso 4 con un recorrido guiado", () => {
   it("un recorrido sin plano guía no cambia: no hay gráfico guiado", async () => {
     await open({});
     expect(screen.queryByLabelText("Medido frente al plano")).toBeNull();
+  });
+});
+
+describe("celular · esquinas marcadas de más", () => {
+  it("avisa cuando se marcan más esquinas que vértices tiene el plano", () => {
+    stubCanvas(320, 250);
+    const path = [P(0, 0), ...Array.from({ length: 7 }, (_, i) => P(2 + i, i))];
+    render(<GuidedLive plan={PLAN} path={path} marks={path.slice(1)} walked={30} />);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Marcaste 7 esquinas; el plano tiene 6. Sobran 1: revisa los giros.",
+    );
+  });
+  it("con las esquinas del plano no avisa", () => {
+    stubCanvas(320, 250);
+    const path = [P(0, 0), ...Array.from({ length: 6 }, (_, i) => P(2 + i, i))];
+    render(<GuidedLive plan={PLAN} path={path} marks={path.slice(1)} walked={30} />);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

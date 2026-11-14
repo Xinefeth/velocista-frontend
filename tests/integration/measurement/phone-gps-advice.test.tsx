@@ -313,4 +313,25 @@ describe("aviso al terminar una medición GPS cerrada", () => {
     );
     expect(document.querySelector(".gpsadvice.warn")).toBeTruthy();
   });
+
+  it("contorno que se cruza: aviso destacado (alerta) y los demás avisos con su texto", async () => {
+    await runGpsMeasurement(40, true, ["self_crossing", "gps_narrow_section", "codigo_nuevo"], {
+      self_crossing: true,
+      closure_error_pct: 1.0,
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert.classList.contains("gpsadvice")).toBe(true);
+    expect(alert.textContent).toContain("El contorno corregido se cruza");
+    expect(alert.textContent).toContain("El área no es válida");
+    const list = document.querySelector("ul.warns")!;
+    expect(list.textContent).toContain("zona muy angosta");
+    expect(list.textContent).toContain("codigo_nuevo"); // desconocido: se muestra tal cual
+    expect(list.textContent).not.toContain("Dos lados se cruzan"); // ya está en la alerta
+  });
+
+  it("sin cruce no hay alerta", async () => {
+    await runGpsMeasurement(40, true, ["gps_smoothing_adjusted"], { closure_error_pct: 1.0 });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(document.querySelector("ul.warns")!.textContent).toContain("suavizado más fuerte");
+  });
 });

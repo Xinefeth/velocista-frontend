@@ -1,7 +1,7 @@
 // Lógica de la vista Odometría · Medir terreno sin DOM: lugares con plano, comparación de una
 // medición con su plano y recomendaciones según el resultado.
 import { area, perimeter, rectangle, type Pt } from "@/domain/measurement/plot";
-import { GREEN_MAX_PCT, WARNINGS } from "@/domain/measurement/labels";
+import { GREEN_MAX_PCT, warningText } from "@/domain/measurement/labels";
 import type { MeasurementApi, MethodApi } from "@/infrastructure/contracts/measurements";
 
 export type ContourId = "aula" | "patio" | "cancha" | "escala" | "dxf" | "pista" | "otro";
@@ -133,7 +133,7 @@ export function recommendations(m: MeasurementApi): Advice[] {
   if (!r) return [];
   const out: Advice[] = r.warnings.map((w) => ({
     tone: "warn" as const,
-    title: WARNINGS[w] ?? w,
+    title: warningText(w),
     sub: "Aviso del cálculo.",
   }));
   if (m.method !== "gps" && !m.calibration.gyro_calibrated)

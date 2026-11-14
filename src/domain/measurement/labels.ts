@@ -104,7 +104,25 @@ export const WARNINGS: Record<string, string> = {
   angle_sum_mismatch: "Los ángulos no suman (n − 2) × 180°.",
   does_not_close: "Con esos lados la figura no vuelve al inicio.",
   self_crossing: "Dos lados se cruzan: el área no es válida.",
+  // figuras cóncavas con GPS (textos del backend)
+  gps_narrow_section:
+    "Hay una zona muy angosta (menos de 2 veces el error del GPS). El GPS no puede medirla bien: el área puede salir deformada. Mide esa parte con pasos.",
+  gps_smoothing_adjusted:
+    "El contorno se cruzaba consigo mismo y se recalculó con un suavizado más fuerte. Revisa la figura.",
+  corner_area_mismatch:
+    "El área con tus esquinas no coincide con la del recorrido completo: puede faltar marcar una esquina interior.",
 };
+
+/** Texto de un aviso del servidor; un código desconocido se muestra tal cual y nunca rompe la pantalla. */
+export function warningText(code: unknown): string {
+  const key = String(code);
+  return Object.prototype.hasOwnProperty.call(WARNINGS, key) ? WARNINGS[key] : key;
+}
+
+/** Aviso destacado cuando el contorno corregido se cruza (el área no sirve). */
+export const SELF_CROSSING_TITLE = "El contorno corregido se cruza";
+export const SELF_CROSSING_ADVICE =
+  "El área no es válida. Repite la medición o mídela por pasos y marca las esquinas.";
 
 export const VERDICT: Record<VerdictApi, { tone: Tone; label: string; desc: string }> = {
   improves_green: {
@@ -200,7 +218,8 @@ export const IMPORT_DXF_UNIT_SOURCE = {
 // ---- CU-1 · Plano desde una pista guardada del Trazador (Odometría, paso 1)
 export const TRACK_PLAN_CHOOSE = "Pista guardada";
 export const TRACK_PLAN_PLACEHOLDER = "Elige una pista…";
-export const TRACK_PLAN_EMPTY = "No hay pistas guardadas. Dibuja y guarda una pista en el Trazador.";
+export const TRACK_PLAN_EMPTY =
+  "No hay pistas guardadas. Dibuja y guarda una pista en el Trazador.";
 export const TRACK_PLAN_HINT =
   "El dibujo del Trazador está en centímetros sobre el tablero: di cómo se relaciona con el lugar real.";
 export const TRACK_PLAN_SCALE_LEGEND = "Escala del dibujo";

@@ -8,7 +8,7 @@ import { importedPlanOf, type DxfSource } from "@/domain/measurement/dxfParse";
 import { Hint, Kpis, PageHead, Semaforo } from "@/ui/components/measurement/MeasurementUi";
 import { dots, grid, line, surface, tag } from "@/ui/components/measurement/draw";
 import { useCanvas } from "@/application/hooks/useCanvas";
-import { errorText, fmtEs, signedPct, WARNINGS } from "@/domain/measurement/labels";
+import { errorText, fmtEs, signedPct, warningText } from "@/domain/measurement/labels";
 import { area, boundsOf, fitView, perimeter, rectangle, type Pt } from "@/domain/measurement/plot";
 import { polygonsApi } from "@/infrastructure/http/measurements";
 import type { PolygonApi } from "@/infrastructure/contracts/measurements";
@@ -151,7 +151,7 @@ function ShapeResult({ shape }: { shape: PolygonApi | null }) {
           <li key={w} className="warn">
             <span className="ic" />
             <span>
-              <b>{WARNINGS[w] ?? w}</b>
+              <b>{warningText(w)}</b>
             </span>
           </li>
         ))}
